@@ -300,12 +300,14 @@ unpublished catalog pipeline.
 ### Goals
 
 1. **Parity first.** For R2R-released nav filesets:
-   - the QA 2.0 certificate (test names, values, ratings, bounds, infos) should be identical to
-     R2R's;
+   - the QA 2.0 certificate should match R2R's **by value**: the same test, info and range
+     names, the same ratings, and numerically equal results and bounds;
    - the three products should match R2R's published `.geoCSV` files **by value**: the same
-     records, timestamps, flags, and lon/lat/SOG/COG equal at the published precision. Header
-     metadata, descriptions, unit names and number formatting are standardized (see below), so
-     the files are not expected to match byte for byte.
+     records, timestamps, flags, and lon/lat/SOG/COG equal at the published precision.
+
+   Datatypes, number formats, unit names and descriptions are standardized across the entire
+   project (see "Standardized quantities" below). So neither the XML nor the GeoCSV is expected to
+   match R2R byte for byte.
 
    NavManager's `.r2rnav` output is an intermediate parity target, used to localize differences.
 
@@ -327,6 +329,7 @@ unpublished catalog pipeline.
 ```
 src/nav_qa_processing/
   cli.py            run | openvdm | config-from-r2r | formats
+  quantities.py     the project-wide quantity table: name, description, datatype, unit, format
   config.py         CruiseConfig, Extent, Port, Thresholds (MAX_SPEED, MAX_ACCEL, MAX_GAP, rating bounds)
   fileset.py        discover files in a bag or directory; transparent gz/bz2/zip; manifest-md5
   formats/
@@ -337,7 +340,7 @@ src/nav_qa_processing/
     custom/         the few formats that need code rather than a spec
   rawnav.py         read_fileset -> RawNav (DataFrame + per-file errors + per-column precision)
   r2rnav.py         read/write legacy .r2rnav files, precision-preserving value formatting
-  geocsv.py         read/write GeoCSV 2.0 nav products (header block, DOIs, standardized column table)
+  geocsv.py         read/write GeoCSV 2.0 nav products (header block, DOIs; column metadata from quantities.py)
   geodesy.py        distance/azimuth on WGS-84 (pyproj.Geod), speed, acceleration
   qc.py             flagging rules -> per-record flag bitmask (NavBestRes)
   products.py       bestres, sample(interval) (Nav1Min), control (Douglas–Peucker) (NavControl)
@@ -418,8 +421,11 @@ definitions, which removes NavManager's two divergent implementations. The PHP q
 affect the published values are reproduced and documented in the `r2r.py` and `stats.py`
 docstrings, as sbe-qa-processing does for its inferred CTD rules:
 - the modal interval with ties,
-- `%0.2f` rounding before rating,
+- rounding to 2 decimals before rating, which decides ratings at the boundaries,
 - completeness above 100 %.
+
+These rules govern the computed values and ratings. How the values are *written* follows the
+standard formats below.
 
 **Thresholds live in config.** `config.Thresholds` holds:
 - the QC limits: `max_speed`, `max_accel`, `max_gap`, the GGA validity limits and the altitude
@@ -442,26 +448,61 @@ those lines are left empty or taken from the site config. Flagged bestres record
 representation. Until R2R's convention is known, the plan is to keep them as `#`-prefixed lines,
 as r2rnav does. GeoCSV readers then skip them as comments.
 
-**Standardized product metadata.** One table in `geocsv.py` defines each column. All three
-products take their headers from it, so a column is described identically wherever it appears.
-This table is a **proposal**; the units follow CF/UDUNITS.
+**Standardized quantities.** Every quantity the project writes is defined once in
+`quantities.py`, with its name, description, datatype, unit and value format. This covers:
+- GeoCSV columns,
+- XML test results, bounds, infos and ranges,
+- PDF tables and figure axes,
+- the notebook.
 
-| Column (`field_standard_name`) | `field_long_name` | `field_unit` | `field_type` | Value format |
+Every writer formats values and labels units only through this table. No writer contains its
+own format strings or unit names. The rules:
+
+- **Units** are CF/UDUNITS strings, spelled the same everywhere: `s`, `m`, `m s-1`, `m s-2`,
+  `degree`, `degrees_east`, `degrees_north`, `percent`, and `1` for every dimensionless value
+  (counts, codes, HDOP). No `Dimensionless`, `Count`, `(unitless)`, `meter\second`, `m/s^2` or
+  `degree_east`. Times are not a unit: their datatype is datetime and their format is ISO 8601,
+  and GeoCSV's `field_unit` for them is `ISO_8601`, as the GeoCSV spec prescribes.
+- **Datatypes** are one of `datetime`, `integer`, `float`, `string`, the GeoCSV vocabulary. An
+  integer is always written without decimals; a float always uses its quantity's fixed decimals.
+- **Formats** use fixed decimals and are never trimmed. A quantity has either a fixed precision,
+  or "receiver precision": the maximum number of decimals the receiver reported for that column
+  across the whole fileset, applied to every value. So a fileset with altitudes `7.76` and `7.887`
+  writes `7.760` and `7.887`.
+- **Times** are `YYYY-MM-DDThh:mm:ss[.f…]Z` in UTC, at the receiver's time precision.
+- **Missing values** are `NAN` in GeoCSV (declared in `field_missing`), and an empty element with
+  `xsi:nil="true"` in XML.
+- **Descriptions** are written once, in plain grammatical sentences, and reused everywhere.
+  R2R's swapped long names and the double space in the overall rating description are not
+  carried over.
+- **Identifiers are not changed.** Test, bound, info and range names (`PercentCompleteness`,
+  `GMinimumThreshold`, `TotalTests`, `HDOP`, …), GeoCSV `field_standard_name`s and XML element
+  names keep R2R's spelling, because R2R's tools key on them.
+
+The proposed table follows. Precisions marked "receiver" follow the rule above.
+
+| Quantity | Description | Datatype | Unit | Format |
 |---|---|---|---|---|
-| `iso_time` | date and time | `ISO_8601` | datetime | `YYYY-MM-DDThh:mm:ss[.s…]Z`, at the receiver's time precision |
-| `ship_longitude` | longitude of vessel | `degrees_east` | float | fixed decimals at the receiver's precision, the same in all three products |
-| `ship_latitude` | latitude of vessel | `degrees_north` | float | as longitude |
-| `nmea_quality` | NMEA quality indicator | `(unitless)` | integer | |
-| `nsv` | number of satellite vehicles observed | `(unitless)` | integer | |
-| `hdop` | horizontal dilution of precision | `(unitless)` | float | as received |
-| `antenna_height` | height of antenna above mean sea level | `m` | float | as received |
-| `speed_made_good` | speed made good | `m/s` | float | `%.2f` |
-| `course_made_good` | course made good, clockwise from true north | `degree` | float | `%.3f` |
+| `iso_time` | Date and time (UTC) | datetime | ISO 8601 | receiver time precision |
+| `ship_longitude` | Longitude of the vessel's GNSS antenna | float | `degrees_east` | receiver |
+| `ship_latitude` | Latitude of the vessel's GNSS antenna | float | `degrees_north` | receiver |
+| `nmea_quality` | NMEA GGA fix quality indicator | integer | `1` | |
+| `nsv` | Number of satellites used in the fix | integer | `1` | |
+| `hdop` | Horizontal dilution of precision | float | `1` | receiver |
+| `antenna_height` | Antenna height above mean sea level | float | `m` | receiver |
+| `speed_made_good` | Speed over ground, from successive positions | float | `m s-1` | 2 decimals |
+| `course_made_good` | Course over ground, clockwise from true north | float | `degree` | 3 decimals |
+| horizontal acceleration | Horizontal acceleration, from successive speeds | float | `m s-2` | 3 decimals |
+| percentage (test results, bounds) | — | float | `percent` | 2 decimals |
+| duration (gaps, epoch interval) | — | float | `s` | 2 decimals |
+| count (records, tests, infos) | — | integer | `1` | |
 
-"Coordinate format" means one rule everywhere: fixed decimal places at the receiver's precision,
-never trimmed. For SP2613 that is 10 decimals: 8 decimals of arc-minutes is about 1.7e-10°. The
-same decimals apply in bestres, 1min and control. Missing values are written `NAN`, as
-`field_missing` declares.
+Applied to the SP2613 certificate, this would change things as follows:
+- `<r2r:bound … uom="Percent">95</r2r:bound>` becomes `uom="percent">95.00`;
+- the HDOP maximum `1` (uom `Dimensionless`) becomes `1.0` (uom `1`);
+- `m/s^2` becomes `m s-2`.
+
+Comparisons with R2R parse the numbers and map the units.
 
 **Reports and integration** follow sbe-qa-processing:
 - **Figures** (`plots.py`):
@@ -504,7 +545,7 @@ same decimals apply in bestres, 1min and control. Missing values are written `NA
 |---|---|---|
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures |
 | 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613 bestres/1min/control match R2R's `.geoCSV` by value (`tests/fixtures`, plus the full bestres in `data/`) |
-| 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | certificate identical to R2R on released filesets |
+| 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | certificate matches R2R by value on released filesets |
 | 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
 | 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |
 | 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture |

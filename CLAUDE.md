@@ -92,14 +92,17 @@ format 100157). The columns are the same, but the files have a `#keyword: value`
 and are comma-delimited. GeoCSV is the primary output and `.r2rnav` is secondary. R2R's header
 layout is described in `docs/architecture.md` ("What R2R actually publishes today").
 
-**We standardize, rather than copy, R2R's descriptions, unit names and coordinate formats.**
-R2R's files swap the speed and course long names, mix `meter\second`/`meter/second` and
-`degree_east`/`degrees_east`, and trim trailing zeros from coordinates in control. Don't
-reproduce any of that. One column table in `geocsv.py` defines the metadata for all three
-products (proposed values are in "Standardized product metadata" in `docs/architecture.md`).
-Coordinates use fixed decimals at the receiver's precision in every product. So product parity
-with R2R is **by value**: the same records, times and flags, with numbers equal at the published
-precision. It is not byte for byte.
+**Datatypes, formats, units and descriptions are standardized across the entire project**:
+GeoCSV, QA XML, PDF and notebook. Never copy R2R's inconsistencies, such as swapped long names,
+`meter\second` vs `meter/second`, `degree_east` vs `degrees_east`, `Dimensionless`/`Count`/`Percent`/
+`m/s^2`, trimmed coordinates or PHP number printing. Every quantity is defined once in
+`quantities.py` (name, description, datatype, CF/UDUNITS unit, fixed-decimal format), and every
+writer formats values and labels units only through that table. Don't put format strings or
+unit names in writers. The proposed table and rules are in "Standardized quantities" in
+`docs/architecture.md`. Identifiers stay as R2R spells them, because R2R's tools key on them:
+test, bound, info and range names, GeoCSV `field_standard_name`s and XML element names. Parity
+with R2R is therefore **by value**: the same names, ratings, records, times and flags, with
+numbers equal after parsing. It is never byte for byte.
 
 R2R's control points are what NavManager's `navsimplifier.py` (recursive Douglas–Peucker)
 selects with a **0.01°** tolerance, not the committed 0.1°. NavManager has no GeoCSV writer.
@@ -112,10 +115,10 @@ nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G).
 ## Porting rules
 
 - R2R's XML output is a **parity target**, as it is in sbe-qa-processing. For released R2R nav
-  filesets, the QA 2.0 `certificate` (test names, ratings, results, bounds, infos) should be
-  identical to R2R's own reports. The three `.geoCSV` products must match by value (see above).
-  Reference files are in `tests/fixtures/` (see its README). Take the rating thresholds and rounding from `xmltools2.inc.php`
-  and `navqa.inc.php` exactly. Document every rule that is inferred rather than documented in
+  filesets, the QA 2.0 `certificate` (test names, ratings, results, bounds, infos) and the three
+  `.geoCSV` products must match R2R's by value (see above). Reference files are in
+  `tests/fixtures/` (see its README). Take the rating thresholds and the rounding applied before
+  rating from `xmltools2.inc.php` and `navqa.inc.php` exactly. Document every rule that is inferred rather than documented in
   the module docstring of `r2r.py`.
 - When the PHP has quirks (buffering, least-count/precision handling, median-based checks in
   `navqc`), reproduce the observable output first, then note the quirk. Don't silently "fix"
