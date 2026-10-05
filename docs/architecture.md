@@ -494,7 +494,7 @@ The proposed table follows. Precisions marked "receiver" follow the rule above.
 | `course_made_good` | Course over ground, clockwise from true north | float | `degree` | 3 decimals |
 | horizontal acceleration | Horizontal acceleration, from successive speeds | float | `m s-2` | 3 decimals |
 | percentage (test results, bounds) | — | float | `percent` | 2 decimals |
-| duration (gaps, epoch interval) | — | float | `s` | 2 decimals |
+| duration (gaps, epoch interval) | — | float | `s` | 3 decimals |
 | count (records, tests, infos) | — | integer | `1` | |
 
 Applied to the SP2613 certificate, this would change things as follows:

@@ -30,7 +30,7 @@ def test_fixed_precision_is_never_trimmed():
     assert q.SPEED_MADE_GOOD.format(3.3) == "3.30"
     assert q.COURSE_MADE_GOOD.format(155.9) == "155.900"
     assert q.PERCENTAGE.format(95) == "95.00"
-    assert q.DURATION.format(7) == "7.00"
+    assert q.DURATION.format(7) == "7.000"
 
 
 def test_negative_zero_is_written_as_zero():

@@ -196,7 +196,7 @@ HORIZONTAL_ACCELERATION = Quantity(
     decimals=3,
 )
 PERCENTAGE = Quantity("percentage", "Percentage", Datatype.FLOAT, "percent", decimals=2)
-DURATION = Quantity("duration", "Duration", Datatype.FLOAT, "s", decimals=2)
+DURATION = Quantity("duration", "Duration", Datatype.FLOAT, "s", decimals=3)
 COUNT = Quantity("count", "Count", Datatype.INTEGER, "1")
 
 QUANTITIES: dict[str, Quantity] = {
