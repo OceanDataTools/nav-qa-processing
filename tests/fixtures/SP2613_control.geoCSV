@@ -1,0 +1,22 @@
+#dataset: GeoCSV 2.0
+#title: Processed Trackline Navigation Data: Control Points
+#field_unit: ISO_8601,degree_east,degree_north
+#field_type: datetime,float,float
+#field_standard_name: iso_time,ship_longitude,ship_latitude
+#field_long_name: date and time,longitude of vessel,latitude of vessel
+#standard_name_cv: http://www.rvdata.us/voc/fieldname
+#ellipsoid: WGS-84 (EPSG:4326)
+#delimiter: ,
+#field_missing: NAN
+#attribution: Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/
+#source_repository: doi:10.17616/R39C8D
+#source_event: doi:10.7284/911454
+#source_dataset: doi:10.7284/169851
+#cruise_id: SP2613
+#creation_date: 2026-07-31T20:06:10Z
+iso_time,ship_longitude,ship_latitude
+2026-07-09T15:12:00.00Z,-117.2337376447,32.702744442
+2026-07-09T15:46:00.00Z,-117.2363287572,32.6324705045
+2026-07-09T20:38:00.00Z,-117.3773072195,32.6020481143
+2026-07-09T22:32:00.00Z,-117.2358337133,32.6372464783
+2026-07-09T23:06:00.00Z,-117.2345344478,32.7051052273

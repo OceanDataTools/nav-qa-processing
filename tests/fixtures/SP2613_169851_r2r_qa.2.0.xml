@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="https://service.rvdata.us/stylesheets/r2r_qac_v2.0.xslt"?>
+<r2r:qareport xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:r2r="https://service.rvdata.us/schema/r2r-2.0" xsi:schemaLocation="http://schema.rvdata.us/2.0 http://schema.rvdata.us/2.0/base.xsd">
+  <!--Rolling Deck to Repository (R2R) Quality Assessment (QA) Rollup Report-->
+  <r2r:version>2.0</r2r:version>
+  <r2r:identifier>SP2613_169851_qa</r2r:identifier>
+  <r2r:provenance>
+    <r2r:contact_institution id="us.rvdata">Rolling Deck to Repository (R2R)</r2r:contact_institution>
+    <r2r:contact_email>info@rvdata.us</r2r:contact_email>
+    <r2r:distro_type>post-cruise</r2r:distro_type>
+    <r2r:cruise_id>SP2613</r2r:cruise_id>
+    <r2r:fileset_id>169851</r2r:fileset_id>
+    <r2r:device_type>gnss</r2r:device_type>
+    <r2r:updates>
+      <r2r:update>
+        <r2r:process version="1.1">r2r_catalog_qa_bootstrap.php</r2r:process>
+        <r2r:time>2026-07-31T20:05:56Z</r2r:time>
+      </r2r:update>
+    </r2r:updates>
+  </r2r:provenance>
+  <r2r:filesetinfo>
+    <r2r:namespace>R2R</r2r:namespace>
+    <r2r:cruise>
+      <r2r:date_modified>2026-07-31T04:28:14Z</r2r:date_modified>
+      <r2r:date_issued>2026-07-22</r2r:date_issued>
+      <r2r:id>SP2613</r2r:id>
+      <r2r:cname>MPL Internship Program Day at Sea</r2r:cname>
+      <r2r:operator_id>edu.ucsd.sio</r2r:operator_id>
+      <r2r:id>SP2613</r2r:id>
+      <r2r:vessel_id>32QU</r2r:vessel_id>
+      <r2r:scheduler_id>org.unols</r2r:scheduler_id>
+      <r2r:depart_date>2026-07-09</r2r:depart_date>
+      <r2r:depart_port>
+        <r2r:port_id>100055</r2r:port_id>
+        <r2r:port_name>San Diego</r2r:port_name>
+        <r2r:country_id>us</r2r:country_id>
+        <r2r:state_id>ca</r2r:state_id>
+        <r2r:longitude>-117.17500</r2r:longitude>
+        <r2r:latitude>32.71667</r2r:latitude>
+      </r2r:depart_port>
+      <r2r:arrive_date>2026-07-09</r2r:arrive_date>
+      <r2r:arrive_port>
+        <r2r:port_id>100055</r2r:port_id>
+        <r2r:port_name>San Diego</r2r:port_name>
+        <r2r:country_id>us</r2r:country_id>
+        <r2r:state_id>ca</r2r:state_id>
+        <r2r:longitude>-117.17500</r2r:longitude>
+        <r2r:latitude>32.71667</r2r:latitude>
+      </r2r:arrive_port>
+      <r2r:extent>
+        <r2r:westernmost>-117.3773104</r2r:westernmost>
+        <r2r:easternmost>-117.2262308</r2r:easternmost>
+        <r2r:southernmost>32.5997441</r2r:southernmost>
+        <r2r:northernmost>32.7053696</r2r:northernmost>
+      </r2r:extent>
+    </r2r:cruise>
+    <r2r:fileset>
+      <r2r:date_created>2026-07-22</r2r:date_created>
+      <r2r:type>data</r2r:type>
+      <r2r:id>169851</r2r:id>
+      <r2r:parent_fileset_id/>
+      <r2r:vessel_id>32QU</r2r:vessel_id>
+      <r2r:cruise_id>SP2613</r2r:cruise_id>
+      <r2r:nav_source>1</r2r:nav_source>
+      <r2r:bathy_source>0</r2r:bathy_source>
+      <r2r:device>
+        <r2r:id>101253</r2r:id>
+        <r2r:devicetype_id>gnss</r2r:devicetype_id>
+        <r2r:make_id>com.trimble</r2r:make_id>
+        <r2r:model_id>100542</r2r:model_id>
+        <r2r:model_name>BX992</r2r:model_name>
+        <r2r:location_name/>
+      </r2r:device>
+      <r2r:fileformat_id>100150</r2r:fileformat_id>
+      <r2r:fileformat_alias>starc_raw</r2r:fileformat_alias>
+      <r2r:proclevel>1</r2r:proclevel>
+    </r2r:fileset>
+  </r2r:filesetinfo>
+  <r2r:certificate>
+    <r2r:rating description="GREEN (G) if all tests GREEN, RED (R) if at least  one test RED, else YELLOW (Y)">G</r2r:rating>
+    <r2r:infos>
+      <r2r:info name="TotalTests" uom="Count">6</r2r:info>
+      <r2r:info name="GTests" uom="Count">6</r2r:info>
+      <r2r:info name="YTests" uom="Count">0</r2r:info>
+      <r2r:info name="RTests" uom="Count">0</r2r:info>
+    </r2r:infos>
+    <r2r:tests>
+      <r2r:test name="PercentCompleteness" description="Percent completeness based on continuous data over a determined constant sampling rate.">
+        <r2r:rating>G</r2r:rating>
+        <r2r:test_result uom="Percent">99.98</r2r:test_result>
+        <r2r:bounds>
+          <r2r:bound name="GMinimumThreshold" uom="Percent">95</r2r:bound>
+          <r2r:bound name="YMinimumThreshold" uom="Percent">75</r2r:bound>
+        </r2r:bounds>
+      </r2r:test>
+      <r2r:test name="LongestGapEpoch" description="Longest time gap between sequential data points.">
+        <r2r:rating>G</r2r:rating>
+        <r2r:test_result uom="s">7.00</r2r:test_result>
+        <r2r:bounds>
+          <r2r:bound name="GMaximumThreshold" uom="s">900</r2r:bound>
+          <r2r:bound name="YMaximumThreshold" uom="s">86400</r2r:bound>
+        </r2r:bounds>
+      </r2r:test>
+      <r2r:test name="PercentRecordsOutOfSequence" description="Percentage of data points with a timestamp before the previous data point.">
+        <r2r:rating>G</r2r:rating>
+        <r2r:test_result uom="Percent">0.00</r2r:test_result>
+        <r2r:bounds>
+          <r2r:bound name="GMaximumThreshold" uom="Percent">5</r2r:bound>
+          <r2r:bound name="YMaximumThreshold" uom="Percent">10</r2r:bound>
+        </r2r:bounds>
+      </r2r:test>
+      <r2r:test name="PercentRecordsWithBadQualityIndicator" description="Percentage of data points with a bad data quality flag in the original data.">
+        <r2r:rating>G</r2r:rating>
+        <r2r:test_result uom="Percent">0.00</r2r:test_result>
+        <r2r:bounds>
+          <r2r:bound name="GMaximumThreshold" uom="Percent">5</r2r:bound>
+          <r2r:bound name="YMaximumThreshold" uom="Percent">10</r2r:bound>
+        </r2r:bounds>
+      </r2r:test>
+      <r2r:test name="PercentUnreasonableSpeeds" description="Percentage of points that contribute to calculated speeds that exceed the speed threshold.">
+        <r2r:rating>G</r2r:rating>
+        <r2r:test_result uom="Percent">0.00</r2r:test_result>
+        <r2r:bounds>
+          <r2r:bound name="GMaximumThreshold" uom="Percent">5</r2r:bound>
+          <r2r:bound name="YMaximumThreshold" uom="Percent">10</r2r:bound>
+        </r2r:bounds>
+      </r2r:test>
+      <r2r:test name="PercentUnreasonableAccelerations" description="Percentage of points that contribute to calculated accelerations that exceed the acceleration threshold.">
+        <r2r:rating>G</r2r:rating>
+        <r2r:test_result uom="Percent">0.00</r2r:test_result>
+        <r2r:bounds>
+          <r2r:bound name="GMaximumThreshold" uom="Percent">5</r2r:bound>
+          <r2r:bound name="YMaximumThreshold" uom="Percent">10</r2r:bound>
+        </r2r:bounds>
+      </r2r:test>
+    </r2r:tests>
+  </r2r:certificate>
+  <r2r:filesetinfo_supplements>
+    <r2r:filesetinfo_supplemental name="NSV">
+      <r2r:ranges>
+        <r2r:range name="Minimum" uom="Count">10</r2r:range>
+        <r2r:range name="Maximum" uom="Count">14</r2r:range>
+      </r2r:ranges>
+    </r2r:filesetinfo_supplemental>
+    <r2r:filesetinfo_supplemental name="HDOP">
+      <r2r:ranges>
+        <r2r:range name="Minimum" uom="Dimensionless">0.7</r2r:range>
+        <r2r:range name="Maximum" uom="Dimensionless">1</r2r:range>
+      </r2r:ranges>
+    </r2r:filesetinfo_supplemental>
+    <r2r:filesetinfo_supplemental name="Altitude">
+      <r2r:ranges>
+        <r2r:range name="Minimum" uom="m">5.494</r2r:range>
+        <r2r:range name="Maximum" uom="m">10.425</r2r:range>
+      </r2r:ranges>
+    </r2r:filesetinfo_supplemental>
+    <r2r:filesetinfo_supplemental name="HorizontalSpeed">
+      <r2r:ranges>
+        <r2r:range name="Minimum" uom="m/s">0.00</r2r:range>
+        <r2r:range name="Maximum" uom="m/s">4.81</r2r:range>
+      </r2r:ranges>
+    </r2r:filesetinfo_supplemental>
+    <r2r:filesetinfo_supplemental name="HorizontalAcceleration">
+      <r2r:ranges>
+        <r2r:range name="Minimum" uom="m/s^2">-0.898</r2r:range>
+        <r2r:range name="Maximum" uom="m/s^2">0.872</r2r:range>
+      </r2r:ranges>
+    </r2r:filesetinfo_supplemental>
+  </r2r:filesetinfo_supplements>
+  <r2r:references>
+    <r2r:reference src="https://service.rvdata.us/info/vessel/32QU">supporting docs (if any) for this vessel</r2r:reference>
+    <r2r:reference src="https://service.rvdata.us/info/vessel/32QU/device/101253">supporting docs (if any) for this device instance on this vessel</r2r:reference>
+    <r2r:reference src="https://service.rvdata.us/info/model/100542">supporting docs (if any) for this device make/model</r2r:reference>
+    <r2r:reference src="https://service.rvdata.us/info/format/100150">supporting docs (if any) for this file format</r2r:reference>
+  </r2r:references>
+  <r2r:log/>
+  <r2r:configuration/>
+  <r2r:manifest>
+    <r2r:files>
+      <r2r:file id="202952154" checksum="e6257a6334098815ae4ab73a8c8fdf29" order="">data/SP2613_mru_trimble_bx992-2026-07-07.txt</r2r:file>
+      <r2r:file id="202952987" checksum="72d622b64416bc18ada2fca39c29f164" order="">data/SP2613_mru_trimble_bx992-2026-07-09.txt</r2r:file>
+    </r2r:files>
+  </r2r:manifest>
+</r2r:qareport>

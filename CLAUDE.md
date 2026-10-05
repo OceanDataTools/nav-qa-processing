@@ -30,6 +30,10 @@ that stops describing reality.
   embedded), every figure as an SVG, and a notebook that re-runs the assessment. It runs from the CLI
   (`run`, `config-from-r2r`) and as an OpenVDM post-transfer hook (`openvdm`).
 
+`docs/architecture.md` has the full analysis of NavManager (pipeline, rating thresholds, QC
+rules, known bugs) and the proposed module layout, design decisions and phased plan. Keep it
+in sync when the design changes.
+
 ## What NavManager does (the behavior to port)
 
 The pipeline runs over the primary GPS feed. Each stage is a `bin/*.php` script backed by an
@@ -81,13 +85,36 @@ The r2rnav format is specified in `doc/fileformat/format-r2rnav.txt`:
 - NavBestRes columns: time, lon, lat, quality, nsat, HDOP, altitude, SOG [m/s], COG [°]
 - file names `<CRUISE>_bestres|1min|control.r2rnav`
 
-Write it byte-compatibly, and preserve the receiver's precision as the spec describes.
+Preserve the receiver's precision as the spec describes.
+
+**R2R now publishes the products as GeoCSV 2.0** (`<CRUISE>_bestres|1min|control.geoCSV`, R2R
+format 100157). The columns are the same, but the files have a `#keyword: value` header block
+and are comma-delimited. GeoCSV is the primary output and `.r2rnav` is secondary. R2R's header
+layout is described in `docs/architecture.md` ("What R2R actually publishes today").
+
+**We standardize, rather than copy, R2R's descriptions, unit names and coordinate formats.**
+R2R's files swap the speed and course long names, mix `meter\second`/`meter/second` and
+`degree_east`/`degrees_east`, and trim trailing zeros from coordinates in control. Don't
+reproduce any of that. One column table in `geocsv.py` defines the metadata for all three
+products (proposed values are in "Standardized product metadata" in `docs/architecture.md`).
+Coordinates use fixed decimals at the receiver's precision in every product. So product parity
+with R2R is **by value**: the same records, times and flags, with numbers equal at the published
+precision. It is not byte for byte.
+
+R2R's control points are what NavManager's `navsimplifier.py` (recursive Douglas–Peucker)
+selects with a **0.01°** tolerance, not the committed 0.1°. NavManager has no GeoCSV writer.
+
+Nav QA reports are named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`. Find them through the
+`documents` field of `service.rvdata.us/api/qa_info/?fileset_id=…`. The product bag is in
+`api/product/?cruise_id=…`. First parity reference: SP2613 (raw GNSS fileset 169851, format
+nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G).
 
 ## Porting rules
 
 - R2R's XML output is a **parity target**, as it is in sbe-qa-processing. For released R2R nav
   filesets, the QA 2.0 `certificate` (test names, ratings, results, bounds, infos) should be
-  identical to R2R's own reports. Take the rating thresholds and rounding from `xmltools2.inc.php`
+  identical to R2R's own reports. The three `.geoCSV` products must match by value (see above).
+  Reference files are in `tests/fixtures/` (see its README). Take the rating thresholds and rounding from `xmltools2.inc.php`
   and `navqa.inc.php` exactly. Document every rule that is inferred rather than documented in
   the module docstring of `r2r.py`.
 - When the PHP has quirks (buffering, least-count/precision handling, median-based checks in
