@@ -1,0 +1,32 @@
+[project]
+name = "nav-qa-processing"
+version = "0.1.0"
+description = "R2R navigation standard products and quality assessment reports (PDF, Jupyter notebook, R2R QA 2.0 XML) for research-vessel GPS data"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.md"]
+requires-python = ">=3.11"
+dependencies = [
+  "numpy >= 2.0",
+  "pandas >= 2.2.2",
+  "pyproj >= 3.6",
+]
+
+[project.scripts]
+nav-qa-processing = "nav_qa_processing.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest >= 8.3",
+  "ruff >= 0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 99
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

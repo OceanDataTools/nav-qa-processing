@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+dist/
+build/
+*.egg-info/
+# Downloaded R2R filesets (fetch with scripts/fetch_r2r_fileset.py)
+data/
+# Generated reports
+output/
+.DS_Store
