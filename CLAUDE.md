@@ -12,7 +12,7 @@ question, do what `sbe-qa-processing` does: read its `CLAUDE.md`, `pyproject.tom
 `openvdm.py`, `cli.py`).
 
 GitHub: `OceanDataTools/nav-qa-processing`, private for now. The repo so far has only a
-scaffold: `pyproject.toml`, a stub `cli.py` (`--version` only) and one test. Add
+scaffold: `pyproject.toml`, a stub `cli.py` (`--version` only) and `quantities.py`. Add
 dependencies (matplotlib, reportlab, svglib, cartopy, nbformat, …) as the modules that need
 them land, and commit `uv.lock` with each change. Update this file as modules come into existence, and remove any section below
 that stops describing reality.
