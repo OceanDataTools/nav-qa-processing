@@ -3,6 +3,7 @@ title = "UDel Surface Mapping System (SMS) records"
 system = "University of Delaware Surface Mapping System (SMS)"
 file_type = "ASCII text, comma-separated; CRLF line ends, records may contain LF"
 vessels = ["Hugh R. Sharp"]
+r2r_formats = [100015]
 position = "Latitude and longitude in degrees and decimal minutes"
 time = "UTC date and time fields"
 description = "One multiplexed record every 10 s with navigation, depth, meteorology and underway science values. Position is given twice: in degrees and minutes with a hemisphere letter, and as decimal degrees."

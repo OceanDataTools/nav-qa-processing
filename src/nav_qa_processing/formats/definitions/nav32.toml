@@ -1,15 +1,37 @@
 id = "nav32"
 title = "RCRV DAS: RMC"
 system = "Regional Class Research Vessel data acquisition system"
-file_type = "ASCII text, one NMEA sentence per line (optionally behind a prefix)"
+file_type = "ASCII text: logger date and time, then one NMEA sentence, comma-separated"
 vessels = ["Rachel Carson"]
 sentences = ["RMC"]
+r2r_formats = [100235]
 position = "RMC"
 time = "RMC date and time"
-description = "Position, date and time from RMC sentences."
+description = "Rachel Carson's CORIOLIX logs: each line is the logger date (MM/DD/YYYY) and time, then an RMC sentence. Position, date and time come from RMC; the fix quality is taken as 1 when the status is A and 0 otherwise."
 notes = [
-  "RMC has no fix quality, satellite count, HDOP or altitude; the fix quality is taken as 1 when the status is A and 0 otherwise.",
+  "RMC has no fix quality, satellite count, HDOP or altitude.",
+  "The talker is EC (ECDIS) rather than GP.",
+  "Examples: RC0012, fileset 137927, file GPS-Network-RMC_20181101-030609.Raw.",
+  "R2R format 100235 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
 references = ["www.nmea.org"]
 examples = [
+  "11/01/2018,03:06:10.708,$ECRMC,030710,A,4740.811,N,12224.407,W,0.0,241.70,011118,015.63,E*72",
+  "11/01/2018,03:06:12.790,$ECRMC,030712,A,4740.811,N,12224.407,W,0.0,241.20,011118,015.63,E*75",
+  "11/01/2018,03:06:14.863,$ECRMC,030714,A,4740.811,N,12224.407,W,0.0,240.50,011118,015.63,E*75",
 ]
+
+[[fields]]
+name = "date"
+example = "11/01/2018"
+meaning = "Logger date (MM/DD/YYYY)"
+
+[[fields]]
+name = "time"
+example = "03:06:10.708"
+meaning = "Logger time (hh:mm:ss.sss)"
+
+[[fields]]
+name = "sentence"
+example = "$ECRMC,…"
+meaning = "NMEA RMC sentence"

@@ -4,6 +4,7 @@ system = "Oregon State University data acquisition system"
 file_type = "ASCII text, comma-separated, with META_/VESSEL/CRUISE/SOURCE header records"
 vessels = ["Wecoma", "Oceanus"]
 sentences = ["GGA", "GSA", "GSV", "VTG"]
+r2r_formats = [100046]
 position = "GGA"
 time = "GGA time of day, dated by the logger timestamp"
 description = "Header records describe the vessel, cruise and data source. Data records are DATA, an ISO 8601 UTC timestamp, and one quoted NMEA sentence."

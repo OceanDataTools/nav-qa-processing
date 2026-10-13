@@ -3,6 +3,7 @@ title = "SIO satdata: one position per minute"
 system = "Scripps Institution of Oceanography satdata logger"
 file_type = "ASCII text, whitespace-separated (tabs and spaces)"
 vessels = ["New Horizon", "Robert Gordon Sproul"]
+r2r_formats = [100018]
 position = "Signed integer degrees and decimal minutes"
 time = "Date fields plus minute of day"
 description = "One line per minute: date, the minute of the day, latitude and longitude as signed integer degrees plus decimal minutes, and the receiver's satellite field."

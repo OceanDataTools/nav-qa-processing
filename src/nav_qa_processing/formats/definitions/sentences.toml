@@ -269,3 +269,31 @@ meaning = "Decimal day of year, 0 at January 1 00:00 UTC"
 name = "uptime"
 example = "5.8859180"
 meaning = "Decimal days since the computer booted"
+
+[DTM]
+title = "Datum reference"
+examples = ["$GPDTM,W84,,00.0000,N,00.0000,E,,W84*41"]
+[[DTM.fields]]
+name = "datum"
+example = "W84"
+meaning = "Local datum code (W84 = WGS 84)"
+[[DTM.fields]]
+name = "offsets"
+example = "00.0000,N,00.0000,E,"
+meaning = "Latitude, longitude and altitude offsets from the reference datum"
+[[DTM.fields]]
+name = "reference"
+example = "W84"
+meaning = "Reference datum code"
+
+[GBS]
+title = "GNSS satellite fault detection"
+examples = ["$GPGBS,000001.00,,,,,,,*6E"]
+[[GBS.fields]]
+name = "time"
+example = "000001.00"
+meaning = "UTC time of the associated fix"
+[[GBS.fields]]
+name = "errors"
+example = ""
+meaning = "Expected latitude, longitude and altitude errors [m], then the most likely failed satellite and its statistics"

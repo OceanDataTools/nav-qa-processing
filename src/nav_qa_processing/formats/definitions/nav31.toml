@@ -4,9 +4,20 @@ system = "University of Hawaii Data Acquisition System (UHDAS)"
 file_type = "ASCII text, one sentence per line"
 vessels = ["Blue Heron"]
 sentences = ["PYRTM", "GGA"]
+r2r_formats = [100234]
 position = "GGA"
 time = "GGA time of day, dated by the PYRTM year and day of year"
 description = "When GPS isn't logged on its own, the GPS feed recorded by UHDAS is the only source. Each GGA is paired with a PYRTM sentence from the UHDAS computer's clock, which carries the year."
+notes = [
+  "Examples: BH19-30, fileset 136141, file bh2019_275_72000.gps (Furuno GP-90).",
+  "R2R format 100234 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
+]
 references = ["www.nmea.org"]
 examples = [
+  "$PYRTM,2019,275.8333405,75.8928819",
+  "$GPGGA,195550,4648.9699,N,09158.8461,W,1,9,1.6,196,M,,M,,*62",
+  "$PYRTM,2019,275.8333533,75.8928947",
+  "$GPGGA,195551,4648.9697,N,09158.8462,W,1,8,1.6,196,M,,M,,*6F",
+  "$PYRTM,2019,275.8333649,75.8929063",
+  "$GPGGA,195552,4648.9693,N,09158.8465,W,1,8,1.6,196,M,,M,,*6F",
 ]

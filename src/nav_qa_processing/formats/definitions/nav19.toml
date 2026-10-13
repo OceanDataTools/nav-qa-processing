@@ -3,6 +3,7 @@ title = "OSU DAS (2009–2010): multiplexed records with day-of-year clock"
 system = "Oregon State University data acquisition system"
 file_type = "ASCII text, comma-separated, one header line of column names"
 vessels = ["Wecoma"]
+r2r_formats = [100077]
 position = "P-code receiver decimal degrees"
 time = "TrueTime clock day of year and time; the year isn't recorded"
 description = "One record every 2 s: record number, TrueTime clock as day-of-year:hh:mm:ss, positions from the P-code and DGPS receivers, depths, meteorology, radiometers, thermosalinograph, and speed and course over ground."

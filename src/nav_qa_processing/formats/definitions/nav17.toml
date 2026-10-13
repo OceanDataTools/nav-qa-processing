@@ -4,6 +4,7 @@ system = "WHOI Calliope data acquisition system"
 file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
 vessels = ["Oceanus"]
 sentences = ["RMC"]
+r2r_formats = [100071]
 position = "RMC"
 time = "RMC date and time"
 description = "Calliope navigation lines tagged GPRMC_90D (Furuno GP90D receiver), then a numeric field, the logger time and an RMC sentence. Used on Oceanus in 2010 and 2011."

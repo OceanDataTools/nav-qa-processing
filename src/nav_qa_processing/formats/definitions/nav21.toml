@@ -3,6 +3,7 @@ title = "MLML UDAS (2008): multiplexed records"
 system = "Moss Landing Marine Laboratories Underway Data Acquisition System (UDAS)"
 file_type = "ASCII text, comma-separated, one header line of column names"
 vessels = ["Point Sur"]
+r2r_formats = [100081]
 position = "Furuno or Ashtech degrees and decimal minutes, without sign"
 time = "GMT date (M/D/YY) and time"
 description = "The 2008 UDAS layout: date and time first, then Furuno and Ashtech positions as separate degree and minute fields, headings, speed, wind and science values."

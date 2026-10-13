@@ -6,6 +6,7 @@ vessels = ["Ka'imikai-o-Kanaloa"]
 description = "Reserved by NavManager for the R/V Ka'imikai-o-Kanaloa; never implemented."
 notes = [
   "NavManager lists this format as pending and has no parser for it.",
+  "R2R lists 208 Ka'imikai-o-Kanaloa cruises but no released filesets for any of them (checked 2026-10-13), so no sample can be found through R2R. R2R format 100016 (\"DAS: OTG (UH)-Kaimikai-o-Kanaloa\") cites only the r2rnav format document.",
 ]
 examples = [
 ]

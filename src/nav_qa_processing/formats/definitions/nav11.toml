@@ -3,6 +3,7 @@ title = "UMiami DAS: POS/MV GGA fields in columns"
 system = "University of Miami data acquisition system (Applanix POS/MV-320)"
 file_type = "ASCII text, tab-separated, with two header lines"
 vessels = ["F. G. Walton Smith"]
+r2r_formats = [100020]
 position = "Degrees, decimal minutes and hemisphere columns"
 time = "GPS time of day, dated by the logger date"
 description = "The fields of each GGA sentence written as tab-separated columns, after the logger's date and time. The first line holds device metadata and the second the column names."

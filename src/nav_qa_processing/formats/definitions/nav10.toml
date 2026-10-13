@@ -3,6 +3,7 @@ title = "UW DAS: multiplexed underway records"
 system = "University of Washington data acquisition system"
 file_type = "ASCII text, comma-separated"
 vessels = ["Thomas G. Thompson"]
+r2r_formats = [100019]
 position = "Decimal degrees from the navigation computer"
 time = "Navigation computer date and time, UTC"
 description = "One record every 5 s combining the navigation computer's time and position with gyro, speed log, thermosalinograph, meteorology and winch values."

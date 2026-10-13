@@ -4,6 +4,7 @@ system = "NOAA Shipboard Computer System (SCS)"
 file_type = "ASCII text, comma-separated"
 vessels = ["Atlantic Explorer", "Clifford A. Barnes", "Cape Hatteras", "Endeavor", "Savannah"]
 sentences = ["GGA"]
+r2r_formats = [100011]
 position = "GGA"
 time = "GGA time of day, dated by the logger's date"
 description = "Each line is the logger's date (MM/DD/YYYY) and time (hh:mm:ss.sss, UTC), then a GGA sentence. The logger clock's source isn't recorded."

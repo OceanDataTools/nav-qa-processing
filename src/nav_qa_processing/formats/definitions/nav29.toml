@@ -4,12 +4,14 @@ system = "Scripps STARC serial logger"
 file_type = "ASCII text: logger timestamp, then one NMEA sentence"
 vessels = ["Robert Gordon Sproul", "Roger Revelle", "Sally Ride", "Healy"]
 sentences = ["GGA", "ZDA", "GLL", "VTG", "RMC", "HDT", "GSA", "PSXN"]
+r2r_formats = [100150]
 position = "GGA"
 time = "GGA time of day, dated by ZDA; the logger timestamp is ignored"
 description = "Each line is the logger's timestamp and one NMEA sentence. Two layouts occur: a Unix time and a space before the sentence (2018 Sproul, Healy), or an ISO 8601 UTC time and a comma (STARC serial_logger *.raw from 2016, e.g. Sproul 2026). The position and fix data come from GGA; ZDA gives the date."
 notes = [
   "R2R lists the comma layout as \"STARC serial_logger/*.raw format from 2016\" (R2R format 100150).",
   "The reader takes the text from the last $ on a line, so either prefix works.",
+  "Examples: the Unix-time lines are NavManager's sample (2018); the ISO lines are SP2613, fileset 169851, file SP2613_mru_trimble_bx992-2026-07-09.txt (Trimble BX992).",
 ]
 references = ["www.nmea.org"]
 examples = [

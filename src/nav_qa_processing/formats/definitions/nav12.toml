@@ -4,6 +4,7 @@ system = "Shipboard logger"
 file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
 vessels = ["Healy", "Marcus G. Langseth"]
 sentences = ["ZDA", "GGA", "GLL", "GSA", "VTG"]
+r2r_formats = [100021]
 position = "GGA"
 time = "GGA time of day, dated by ZDA"
 description = "Each line is a device ID, the logger timestamp as year:day-of-year:hh:mm:ss.ssss, and one NMEA sentence. GGA, GLL, GSA, VTG and ZDA repeat in turn."

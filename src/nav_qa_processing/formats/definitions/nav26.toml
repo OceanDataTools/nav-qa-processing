@@ -1,11 +1,69 @@
 id = "nav26"
 title = "Generic CSV with configurable columns (Endeavor .elg)"
 system = "Shipboard event logger"
-file_type = "ASCII text, comma-separated"
+file_type = "ASCII text, comma-separated, one header line of column names"
 vessels = ["Endeavor"]
-description = "A general CSV reader with the time and position columns set by configuration. Written for Endeavor .elg event-log files from cruises whose navigation files were missing."
+r2r_formats = [100139]
+position = "Trimble differential GPS decimal-degree columns"
+time = "Date (MM-DD-YYYY) and time columns"
+description = "NOAA SCS event-log (.elg) files: one record per second with the logger's date and time, then columns from each sensor, named in the header as <sensor>-<field>. The nav columns are GPS-TrimbleDiff-UTCofFix, -Latitude, -Longitude, -Quality, -SatsInUse and -HDOP. NavManager's reader takes the column numbers from configuration."
 notes = [
-  "NavManager documents this format only by name; no sample is available.",
+  "Examples: EN447, fileset 119353, file Data1Sec_001.elg (the header is shortened after the first sensors' columns).",
+  "The header has two spellings of the Trimble prefix (GPS-TrimbleDiff- and GPS-TimbleDiff-).",
+  "R2R format 100139 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
 examples = [
+  "Date,Time,GPS-TrimbleDiff-UTCofFix,GPS-TrimbleDiff-Latitude,GPS-TrimbleDiff-Longitude,GPS-TrimbleDiff-Quality,GPS-TrimbleDiff-SatsInUse,GPS-TrimbleDiff-HDOP,GPS-TrimbleDiff-DiffAge,GPS-TimbleDiff-TMG,GPS-TimbleDiff-SMG,…",
+  "06-03-2008,19:59:59,200000.0,41.49219,-71.41862,2,08,1.0,6.2,177.8,000.06,195958,41.49222,-71.41872,2,09,0.80,000,00.0,  23.6, 48,1013.0,14.1,16.7, -93.3, 772.6,   0,   0,   0,   0,   0,14.9, 79,14.9,225.6,14.2, 60,14.2,206.6,145.6,,,,,,,,,,,,146.6,195959.50,41.49210,-71.41857,145.671,-00.28,+00.00,0.0025,0.0326,0,,,,,,,,,195959.038,41.49217,-71.41866,1,08,1.0,050.1,000.0,155,20:00:00,155,20:00:00,200000,41.49221,-71.41872,2,6,0.3,,354.2,0.1,22.0125,0.14677, 0.7848,,,,,,,,,,,,,,,,0198,0006,,,,,,",
+  "06-03-2008,20:00:01,200001.0,41.49219,-71.41861,2,08,1.0,7.2,009.1,000.03,200000,41.49222,-71.41872,2,09,0.80,000,00.0,  23.6, 48,1013.0,14.1,16.7, -93.3, 772.6,   0,   0,   0,   0,   0,14.9, 79,14.9,225.5,14.2, 60,14.2,206.5,145.5,,,,,,,,,,,,146.5,200000.50,41.49210,-71.41857,145.720,-00.13,+00.29,0.0023,0.0283,0,,,,,,,,,200000.038,41.49217,-71.41866,1,08,1.0,050.1,000.0,155,20:00:01,155,20:00:01,200001,41.49221,-71.41872,2,6,0.3,,354.2,0.0,22.0123,0.14677, 0.7849,,,,,,,,,,,,,,,,0198,0006,,,,,,",
 ]
+
+[[fields]]
+name = "Date"
+example = "06-03-2008"
+meaning = "Logger date (MM-DD-YYYY)"
+
+[[fields]]
+name = "Time"
+example = "19:59:59"
+meaning = "Logger time (hh:mm:ss)"
+
+[[fields]]
+name = "GPS-TrimbleDiff-UTCofFix"
+example = "200000.0"
+meaning = "Trimble time of fix (hhmmss.s)"
+
+[[fields]]
+name = "GPS-TrimbleDiff-Latitude"
+example = "41.49219"
+meaning = "Latitude [degrees_north]"
+
+[[fields]]
+name = "GPS-TrimbleDiff-Longitude"
+example = "-71.41862"
+meaning = "Longitude [degrees_east]"
+
+[[fields]]
+name = "GPS-TrimbleDiff-Quality"
+example = "2"
+meaning = "NMEA GGA fix quality"
+
+[[fields]]
+name = "GPS-TrimbleDiff-SatsInUse"
+example = "08"
+meaning = "Satellites in use"
+
+[[fields]]
+name = "GPS-TrimbleDiff-HDOP"
+example = "1.0"
+meaning = "Horizontal dilution of precision"
+
+[[fields]]
+name = "GPS-TrimbleDiff-DiffAge"
+example = "6.2"
+meaning = "Age of differential corrections [s]"
+
+[[fields]]
+name = "…"
+example = ""
+meaning = "Course and speed made good, a second GPS (Northstar WAAS), meteorology and underway science"

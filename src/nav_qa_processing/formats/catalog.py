@@ -23,6 +23,7 @@ class FormatDefinition:
     file_type: str = ""
     vessels: tuple[str, ...] = ()
     sentences: tuple[str, ...] = ()
+    r2r_formats: tuple[int, ...] = ()  # R2R's format IDs (service.rvdata.us/info/format/<id>)
     position: str = ""  # where the fix comes from
     time: str = ""  # where the date and time come from
     description: str = ""
@@ -90,6 +91,7 @@ def describe(definition: FormatDefinition | SentenceDefinition) -> str:
         ("Vessels", ", ".join(getattr(definition, "vessels", ()))),
         ("File", getattr(definition, "file_type", "")),
         ("Sentences", ", ".join(getattr(definition, "sentences", ()))),
+        ("R2R IDs", ", ".join(str(i) for i in getattr(definition, "r2r_formats", ()))),
         ("Position", getattr(definition, "position", "")),
         ("Time", getattr(definition, "time", "")),
     ]:

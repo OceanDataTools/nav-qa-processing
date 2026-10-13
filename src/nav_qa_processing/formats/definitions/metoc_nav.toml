@@ -7,6 +7,7 @@ time = "Quoted \"YYYY-MM-DD hh:mm:ss\" first column"
 description = "CSV records whose first column is a quoted date and time; the latitude and longitude columns are found from the header."
 notes = [
   "No GGA quality, satellite count, HDOP or altitude: those are written NAN.",
+  "No sample found yet: none of the USAP RVDAS, OpenRVDAS or meteorology filesets checked has this layout. The reader expects four header lines with Lat_deg/Lat_min/Lon_deg/Lon_min or Latitude/Longitude on line 2, like a Campbell TOA5 file.",
 ]
 examples = [
 ]

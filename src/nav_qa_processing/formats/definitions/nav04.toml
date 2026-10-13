@@ -4,6 +4,7 @@ system = "WHOI Calliope data acquisition system"
 file_type = "ASCII text: tab-separated prefix, then comma-joined NMEA sentences"
 vessels = ["Atlantis", "Knorr"]
 sentences = ["ZDA", "GLL", "GGA", "RMC", "VTG"]
+r2r_formats = [100013]
 position = "GGA"
 time = "GGA time of day, dated by ZDA"
 description = "Calliope logs many instruments in one file. Navigation lines start with the tag GPS, then a numeric field, the logger time (hh:mm:ss), and several NMEA sentences joined by commas: either ZDA, GLL and GGA, or RMC, VTG and ZDA."

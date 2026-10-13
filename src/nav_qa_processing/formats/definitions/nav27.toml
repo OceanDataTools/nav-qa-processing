@@ -1,15 +1,24 @@
 id = "nav27"
 title = "Raw NMEA: GLL dated by ZDA (Sproul, no GGA)"
 system = "Shipboard logger"
-file_type = "ASCII text, one NMEA sentence per line (optionally behind a prefix)"
+file_type = "ASCII text, one NMEA sentence per line, CRLF line ends"
 vessels = ["Robert Gordon Sproul"]
-sentences = ["ZDA", "GLL"]
+sentences = ["DTM", "GLL", "VTG", "ZDA", "GBS"]
+r2r_formats = [100140]
 position = "GLL"
 time = "GLL time of day, dated by ZDA"
 description = "For Sproul navigation logged without GGA: GLL gives the position and time of day, ZDA the date."
 notes = [
   "Records from GLL have no fix quality, satellite count, HDOP or altitude.",
+  "ZDA's local zone field is set (-08 in the example) but the ZDA time is UTC.",
+  "Examples: SP1531, fileset 119707, file gp90_20151209000000.raw (Furuno GP-90).",
+  "R2R format 100140 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
 references = ["www.nmea.org"]
 examples = [
+  "$GPDTM,W84,,00.0000,N,00.0000,E,,W84*41",
+  "$GPGLL,3241.7854,N,11709.3193,W,000001.00,A,A*76",
+  "$GPVTG,321.5,T,308.9,M,0.0,N,0.0,K,A*24",
+  "$GPZDA,000001.00,09,12,2015,-08,00*4E",
+  "$GPGBS,000001.00,,,,,,,*6E",
 ]

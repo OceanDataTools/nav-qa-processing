@@ -84,3 +84,25 @@ def test_cli_describes_format_or_sentence(capsys, format_id):
 
 def test_cli_unknown_format(capsys):
     assert main(["formats", "nav99"]) == 1
+
+
+def test_r2r_format_ids_are_unique_to_one_definition():
+    seen = {}
+    for definition in catalog.formats().values():
+        for r2r_id in definition.r2r_formats:
+            assert r2r_id not in seen, (r2r_id, seen.get(r2r_id), definition.id)
+            seen[r2r_id] = definition.id
+    assert seen[100150] == "nav29"
+
+
+def test_examples_cite_their_source():
+    """Every format with examples says which cruise and fileset (or document) they came from,
+    except those whose examples are NavManager's own samples
+    """
+    navmanager_samples = {
+        f"nav{n}"
+        for n in (1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 24, 33)
+    } | {"uhdas"}
+    for definition in catalog.formats().values():
+        if definition.examples and definition.id not in navmanager_samples:
+            assert any("fileset" in note for note in definition.notes), definition.id

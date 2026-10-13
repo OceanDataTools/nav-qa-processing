@@ -3,6 +3,7 @@ title = "University of Hawaii DAS: POS/MV records"
 system = "University of Hawaii data acquisition system (Applanix POS/MV-320 V4)"
 file_type = "ASCII text, whitespace-separated"
 vessels = ["Kilo Moana"]
+r2r_formats = [100017]
 position = "Decimal degrees"
 time = "Year, day of year, hour, minute, second, millisecond fields"
 description = "One record per second from the POS/MV: time, position in decimal degrees, HDOP, speed and course over ground, satellite count, fix quality, heading and attitude."

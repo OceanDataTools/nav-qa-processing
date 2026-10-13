@@ -4,6 +4,7 @@ system = "WHOI Calliope data acquisition system"
 file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
 vessels = ["Oceanus"]
 sentences = ["RMC", "GGA"]
+r2r_formats = [100045]
 position = "GGA"
 time = "GGA time of day, dated by RMC"
 description = "Calliope navigation lines tagged with the sentence type and receiver model, e.g. GPRMC_NS952 or GPGGA_NS952 (Northstar 952), then a numeric field, the logger time and the sentence."

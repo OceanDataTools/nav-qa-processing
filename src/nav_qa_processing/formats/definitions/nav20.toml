@@ -4,6 +4,7 @@ system = "Shipboard logger"
 file_type = "ASCII text: space-separated prefix, then one NMEA sentence"
 vessels = ["Knorr"]
 sentences = ["GGA", "RMC", "VTG", "ZDA"]
+r2r_formats = [100079]
 position = "GGA"
 time = "GGA time of day, dated by ZDA"
 description = "Each line is the tag NAV, the logger date (YYYY/MM/DD) and time, a device tag and one NMEA sentence. GGA, RMC, VTG and ZDA repeat in turn. Used on Knorr from 2013."

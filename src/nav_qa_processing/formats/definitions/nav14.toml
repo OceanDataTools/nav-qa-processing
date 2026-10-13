@@ -3,16 +3,19 @@ title = "MLML UDAS: $PTSUR records, unsigned positions"
 system = "Moss Landing Marine Laboratories Underway Data Acquisition System (UDAS)"
 file_type = "ASCII text, comma-separated, one header line of column names"
 vessels = ["Point Sur"]
+r2r_formats = [100023]
 position = "Furuno or Ashtech degrees and decimal minutes, without sign"
 time = "UTC date (YYYYMMDD) and time (hhmmss)"
 description = "Each record starts with $PTSUR and the call sign, then the UTC date and time, two GPS positions (Furuno and Ashtech) as separate degree and minute fields, and heading, wind, meteorology and underway science values."
 notes = [
   "Positions carry no sign or hemisphere: north and west are assumed. nav23 is the same layout with signed degrees.",
   "A position of 0 degrees marks a receiver with no data.",
+  "From 2011 the Ashtech differential (YES/NO) column is gone, so every later column moves one place left (second example).",
+  "Examples: PS0921, fileset 101414, file 20091021.txt; PS1104, fileset 104862, file 20110526.txt (both shortened).",
 ]
 examples = [
-  "$PTSUR, WSC2276, 20091117, 201643, 36,40.958,121,51.594,36,40.958,121,51.595,NO,116.180000,121.15,127.35,110.78,3.42,4.22,1.55,280.21,1.98,6.75,1.30,282.67,2.21,53.24,11.80,1014.92,29.97,66.78,598.51,6.6,GOOD,12.70132,3.92252,33.22921,13.13073,0.72,13.70,7.95,1.057,1788.107,0.16221,",
-  "$PTSUR, WSC2276, 20091117, 201717, 36,40.947,121,51.565,36,40.948,121,51.569,NO,145.740000,148.96,157.15,127.70,1.42,122.79,0.82,297.84,2.18,109.08,0.85,290.45,2.09,53.53,11.96,1014.92,29.97,67.95,598.36,3.4,GOOD,12.63423,3.91030,33.22204,13.00700,0.10,1.78,16.12,1.082,1768.615,0.18418,",
+  "$PTSUR, WSC2276, 20091021, 152932, 36,48.361,121,48.967,36,48.364,121,48.978,NO,283.070000,285.46,285.30,283.47,9.47,22.85,12.70,352.48,5.70,25.60,13.00,354.77,6.34,53.76,12.09,1015.86,30.00,92.88",
+  "$PTSUR, WSC2276, 20110526, 144208, 36,47.992,121,49.691,36,47.996,121,49.692,258.000000,258.90,258.60,258.07,10.00,10.77,9.93,355.76,2.01,11.33,10.13,350.60,2.13,47.80,8.78,1020.47,30.13,0.70",
 ]
 
 [[fields]]

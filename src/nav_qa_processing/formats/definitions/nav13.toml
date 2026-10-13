@@ -3,6 +3,7 @@ title = "LUMCON MIDAS: multiplexed underway records"
 system = "LUMCON Multiple Instrument Data Acquisition System (MIDAS)"
 file_type = "ASCII text, comma-separated, one header line of column names"
 vessels = ["Pelican"]
+r2r_formats = [100022]
 position = "Trimble degrees and decimal minutes, without hemisphere"
 time = "Logger date and time"
 description = "One record every 5 s with the Trimble receiver's time and position, followed by meteorology, thermosalinograph and depth values."

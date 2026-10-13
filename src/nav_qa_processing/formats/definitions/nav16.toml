@@ -3,6 +3,7 @@ title = "Nobeltec track export: TrackMarks block"
 system = "Nobeltec navigation software"
 file_type = "ASCII text, key = value lines"
 vessels = ["Blue Heron"]
+r2r_formats = [100064]
 position = "Degrees, decimal minutes and hemisphere"
 time = "Date and time with Z"
 description = "A Nobeltec export of a vessel track. The track points sit between \"TrackMarks = {{\" and \"}}\", one per line: latitude and longitude as degrees, minutes and hemisphere, then the UTC date and time."
