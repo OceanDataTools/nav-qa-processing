@@ -1,0 +1,15 @@
+id = "nav27"
+title = "Raw NMEA: GLL dated by ZDA (Sproul, no GGA)"
+system = "Shipboard logger"
+file_type = "ASCII text, one NMEA sentence per line (optionally behind a prefix)"
+vessels = ["Robert Gordon Sproul"]
+sentences = ["ZDA", "GLL"]
+position = "GLL"
+time = "GLL time of day, dated by ZDA"
+description = "For Sproul navigation logged without GGA: GLL gives the position and time of day, ZDA the date."
+notes = [
+  "Records from GLL have no fix quality, satellite count, HDOP or altitude.",
+]
+references = ["www.nmea.org"]
+examples = [
+]

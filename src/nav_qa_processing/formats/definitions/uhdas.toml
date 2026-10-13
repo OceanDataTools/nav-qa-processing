@@ -1,0 +1,18 @@
+id = "uhdas"
+title = "UHDAS: GGA dated by UNIXD"
+system = "University of Hawaii Data Acquisition System (UHDAS)"
+file_type = "ASCII text, one sentence per line"
+sentences = ["UNIXD", "GGA"]
+position = "GGA"
+time = "GGA time of day, dated by the UNIXD day of year and an externally given year"
+description = "UNIXD and GGA sentences in turn. UNIXD is written by the UHDAS computer, not the receiver: its decimal day of year counts from 0 at January 1 00:00 UTC and runs past 365 when a cruise crosses the new year."
+notes = [
+  "The year isn't in the file and must be supplied.",
+]
+references = ["www.nmea.org"]
+examples = [
+  "$UNIXD,0.9166745,2.1294175",
+  "$GPGGA,220000.00,0516.07652,S,02858.97884,W,2,6,1.5,25.84,M,-4.77,M,10,0208*72",
+  "$UNIXD,0.9166893,2.1294322",
+  "$GPGGA,220001.00,0516.07628,S,02858.97598,W,2,6,1.5,26.08,M,-4.77,M,9,0208*41",
+]

@@ -1,0 +1,41 @@
+id = "nav20"
+title = "NAV tag, logger date and time, device tag, then NMEA"
+system = "Shipboard logger"
+file_type = "ASCII text: space-separated prefix, then one NMEA sentence"
+vessels = ["Knorr"]
+sentences = ["GGA", "RMC", "VTG", "ZDA"]
+position = "GGA"
+time = "GGA time of day, dated by ZDA"
+description = "Each line is the tag NAV, the logger date (YYYY/MM/DD) and time, a device tag and one NMEA sentence. GGA, RMC, VTG and ZDA repeat in turn. Used on Knorr from 2013."
+references = ["www.nmea.org"]
+examples = [
+  "NAV 2013/11/20 05:00:00.644 GPS $GPGGA,050000.00,4131.43842,N,07040.33599,W,2,8,0.9,29.17,M,-30.68,M,9,0907*6B",
+  "NAV 2013/11/20 05:00:00.798 GPS $GPRMC,050000.00,A,4131.43842,N,07040.33599,W,0.05,291.3,201113,0.0,E*7B",
+  "NAV 2013/11/20 05:00:00.873 GPS $GPVTG,291.3,T,,M,0.05,N,0.09,K*65",
+  "NAV 2013/11/20 05:00:00.952 GPS $GPZDA,050000.00,20,11,2013,+0,+0*61",
+]
+
+[[fields]]
+name = "tag"
+example = "NAV"
+meaning = "Record type"
+
+[[fields]]
+name = "date"
+example = "2013/11/20"
+meaning = "Logger date (YYYY/MM/DD)"
+
+[[fields]]
+name = "time"
+example = "05:00:04.561"
+meaning = "Logger time (hh:mm:ss.sss)"
+
+[[fields]]
+name = "device"
+example = "GPS"
+meaning = "Device tag"
+
+[[fields]]
+name = "sentence"
+example = "$GPGGA,…"
+meaning = "NMEA sentence"

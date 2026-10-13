@@ -1,0 +1,66 @@
+id = "nav9"
+title = "SIO satdata: one position per minute"
+system = "Scripps Institution of Oceanography satdata logger"
+file_type = "ASCII text, whitespace-separated (tabs and spaces)"
+vessels = ["New Horizon", "Robert Gordon Sproul"]
+position = "Signed integer degrees and decimal minutes"
+time = "Date fields plus minute of day"
+description = "One line per minute: date, the minute of the day, latitude and longitude as signed integer degrees plus decimal minutes, and the receiver's satellite field."
+notes = [
+  "When the longitude is negative, its minus sign can directly follow the latitude minutes with no space between them (e.g. 42.4610-117).",
+]
+examples = [
+  "03 01 2009\t0000  32 42.4610-117 14.2030\t\tpc10\t0.5",
+  "03 01 2009\t0001  32 42.4610-117 14.2040\t\tpc10\t0.5",
+  "03 01 2009\t0002  32 42.4610-117 14.2040\t\tpc10\t0.5",
+]
+
+[[fields]]
+name = "month"
+example = "03"
+meaning = "Month"
+
+[[fields]]
+name = "day"
+example = "01"
+meaning = "Day of month"
+
+[[fields]]
+name = "year"
+example = "2009"
+meaning = "Year"
+
+[[fields]]
+name = "minute_of_day"
+example = "0000"
+meaning = "Minutes since 00:00 UTC"
+
+[[fields]]
+name = "lat_deg"
+example = "32"
+meaning = "Latitude, signed integer degrees"
+
+[[fields]]
+name = "lat_min"
+example = "42.4610"
+meaning = "Latitude, decimal minutes"
+
+[[fields]]
+name = "lon_deg"
+example = "-117"
+meaning = "Longitude, signed integer degrees"
+
+[[fields]]
+name = "lon_min"
+example = "14.2030"
+meaning = "Longitude, decimal minutes"
+
+[[fields]]
+name = "satellites"
+example = "pc10"
+meaning = "Satellite field (receiver code and count)"
+
+[[fields]]
+name = "unknown"
+example = "0.5"
+meaning = "Unknown"

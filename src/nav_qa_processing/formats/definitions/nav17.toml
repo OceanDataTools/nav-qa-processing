@@ -1,0 +1,37 @@
+id = "nav17"
+title = "WHOI Calliope (2010–2011): GPRMC_90D records"
+system = "WHOI Calliope data acquisition system"
+file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
+vessels = ["Oceanus"]
+sentences = ["RMC"]
+position = "RMC"
+time = "RMC date and time"
+description = "Calliope navigation lines tagged GPRMC_90D (Furuno GP90D receiver), then a numeric field, the logger time and an RMC sentence. Used on Oceanus in 2010 and 2011."
+notes = [
+  "RMC has no fix quality, satellite count, HDOP or altitude.",
+]
+references = ["www.nmea.org"]
+examples = [
+  "GPRMC_90D\t40269.00044\t00:00:38\t$GPRMC,000038,A,2630.6808,N,07645.3349,W,1.0,308.9,010410,0.0,E*64",
+  "GPRMC_90D\t40269.00113\t00:01:38\t$GPRMC,000138,A,2630.6911,N,07645.3491,W,1.1,307.8,010410,0.0,E*61",
+]
+
+[[fields]]
+name = "tag"
+example = "GPRMC_90D"
+meaning = "Talker, sentence type and receiver model"
+
+[[fields]]
+name = "number"
+example = "40269.00044"
+meaning = "Undocumented numeric field"
+
+[[fields]]
+name = "time"
+example = "00:00:38"
+meaning = "Logger time, UTC (hh:mm:ss)"
+
+[[fields]]
+name = "sentence"
+example = "$GPRMC,…"
+meaning = "NMEA RMC sentence"

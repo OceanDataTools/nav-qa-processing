@@ -1,0 +1,15 @@
+id = "nav25"
+title = "Seapath stamp, timestamp, then NMEA (Healy)"
+system = "Seapath logger"
+file_type = "ASCII text: prefix, then one NMEA sentence"
+vessels = ["Healy"]
+sentences = ["ZDA", "GGA", "VTG"]
+position = "GGA"
+time = "GGA time of day, dated by ZDA"
+description = "A Seapath stamp and a timestamp before each NMEA sentence: ZDA, GGA and VTG."
+notes = [
+  "NavManager documents this format only by name; no sample is available.",
+]
+references = ["www.nmea.org"]
+examples = [
+]

@@ -1,0 +1,36 @@
+id = "nav5"
+title = "WHOI Calliope (2007): one RMC or GGA per line"
+system = "WHOI Calliope data acquisition system"
+file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
+vessels = ["Oceanus"]
+sentences = ["RMC", "GGA"]
+position = "GGA"
+time = "GGA time of day, dated by RMC"
+description = "Calliope navigation lines tagged with the sentence type and receiver model, e.g. GPRMC_NS952 or GPGGA_NS952 (Northstar 952), then a numeric field, the logger time and the sentence."
+references = ["www.nmea.org"]
+examples = [
+  "GPRMC_NS952\t39387.00020\t00:00:17\t$GPRMC,000016,A,4131.407,N,07040.305,W,00.1,023,011107,16,W*71",
+  "GPGGA_NS952\t39387.00020\t00:00:17\t$GPGGA,000016,4131.407,N,07040.305,W,2,10,0.89,0,M,,,1,0000*19",
+  "GPRMC_NS952\t39387.00090\t00:01:17\t$GPRMC,000116,A,4131.406,N,07040.305,W,00.1,331,011107,16,W*71",
+  "GPGGA_NS952\t39387.00090\t00:01:17\t$GPGGA,000116,4131.406,N,07040.305,W,2,10,0.89,0,M,,,1,0000*19",
+]
+
+[[fields]]
+name = "tag"
+example = "GPRMC_NS952"
+meaning = "Talker, sentence type and receiver model"
+
+[[fields]]
+name = "number"
+example = "39387.00020"
+meaning = "Undocumented numeric field"
+
+[[fields]]
+name = "time"
+example = "00:00:17"
+meaning = "Logger time, UTC (hh:mm:ss)"
+
+[[fields]]
+name = "sentence"
+example = "$GPRMC,…"
+meaning = "NMEA RMC or GGA sentence"

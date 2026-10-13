@@ -1,0 +1,15 @@
+id = "nav32"
+title = "RCRV DAS: RMC"
+system = "Regional Class Research Vessel data acquisition system"
+file_type = "ASCII text, one NMEA sentence per line (optionally behind a prefix)"
+vessels = ["Rachel Carson"]
+sentences = ["RMC"]
+position = "RMC"
+time = "RMC date and time"
+description = "Position, date and time from RMC sentences."
+notes = [
+  "RMC has no fix quality, satellite count, HDOP or altitude; the fix quality is taken as 1 when the status is A and 0 otherwise.",
+]
+references = ["www.nmea.org"]
+examples = [
+]

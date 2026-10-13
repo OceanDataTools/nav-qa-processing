@@ -1,0 +1,11 @@
+id = "nav26"
+title = "Generic CSV with configurable columns (Endeavor .elg)"
+system = "Shipboard event logger"
+file_type = "ASCII text, comma-separated"
+vessels = ["Endeavor"]
+description = "A general CSV reader with the time and position columns set by configuration. Written for Endeavor .elg event-log files from cruises whose navigation files were missing."
+notes = [
+  "NavManager documents this format only by name; no sample is available.",
+]
+examples = [
+]

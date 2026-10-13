@@ -1,0 +1,170 @@
+id = "nav10"
+title = "UW DAS: multiplexed underway records"
+system = "University of Washington data acquisition system"
+file_type = "ASCII text, comma-separated"
+vessels = ["Thomas G. Thompson"]
+position = "Decimal degrees from the navigation computer"
+time = "Navigation computer date and time, UTC"
+description = "One record every 5 s combining the navigation computer's time and position with gyro, speed log, thermosalinograph, meteorology and winch values."
+notes = [
+  "During 2011 the date changed from DD/MM/YYYY to DD-MM-YYYY.",
+]
+examples = [
+  "29-04-2011,00:00:00,+47.851067,-122.479765,167.1,167.2,41.2,13.0,8.483,8.337,3.0692,28.737,0.040,3.883,0187.7,07.2,,1016.2,0690.0,2359.8,07.5,191.6,20.0,010.9,07.8,191.0,1476.6,02,000.0,0000.0,00159.9",
+  "29-04-2011,00:00:05,+47.850715,-122.479648,167.0,167.0,05.3,13.0,8.483,8.322,3.0694,28.740,0.040,3.885,0187.1,07.2,,1016.2,0689.0,2359.8,06.7,196.2,19.0,011.8,07.7,191.2,1476.6,02,000.0,0000.0,00159.9",
+]
+
+[[fields]]
+name = "date"
+example = "29-04-2011"
+meaning = "UTC date (DD-MM-YYYY; DD/MM/YYYY before 2011)"
+
+[[fields]]
+name = "time"
+example = "01:09:55"
+meaning = "UTC time (hh:mm:ss)"
+
+[[fields]]
+name = "lat"
+example = "+47.666237"
+meaning = "Latitude [degrees_north]"
+
+[[fields]]
+name = "lon"
+example = "-122.399293"
+meaning = "Longitude [degrees_east]"
+
+[[fields]]
+name = "gyro"
+example = "107.5"
+meaning = "Gyro heading, true [degree]"
+
+[[fields]]
+name = "cog"
+example = "111.7"
+meaning = "Course over ground, true [degree]"
+
+[[fields]]
+name = "log_speed"
+example = "10.3"
+meaning = "Doppler speed log [knot]"
+
+[[fields]]
+name = "sog"
+example = "00.8"
+meaning = "Speed over ground [knot]"
+
+[[fields]]
+name = "tsg_temp"
+example = "9.439"
+meaning = "Thermosalinograph temperature [degC]"
+
+[[fields]]
+name = "tsg_ext_temp"
+example = "9.688"
+meaning = "Thermosalinograph external sea temperature [degC]"
+
+[[fields]]
+name = "tsg_cond"
+example = "1.6463"
+meaning = "Thermosalinograph conductivity [S m-1]"
+
+[[fields]]
+name = "tsg_sal"
+example = "14.148"
+meaning = "Thermosalinograph salinity [PSU]"
+
+[[fields]]
+name = "tsg_chl"
+example = "0.043"
+meaning = "Thermosalinograph chlorophyll [V]"
+
+[[fields]]
+name = "tsg_trans"
+example = "3.774"
+meaning = "Thermosalinograph light transmission [V]"
+
+[[fields]]
+name = "depth"
+example = "0012.4"
+meaning = "Water depth [m]"
+
+[[fields]]
+name = "air_temp"
+example = "08.3"
+meaning = "IMET air temperature [degC]"
+
+[[fields]]
+name = "humidity"
+example = ""
+meaning = "IMET relative humidity [percent]"
+
+[[fields]]
+name = "pressure"
+example = "1017.0"
+meaning = "IMET barometric pressure [mbar]"
+
+[[fields]]
+name = "par"
+example = "0309.0"
+meaning = "PAR [uE m-2 s-1]"
+
+[[fields]]
+name = "shortwave"
+example = "2359.8"
+meaning = "IMET shortwave radiation [W m-2]"
+
+[[fields]]
+name = "true_wind_speed"
+example = "07.1"
+meaning = "True wind speed [knot]"
+
+[[fields]]
+name = "true_wind_dir"
+example = "134.3"
+meaning = "True wind direction [degree]"
+
+[[fields]]
+name = "rel_wind_speed"
+example = "08.0"
+meaning = "Relative wind speed [knot]"
+
+[[fields]]
+name = "rel_wind_dir"
+example = "025.9"
+meaning = "Relative wind direction [degree]"
+
+[[fields]]
+name = "avg_true_wind_speed"
+example = "07.3"
+meaning = "Average true wind speed [knot]"
+
+[[fields]]
+name = "avg_true_wind_dir"
+example = "129.9"
+meaning = "Average true wind direction [degree]"
+
+[[fields]]
+name = "sound_velocity"
+example = "1462.5"
+meaning = "Sound velocity [m s-1]"
+
+[[fields]]
+name = "winch"
+example = "02"
+meaning = "Winch: 0 hydro 1, 1 trawl, 2 hydro 2"
+
+[[fields]]
+name = "wire_out"
+example = "000.0"
+meaning = "Wire out [m]"
+
+[[fields]]
+name = "wire_rate"
+example = "0000.7"
+meaning = "Wire rate [m min-1]"
+
+[[fields]]
+name = "wire_tension"
+example = "00063.7"
+meaning = "Wire tension [lbf]"

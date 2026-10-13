@@ -1,0 +1,11 @@
+id = "siomet"
+title = "SIO MET system CSV"
+system = "Scripps MET data acquisition system (MetAcq)"
+file_type = "ASCII text, comma-separated, with a header naming the columns"
+vessels = ["Roger Revelle", "Melville"]
+position = "Latitude and longitude columns found by header name"
+time = "Date and time columns"
+description = "MetAcq CSV files. The reader locates the latitude and longitude columns from the header. R2R publishes the full description as format 100039."
+references = ["https://service.rvdata.us/info/format/100039/MetAcq.pdf"]
+examples = [
+]

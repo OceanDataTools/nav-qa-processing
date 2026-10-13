@@ -1,0 +1,16 @@
+id = "nav30"
+title = "OpenRVDAS: RMC (read as nav32)"
+system = "OpenRVDAS"
+file_type = "ASCII text, one NMEA sentence per line (optionally behind a prefix)"
+vessels = ["Nathaniel B. Palmer", "Laurence M. Gould"]
+sentences = ["RMC"]
+position = "RMC"
+time = "RMC date and time"
+description = "OpenRVDAS logs from the USAP vessels, read like nav32: position, date and time from RMC sentences."
+notes = [
+  "NavManager documents this format only by name; no sample is available.",
+  "RMC has no fix quality, satellite count, HDOP or altitude.",
+]
+references = ["www.nmea.org"]
+examples = [
+]

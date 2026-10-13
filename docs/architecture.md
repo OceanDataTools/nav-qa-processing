@@ -295,6 +295,20 @@ unpublished catalog pipeline.
 
 ---
 
+### Upstream branches
+
+https://github.com/rvdata/NavManager has branches besides `master` (checked 2026-10-13; `master`
+is the porting baseline, and none of these is merged into it):
+
+| Branch | Last commit | What it changes |
+|---|---|---|
+| `geocsv` | 2019-08-19 | Formatting only: an `R2R_DELIMITER` of `,` replaces tabs, `HEADER` becomes `#` (the same as `QCFLAG`), NavControl takes the delimiter and lon/lat columns as arguments. No QC, sampling or SOG/COG change, and no GeoCSV keyword header. `GPS_END_DATE` is still 2024-12-31 there |
+| `qac2` | 2019-04-09 | `navqa.php` writes the QA 2.0 XML through `xmltools2` |
+| `docs` | 2020-08-06 | Notes for nav24 (Sikuliaq: logger tag, ISO timestamp, NMEA), nav25 (Healy: Seapath + timestamp + ZDA/GGA/VTG), nav26 (generic CSV, Endeavor `.elg`), nav27 (Sproul ZDA + GLL without GGA), nav29 ("some STARC format", 2018 Sproul and Healy) |
+| `blue_heron_mod`, `uhdas_parser` | 2019–2020 | navdatalist/navcopy edits for Blue Heron cut-off data and UHDAS |
+| `pyrtm_parser` | 2020-08-07 | Already in `master` (nav31, Blue Heron UHDAS) |
+| `rcrv_nrt` | 2021-10-03 | A near-real-time experiment: QA on the last 10 minutes of data |
+
 ## Part 2: Proposed Python architecture
 
 ### Goals
@@ -333,10 +347,13 @@ src/nav_qa_processing/
   config.py         CruiseConfig, Extent, Port, Thresholds (MAX_SPEED, MAX_ACCEL, MAX_GAP, rating bounds)
   fileset.py        discover files in a bag or directory; transparent gz/bz2/zip; manifest-md5
   formats/
-    __init__.py     registry: FormatSpec lookup by ID, detect(path) -> ranked candidates
-    nmea.py         sentence parsing (GGA, GLL, RMC, ZDA, VTG, HDT, GST, GSA), checksum, date carry-forward
-    framing.py      line framings: bare NMEA, ISO/SCS/UNIX-time prefixes, delimited records
-    specs.py        one FormatSpec per R2R format ID (nav1 … nav33, uhdas, siomet, metoc_nav)
+    __init__.py     registry: FormatSpec (definition + reader) by ID, detect(path) -> ranked candidates
+    definitions/    one TOML definition per format ID, plus sentences.toml (done for all 35 IDs)
+    catalog.py      loads and prints the definitions
+    nmea.py         sentence parsing (GGA, ZDA so far; GLL, RMC, VTG, HDT, GST, GSA to come), checksum
+    gga_zda.py      GGA fixes dated by ZDA (nav29 and the other GGA + ZDA formats)
+    framing.py      line framings that carry the time (SCS/UNIX-time prefixes), when a format needs one
+                    (the FormatSpec registry, one per R2R format ID, lives in formats/__init__.py)
     custom/         the few formats that need code rather than a spec
   rawnav.py         read_fileset -> RawNav (DataFrame + per-file errors + per-column precision)
   r2rnav.py         read/write legacy .r2rnav files, precision-preserving value formatting
@@ -543,25 +560,37 @@ Comparisons with R2R parse the numbers and map the units.
 
 | Phase | Scope | Exit criterion |
 |---|---|---|
-| 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures |
+| 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
 | 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613 bestres/1min/control match R2R's `.geoCSV` by value (`tests/fixtures`, plus the full bestres in `data/`) |
 | 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | certificate matches R2R by value on released filesets |
 | 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
 | 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |
-| 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture |
+| 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture. **Definitions done** for all 35 IDs (`formats/definitions/`); readers and fixtures remain |
 
 ### Open questions
 
 - **Which other R2R nav filesets should be parity references?** SP2613 (nav29, G) is the first.
   We still need one per format family, and at least one rated Y or R with flagged records.
-- **How does R2R write a flagged bestres record in GeoCSV?** A cruise with flagged fixes will
-  answer this.
+- **How does R2R write a flagged bestres record in GeoCSV?** NavManager's `geocsv` branch
+  writes it as `#` + the comma-separated record, the same prefix as its header lines, so GeoCSV
+  readers skip it as a comment. That supports the plan. A published cruise with flagged fixes
+  would confirm it.
 - **Where is the "XML DP report"** that the processing description mentions, and should we produce
   it?
 - **Should the port reproduce the flagging differences caused by buffer boundaries,** or report
   them as a documented deviation? Parity tests will show whether any rating depends on them.
 
 Resolved:
+- **Format definitions** are written for this project, not copied: NavManager has no LICENSE
+  file and its format docs carry no license notice. They correct errors in the originals: the
+  nav23 doc labeled nav14, UNIXD/PYRTM "decimal year" (it is a day of year), wrong checksums in
+  the generic GLL and ZDA examples, a shell prompt inside the nav10 sample, and nav29 described
+  only in its Unix-time layout. NavManager has no nav28.
+- **NavManager's checksum test** compares unpadded lowercase hex, so it rejects every correct
+  checksum below `0x10`. In SP2613 that discards 39 % of VTG and 29 % of RMC sentences but no
+  GGA or ZDA. `nmea.parse_sentence(navmanager_checksum=True)` reproduces it by default.
+- **SP2613's time window** is the cruise day (depart and arrive 2026-07-09). Files are selected
+  by their first to last ZDA, so the 2026-07-07 file is left out, as in R2R's bestres.
 - **Wrapper layout:** the nav QA 2.0 wrapper has the same layout as the CTD reports. The
   SP2613 report is the template.
 - **NavControl:** produced by `navsimplifier.py` with a 0.01° tolerance (see Part 1).

@@ -1,0 +1,12 @@
+id = "metoc_nav"
+title = "USAP navigation CSV (OpenRVDAS)"
+system = "USAP navigation logged by OpenRVDAS"
+file_type = "ASCII text, comma-separated, with a header line of parameter names"
+position = "Degrees and decimal minutes columns"
+time = "Quoted \"YYYY-MM-DD hh:mm:ss\" first column"
+description = "CSV records whose first column is a quoted date and time; the latitude and longitude columns are found from the header."
+notes = [
+  "No GGA quality, satellite count, HDOP or altitude: those are written NAN.",
+]
+examples = [
+]

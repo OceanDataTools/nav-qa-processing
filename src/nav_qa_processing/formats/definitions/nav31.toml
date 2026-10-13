@@ -1,0 +1,12 @@
+id = "nav31"
+title = "UHDAS GPS feed: GGA dated by PYRTM"
+system = "University of Hawaii Data Acquisition System (UHDAS)"
+file_type = "ASCII text, one sentence per line"
+vessels = ["Blue Heron"]
+sentences = ["PYRTM", "GGA"]
+position = "GGA"
+time = "GGA time of day, dated by the PYRTM year and day of year"
+description = "When GPS isn't logged on its own, the GPS feed recorded by UHDAS is the only source. Each GGA is paired with a PYRTM sentence from the UHDAS computer's clock, which carries the year."
+references = ["www.nmea.org"]
+examples = [
+]

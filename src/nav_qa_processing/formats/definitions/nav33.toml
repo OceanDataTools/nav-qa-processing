@@ -1,0 +1,23 @@
+id = "nav33"
+title = "ISO timestamp, then GGA (Falkor (too))"
+system = "Schmidt Ocean Institute logger"
+file_type = "ASCII text: ISO 8601 timestamp, comma, NMEA sentence"
+vessels = ["Falkor (too)"]
+sentences = ["GGA"]
+position = "GGA"
+time = "GGA time of day, dated by the logger's ISO timestamp"
+description = "Each line is an ISO 8601 UTC timestamp with microseconds, a comma and a GGA sentence. The date comes from the timestamp."
+references = ["www.nmea.org"]
+examples = [
+  "2023-04-04T00:00:00.916471Z,$GPGGA,000000.839,2030.86487,N,04538.19146,W,5,32,0.6,0.54,M,,,4,1015*19",
+]
+
+[[fields]]
+name = "timestamp"
+example = "2023-03-03T00:00:09.769028Z"
+meaning = "Logger time, ISO 8601 UTC"
+
+[[fields]]
+name = "sentence"
+example = "$GPGGA,…"
+meaning = "NMEA GGA sentence"

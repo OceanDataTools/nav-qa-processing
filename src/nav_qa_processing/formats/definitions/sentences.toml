@@ -1,0 +1,271 @@
+[GGA]
+title = "Global positioning system fix data"
+description = "Time of fix, position, fix quality, satellites, HDOP and altitude. The only common sentence that reports altitude."
+notes = [
+  "Fix quality: 0 invalid; 1 GPS (SPS); 2 differential; 3 PPS; 4 RTK fixed; 5 RTK float; 6 dead reckoning; 7 manual input; 8 simulator.",
+  "Without a geoid height the altitude is suspect: some receivers report it above the ellipsoid, and some never report negative altitudes.",
+]
+examples = ["$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47"]
+[[GGA.fields]]
+name = "time"
+example = "123519"
+meaning = "UTC time of fix (hhmmss[.s…])"
+[[GGA.fields]]
+name = "lat"
+example = "4807.038,N"
+meaning = "Latitude, ddmm.m… and N/S"
+[[GGA.fields]]
+name = "lon"
+example = "01131.000,E"
+meaning = "Longitude, dddmm.m… and E/W"
+[[GGA.fields]]
+name = "quality"
+example = "1"
+meaning = "Fix quality (see notes)"
+[[GGA.fields]]
+name = "nsat"
+example = "08"
+meaning = "Satellites in use"
+[[GGA.fields]]
+name = "hdop"
+example = "0.9"
+meaning = "Horizontal dilution of precision"
+[[GGA.fields]]
+name = "alt"
+example = "545.4,M"
+meaning = "Antenna altitude above mean sea level [m]"
+[[GGA.fields]]
+name = "geoid"
+example = "46.9,M"
+meaning = "Geoid height above the WGS-84 ellipsoid [m]"
+[[GGA.fields]]
+name = "dgps_age"
+example = ""
+meaning = "Seconds since the last differential update"
+[[GGA.fields]]
+name = "dgps_station"
+example = ""
+meaning = "Differential reference station ID"
+
+[GLL]
+title = "Geographic position: latitude, longitude and time"
+examples = ["$GPGLL,2118.98295,N,15753.17431,W,140844.00,A*1B"]
+[[GLL.fields]]
+name = "lat"
+example = "2118.98295,N"
+meaning = "Latitude, ddmm.m… and N/S"
+[[GLL.fields]]
+name = "lon"
+example = "15753.17431,W"
+meaning = "Longitude, dddmm.m… and E/W"
+[[GLL.fields]]
+name = "time"
+example = "140844.00"
+meaning = "UTC time of fix"
+[[GLL.fields]]
+name = "status"
+example = "A"
+meaning = "A valid, V invalid"
+
+[RMC]
+title = "Recommended minimum specific GNSS data"
+examples = ["$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A"]
+[[RMC.fields]]
+name = "time"
+example = "123519"
+meaning = "UTC time of fix"
+[[RMC.fields]]
+name = "status"
+example = "A"
+meaning = "A valid, V invalid"
+[[RMC.fields]]
+name = "lat"
+example = "4807.038,N"
+meaning = "Latitude, ddmm.m… and N/S"
+[[RMC.fields]]
+name = "lon"
+example = "01131.000,E"
+meaning = "Longitude, dddmm.m… and E/W"
+[[RMC.fields]]
+name = "sog"
+example = "022.4"
+meaning = "Speed over ground [knot]"
+[[RMC.fields]]
+name = "cog"
+example = "084.4"
+meaning = "Course over ground, true [degree]"
+[[RMC.fields]]
+name = "date"
+example = "230394"
+meaning = "UTC date (ddmmyy)"
+[[RMC.fields]]
+name = "variation"
+example = "003.1,W"
+meaning = "Magnetic variation [degree] and E/W"
+
+[VTG]
+title = "Course and speed over ground"
+description = "The talker may be LC instead of GP when a receiver emulates Loran output."
+examples = ["$GPVTG,054.7,T,034.4,M,005.5,N,010.2,K*48"]
+[[VTG.fields]]
+name = "cog_true"
+example = "054.7,T"
+meaning = "Course over ground, true [degree]"
+[[VTG.fields]]
+name = "cog_magnetic"
+example = "034.4,M"
+meaning = "Course over ground, magnetic [degree]"
+[[VTG.fields]]
+name = "sog_knots"
+example = "005.5,N"
+meaning = "Speed over ground [knot]"
+[[VTG.fields]]
+name = "sog_kmh"
+example = "010.2,K"
+meaning = "Speed over ground [km h-1]"
+
+[ZDA]
+title = "UTC date and time"
+examples = ["$GPZDA,201530.18,04,07,2002,01,00*68"]
+[[ZDA.fields]]
+name = "time"
+example = "201530.18"
+meaning = "UTC time (hhmmss[.s…])"
+[[ZDA.fields]]
+name = "day"
+example = "04"
+meaning = "Day of month"
+[[ZDA.fields]]
+name = "month"
+example = "07"
+meaning = "Month"
+[[ZDA.fields]]
+name = "year"
+example = "2002"
+meaning = "Year (4 digits)"
+[[ZDA.fields]]
+name = "tz_hours"
+example = "01"
+meaning = "Local zone hours, -13 to 13 (often empty)"
+[[ZDA.fields]]
+name = "tz_minutes"
+example = "00"
+meaning = "Local zone minutes (often empty)"
+
+[GSA]
+title = "GNSS DOP and active satellites"
+examples = ["$GPGSA,A,3,,5,29,27,12,,30,9,2,21,,,3.6,1.2,3.3*07"]
+[[GSA.fields]]
+name = "mode"
+example = "A"
+meaning = "M manual, A automatic 2D/3D"
+[[GSA.fields]]
+name = "fix"
+example = "3"
+meaning = "1 no fix, 2 2D, 3 3D"
+[[GSA.fields]]
+name = "prns"
+example = "…"
+meaning = "PRNs of up to 12 satellites used"
+[[GSA.fields]]
+name = "pdop"
+example = "3.6"
+meaning = "Position dilution of precision"
+[[GSA.fields]]
+name = "hdop"
+example = "1.2"
+meaning = "Horizontal dilution of precision"
+[[GSA.fields]]
+name = "vdop"
+example = "3.3"
+meaning = "Vertical dilution of precision"
+
+[GST]
+title = "GNSS pseudorange error statistics"
+examples = ["$GPGST,020353.69,0.45,0.260,0.208,5,0.259,0.208,0.585*77"]
+[[GST.fields]]
+name = "time"
+example = "020353.69"
+meaning = "UTC time"
+[[GST.fields]]
+name = "rms"
+example = "0.45"
+meaning = "RMS of the pseudorange residuals"
+[[GST.fields]]
+name = "major"
+example = "0.260"
+meaning = "Error ellipse semi-major axis, 1 sigma [m]"
+[[GST.fields]]
+name = "minor"
+example = "0.208"
+meaning = "Error ellipse semi-minor axis, 1 sigma [m]"
+[[GST.fields]]
+name = "orientation"
+example = "5"
+meaning = "Semi-major axis orientation [degree from true north]"
+[[GST.fields]]
+name = "lat_error"
+example = "0.259"
+meaning = "Latitude error, 1 sigma [m]"
+[[GST.fields]]
+name = "lon_error"
+example = "0.208"
+meaning = "Longitude error, 1 sigma [m]"
+[[GST.fields]]
+name = "alt_error"
+example = "0.585"
+meaning = "Altitude error, 1 sigma [m]"
+
+[GSV]
+title = "GNSS satellites in view"
+examples = ["$GPGSV,3,1,12,48,37,192,43,23,59,104,50,07,47,260,50,04,07,262,43*77"]
+
+[HDT]
+title = "True heading"
+examples = ["$GPHDT,350.98,T*02"]
+[[HDT.fields]]
+name = "heading"
+example = "350.98,T"
+meaning = "Heading, true [degree]"
+
+[PSXN]
+title = "Kongsberg Seapath proprietary: quality and attitude"
+notes = [
+  "PSXN,20 gives three quality codes (horizontal position and velocity; height and vertical velocity; roll and pitch): 0 normal, 1 reduced, 2 invalid.",
+  "PSXN,23 gives roll (port up positive), pitch (bow up positive), true heading [degree] and heave (down positive) [m].",
+]
+examples = ["$PSXN,20,0,0,0,0*3B", "$PSXN,23,0.05,0.05,89.40,0.00*0D"]
+
+[PASHR]
+title = "Ashtech proprietary attitude (ATT)"
+examples = ["$PASHR,ATT,000016.0,082.92,-001.50,-000.47,0.0014,0.0165,0*2F"]
+
+[UNIXD]
+title = "UHDAS computer clock"
+description = "Written by the UHDAS computer, not the GPS receiver."
+examples = ["$UNIXD,194.2811015,9.6872383"]
+[[UNIXD.fields]]
+name = "day"
+example = "194.2811015"
+meaning = "Decimal day of year, 0 at January 1 00:00 UTC"
+[[UNIXD.fields]]
+name = "uptime"
+example = "9.6872383"
+meaning = "Decimal days since the computer booted"
+
+[PYRTM]
+title = "UHDAS computer clock with year"
+description = "Written by the UHDAS computer, not the GPS receiver."
+examples = ["$PYRTM,2019,121.6666774,5.8859180"]
+[[PYRTM.fields]]
+name = "year"
+example = "2019"
+meaning = "Year"
+[[PYRTM.fields]]
+name = "day"
+example = "121.6666774"
+meaning = "Decimal day of year, 0 at January 1 00:00 UTC"
+[[PYRTM.fields]]
+name = "uptime"
+example = "5.8859180"
+meaning = "Decimal days since the computer booted"

@@ -1,0 +1,95 @@
+id = "nav11"
+title = "UMiami DAS: POS/MV GGA fields in columns"
+system = "University of Miami data acquisition system (Applanix POS/MV-320)"
+file_type = "ASCII text, tab-separated, with two header lines"
+vessels = ["F. G. Walton Smith"]
+position = "Degrees, decimal minutes and hemisphere columns"
+time = "GPS time of day, dated by the logger date"
+description = "The fields of each GGA sentence written as tab-separated columns, after the logger's date and time. The first line holds device metadata and the second the column names."
+notes = [
+  "The logger time has an extra colon before its fraction (12:00:03:.245).",
+]
+examples = [
+  "01/26/2009\t12:00:00:.245\t115843.682\t25\t37.794330\tN\t80\t7.186390\tW\t-2.860000\t0.000000\t1.000000\t10\t1\t$INGGA\t19",
+  "01/26/2009\t12:00:01:.245\t115844.682\t25\t37.796370\tN\t80\t7.186680\tW\t-2.990000\t0.000000\t1.000000\t10\t1\t$INGGA\t12",
+]
+
+[[fields]]
+name = "date"
+example = "01/26/2009"
+meaning = "Logger date, UTC (MM/DD/YYYY)"
+
+[[fields]]
+name = "time"
+example = "12:00:03:.245"
+meaning = "Logger time, UTC"
+
+[[fields]]
+name = "gps_time"
+example = "115843.682"
+meaning = "Receiver time of fix (hhmmss.sss)"
+
+[[fields]]
+name = "lat_deg"
+example = "25"
+meaning = "Latitude, integer degrees"
+
+[[fields]]
+name = "lat_min"
+example = "37.794330"
+meaning = "Latitude, decimal minutes"
+
+[[fields]]
+name = "lat_hemisphere"
+example = "N"
+meaning = "N or S"
+
+[[fields]]
+name = "lon_deg"
+example = "80"
+meaning = "Longitude, integer degrees"
+
+[[fields]]
+name = "lon_min"
+example = "7.186390"
+meaning = "Longitude, decimal minutes"
+
+[[fields]]
+name = "lon_hemisphere"
+example = "W"
+meaning = "E or W"
+
+[[fields]]
+name = "alt"
+example = "-2.860000"
+meaning = "Antenna altitude [m]"
+
+[[fields]]
+name = "geoid"
+example = "0.000000"
+meaning = "Geoid height [m]"
+
+[[fields]]
+name = "hdop"
+example = "1.000000"
+meaning = "Horizontal dilution of precision"
+
+[[fields]]
+name = "nsat"
+example = "10"
+meaning = "Satellites in use"
+
+[[fields]]
+name = "quality"
+example = "1"
+meaning = "NMEA GGA fix quality (see the GGA sentence)"
+
+[[fields]]
+name = "sentence"
+example = "$INGGA"
+meaning = "Source sentence"
+
+[[fields]]
+name = "checksum"
+example = "19"
+meaning = "Source sentence checksum"
