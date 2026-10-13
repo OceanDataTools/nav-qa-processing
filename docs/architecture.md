@@ -316,19 +316,20 @@ is the porting baseline, and none of these is merged into it):
 
 ### Goals
 
-1. **Parity first.** For R2R-released nav filesets:
-   - the QA 2.0 certificate should match R2R's **by value**: the same test, info and range
-     names, the same ratings, and numerically equal results and bounds;
-   - the three products should match R2R's published `.geoCSV` files **by value**: the same
-     records, timestamps, flags, and lon/lat/SOG/COG equal at the published precision.
+1. **Format parity with R2R's published products** (decided 2026-10-13). The three `.geoCSV`
+   products and the QA 2.0 report have R2R's **structure**: file names, GeoCSV keyword lines and
+   their order, columns and their `field_standard_name`s and datatypes, delimiter, missing value,
+   the form of flagged records, and the report's XML elements and test, bound, info and range
+   names.
 
-   Datatypes, number formats, unit names and descriptions are standardized across the entire
-   project (see "Standardized quantities" below). So neither the XML nor the GeoCSV is expected to
-   match R2R byte for byte.
-
-   NavManager's `.r2rnav` output is an intermediate parity target, used to localize differences.
-
-   Wherever we deliberately depart from NavManager, the deviation sits behind a documented switch.
+   - **Text is standardized,** not copied: datatypes, number formats, unit names and
+     descriptions follow "Standardized quantities" below, so files never match R2R byte for
+     byte.
+   - **Values are computed the sound way,** not by reproducing NavManager's arithmetic. Parity
+     tests compare records, flags, values and ratings with R2R's on released filesets, and
+     document each difference and its cause with tolerances measured on real data. A rating may
+     differ from R2R's where NavManager's arithmetic is wrong or fragile; the test and this
+     document say why.
 2. **One description per format.** Adding a vessel's format means adding one declarative
    definition plus a test fixture. No more parallel `switch` statements.
 3. **Ship and shore.** The same package runs post-cruise from the CLI and at sea as an OpenVDM
@@ -427,9 +428,9 @@ and `line` for traceability. Missing values are real NaN/`<NA>`. Two things are 
 **QC flags are a bitmask.** `qc.py` gives each record flag bits, e.g. `DATE_RANGE`, `NULL_ISLAND`,
 `BAD_FIX`, `ALTITUDE`, `OUT_OF_SEQUENCE`, `STALE_DUPLICATE`, `SPEED`, `ACCEL`. A record with any
 bit set is written with `#` in BestRes. The plots, PDF and notebook can then say *why* each fix
-was flagged. The rules work on the whole series at once with numpy, not in 3,600-record buffers.
-A `navmanager_buffering=True` compatibility mode reproduces the buffer-boundary behavior if parity
-tests show it changes ratings. The default follows the parity evidence.
+was flagged. The rules work on the whole series at once with numpy, not in 3,600-record buffers,
+so no fix's flags depend on where a buffer boundary falls. Where that makes our flags differ from
+R2R's, the parity tests document it; the buffering isn't reproduced.
 
 **Geodesy via pyproj.** `pyproj.Geod(ellps="WGS84").inv` (Karney's algorithm) replaces
 NavManager's hand-written Vincenty. On SP2613 and SP2424 the two differ by at most 5.4 µm per step,
@@ -441,32 +442,32 @@ sits on a rounding boundary: 8 of SP2613's 56,924 speeds and 12 of SP2424's 150,
 We could reproduce R2R's last digits by porting NavManager's Vincenty, which has a rounded
 semi-minor axis and takes the azimuth from λ one iteration early. That port was built, matched
 every R2R speed, and was dropped (2026-10-13) in favor of the maintained library. Speed and course
-parity is therefore within a documented tolerance, not exact (see `tests/test_geodesy.py`). pyproj
-is also slightly slower (36 ms against 21 ms for SP2424's 150,923 segments), which doesn't matter
-next to the 3 s it takes to read the raw files.
+therefore match R2R within a documented tolerance (see `tests/test_geodesy.py`): a speed may round
+0.01 m s-1 the other way at a rounding half; a course is within 0.001° + 0.005°·m / step, because
+course is as sensitive to position as 1/step. pyproj is also slightly slower (36 ms against 21 ms
+for SP2424's 150,923 segments), which doesn't matter next to the 3 s it takes to read the raw
+files.
 
-**Speed and course in the products follow navsogcog's rules, but not its bug.** Each good fix takes the
-segment to the next good fix; the last good fix repeats the previous one; and coordinates are
-used as written in r2rnav (rounded to the receiver's precision). navsogcog also reads 86,400
-records at a time, and in every full buffer it divides the *previous* segment's distance by the
-current elapsed time. R2R's products carry this: all 86,399 first-buffer speeds of SP2424
-(150,924 records) match the bug, and the rest match the correct formula. The bug lags speed one
-fix behind the ship (and, where the time step changes, divides one step's distance by another's
-time), so our products use correct speeds by default (decided 2026-10-13). The parity tests
-reproduce it with `navmanager_buffer=NAVSOGCOG_BUFFER` to compare with R2R. Not yet reported
-upstream.
+**Speed and course follow navsogcog's definition, not its quirks.** Each good fix takes the
+segment to the next good fix, and the last good fix repeats the previous one. Coordinates are used
+at full precision; NavManager reads them back rounded to the receiver's precision. navsogcog also
+reads 86,400 records at a time, and in every full buffer it divides the *previous* segment's
+distance by the current elapsed time. R2R's products carry this: all 86,399 first-buffer speeds of
+SP2424 (150,924 records) match the bug, and the rest match the correct formula. The bug lags
+speed one fix behind the ship (and, where the time step changes, divides one step's distance by
+another's time). Our speeds are correct; the SP2424 parity test checks R2R's first buffer is ours
+one fix late, and compares the rest. Not yet reported upstream.
 
-**QA statistics stay on the pre-QC data**, as `navqa.php` does, so that the certificate matches
-R2R's. The statistics and the QC rules share `geodesy.py` and the same speed/acceleration
-definitions, which removes NavManager's two divergent implementations. The PHP quirks that
-affect the published values are reproduced and documented in the `r2r.py` and `stats.py`
-docstrings, as sbe-qa-processing does for its inferred CTD rules:
-- the modal interval with ties,
-- rounding to 2 decimals before rating, which decides ratings at the boundaries,
-- completeness above 100 %.
+**QA statistics stay on the pre-QC data**, as `navqa.php` does: that's the definition of the
+tests, not a quirk. The statistics and the QC rules share `geodesy.py` and the same
+speed/acceleration definitions, which removes NavManager's two divergent implementations. Where
+NavManager's arithmetic is fragile, `stats.py` and `r2r.py` choose a sound rule and document the
+difference from R2R:
+- the modal interval when there are ties;
+- rounding to 2 decimals before rating, which decides ratings at the boundaries;
+- completeness above 100 % when the sampling interval changes.
 
-These rules govern the computed values and ratings. How the values are *written* follows the
-standard formats below.
+How the values are *written* follows the standard formats below.
 
 **Thresholds live in config.** `config.Thresholds` holds:
 - the QC limits: `max_speed`, `max_accel`, `max_gap`, the GGA validity limits and the altitude
@@ -585,8 +586,8 @@ Comparisons with R2R parse the numbers and map the units.
 | Phase | Scope | Exit criterion |
 |---|---|---|
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
-| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613 bestres/1min/control match R2R's `.geoCSV` by value (`tests/fixtures`, plus the full bestres in `data/`). **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance |
-| 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | certificate matches R2R by value on released filesets |
+| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance |
+| 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | the QA 2.0 report has R2R's structure; results and ratings compared with R2R's on released filesets, differences documented |
 | 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
 | 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |
 | 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture. **Definitions done** for all 35 IDs (`formats/definitions/`); readers and fixtures remain |
@@ -601,8 +602,6 @@ Comparisons with R2R parse the numbers and map the units.
   would confirm it.
 - **Where is the "XML DP report"** that the processing description mentions, and should we produce
   it?
-- **Should the port reproduce the flagging differences caused by buffer boundaries,** or report
-  them as a documented deviation? Parity tests will show whether any rating depends on them.
 
 Resolved:
 - **Format definitions** are written for this project, not copied: NavManager has no LICENSE
@@ -615,6 +614,9 @@ Resolved:
   GGA or ZDA. `nmea.parse_sentence(navmanager_checksum=True)` reproduces it by default.
 - **SP2613's time window** is the cruise day (depart and arrive 2026-07-09). Files are selected
   by their first to last ZDA, so the 2026-07-07 file is left out, as in R2R's bestres.
+- **Reproduce NavManager's numeric quirks?** No (2026-10-13): parity is about the products'
+  format. Flags, speeds and ratings are computed soundly and compared with R2R's in tests, with
+  the differences documented. This settles the buffer-boundary question.
 - **Wrapper layout:** the nav QA 2.0 wrapper has the same layout as the CTD reports. The
   SP2613 report is the template.
 - **NavControl:** produced by `navsimplifier.py` with a 0.01° tolerance (see Part 1).

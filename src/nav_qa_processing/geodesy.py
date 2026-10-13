@@ -16,12 +16,14 @@ Definitions, matching NavManager (`navtools`, `navqc`, `navqa`, `navsogcog`):
 - Per-record SOG and COG (`sog_cog`, NavManager's navsogcog) use only good fixes: each good fix
   takes the segment to the next good fix, and the last good fix repeats the one before it.
   Flagged fixes get NaN.
-- NavManager computes from the coordinates as written in r2rnav, i.e. rounded to the receiver's
-  precision. `as_written` reproduces that rounding; callers that need R2R's values apply it to
-  lon and lat first.
 
-navsogcog's buffer bug, which R2R's published products carry, is not reproduced by default; see
-`sog_cog`.
+Deliberately not reproduced (the project matches R2R's product formats, not NavManager's
+arithmetic):
+- NavManager computes from coordinates as written in r2rnav, rounded to the receiver's precision;
+  this module uses them at full precision.
+- navsogcog reads 86,400 records at a time, and in every full buffer it divides the *previous*
+  segment's distance by the current elapsed time. R2R's products carry this: SP2424's first
+  86,399 speeds lag the ship by one fix.
 """
 
 from dataclasses import dataclass
@@ -30,7 +32,6 @@ import numpy as np
 from pyproj import Geod
 
 _WGS84 = Geod(ellps="WGS84")
-NAVSOGCOG_BUFFER = 86_400  # [records] navsogcog's buffer size
 
 
 def epoch_seconds(times) -> np.ndarray:
@@ -93,22 +94,11 @@ def accelerations(segment_times, speeds) -> tuple[np.ndarray, np.ndarray]:
     return acceleration, 0.5 * (t[:-1] + t[1:])
 
 
-def sog_cog(
-    times, lon, lat, good=None, navmanager_buffer: int | None = None
-) -> tuple[np.ndarray, np.ndarray]:
-    """Per-record speed [m s-1] and course [degree] over ground, as NavManager's navsogcog.
-
-    Each good fix gets the segment to the next good fix; the last good fix repeats the previous
-    one's values; flagged fixes (`good` False) and a lone good fix get NaN. `good` defaults to
-    every fix.
-
-    Speeds are correct by default. NavManager's navsogcog isn't: it reads 86,400 records at a
-    time, and each time a buffer fills it computes every speed in it from the *previous*
-    segment's distance and the current elapsed time (0 for the very first segment, and for no
-    elapsed time), then carries the buffer's last good fix into the next one; only what remains
-    at the end of the file is right. R2R's products carry this (SP2424: all 86,399 speeds of the
-    first buffer). `navmanager_buffer=NAVSOGCOG_BUFFER` reproduces it, for comparing with R2R.
-    Courses aren't affected.
+def sog_cog(times, lon, lat, good=None) -> tuple[np.ndarray, np.ndarray]:
+    """Per-record speed [m s-1] and course [degree] over ground, as NavManager's navsogcog
+    defines them: each good fix gets the segment to the next good fix; the last good fix repeats
+    the previous one's values; flagged fixes (`good` False) and a lone good fix get NaN. `good`
+    defaults to every fix.
     """
     t = epoch_seconds(times)
     lon, lat = np.asarray(lon, dtype=float), np.asarray(lat, dtype=float)
@@ -120,39 +110,8 @@ def sog_cog(
     if len(index) < 2:
         return sog, cog
     seg = segments(t[index], lon[index], lat[index])
-    speed = seg.speed
-    if navmanager_buffer:
-        stale = _full_buffer_segments(index, n, navmanager_buffer)
-        previous_distance = np.concatenate(([0.0], seg.distance[:-1]))
-        with np.errstate(divide="ignore", invalid="ignore"):
-            buffered = np.where(seg.elapsed != 0, previous_distance / seg.elapsed, 0.0)
-        speed = np.where(stale, buffered, speed)
-    sog[index[:-1]] = speed
+    sog[index[:-1]] = seg.speed
     cog[index[:-1]] = seg.course
-    sog[index[-1]] = speed[-1]
+    sog[index[-1]] = seg.speed[-1]
     cog[index[-1]] = seg.course[-1]
     return sog, cog
-
-
-def _full_buffer_segments(good_index: np.ndarray, n: int, size: int) -> np.ndarray:
-    """Which segments (between successive good records) navsogcog computes in a full-buffer
-    pass. `good_index` holds the record numbers of the good fixes; there are `n` records.
-    """
-    stale = np.zeros(len(good_index) - 1, dtype=bool)
-    start = 0
-    while start + size <= n:
-        lo, hi = np.searchsorted(good_index, [start, start + size])
-        if hi - lo >= 2:
-            stale[lo : hi - 1] = True  # segments joining good fixes inside the buffer
-        last_good = good_index[hi - 1] if hi > lo else start
-        # the last good fix starts the next buffer; NavManager would loop forever without one
-        start = last_good if last_good > start else start + size
-    return stale
-
-
-def as_written(values, decimals: int) -> np.ndarray:
-    """`values` rounded the way text with `decimals` places rounds them, then read back as
-    floats: what NavManager computes from after writing r2rnav
-    """
-    values = np.asarray(values, dtype=float)
-    return np.array([float(f"{v:.{decimals}f}") for v in values]) if len(values) else values

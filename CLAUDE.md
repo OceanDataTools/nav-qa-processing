@@ -27,10 +27,8 @@ plan in `docs/architecture.md`):
 - `rawnav.py`: `read_fileset(paths, format_id, start, end)` -> `RawNav` (DataFrame, receiver
   decimals, files read/skipped, errors). It selects files by their ZDA span, as navdatalist does.
 - `r2rnav.py`: read/write legacy r2rnav.
-- `geodesy.py`: distance and azimuth with pyproj (not NavManager's Vincenty: dropped by decision),
-  segment speed/course, acceleration, and `sog_cog` (navsogcog's rules; its 86,400-record
-  buffer bug, which R2R's products carry, only with `navmanager_buffer=NAVSOGCOG_BUFFER`: correct
-  speeds are the default).
+- `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
+  `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
 - `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
   into `data/<CRUISE>_<FILESET>_gnss/`.
 - `cli.py`: only the `formats` subcommand so far.
@@ -125,12 +123,19 @@ GeoCSV, QA XML, PDF and notebook. Never copy R2R's inconsistencies, such as swap
 writer formats values and labels units only through that table. Don't put format strings or
 unit names in writers. The proposed table and rules are in "Standardized quantities" in
 `docs/architecture.md`. Identifiers stay as R2R spells them, because R2R's tools key on them:
-test, bound, info and range names, GeoCSV `field_standard_name`s and XML element names. Parity
-with R2R is therefore **by value**: the same names, ratings, records, times and flags, with
-numbers equal after parsing. It is never byte for byte. One exception: speed and course
-come from pyproj, not NavManager's Vincenty, so they match R2R within a documented tolerance (a
-speed may round 0.01 m s-1 the other way at a rounding half; course within 0.001° + 0.003°·m /
-step) rather than exactly. See `geodesy.py` and `tests/test_geodesy.py`.
+test, bound, info and range names, GeoCSV `field_standard_name`s and XML element names.
+
+**What "parity with R2R" means (decided 2026-10-13).** The target is the **format** of R2R's
+published products (the three `.geoCSV` files and the QA 2.0 report), not NavManager's
+arithmetic:
+- **Structure must match exactly:** file names; GeoCSV keyword lines and their order; columns,
+  their order, `field_standard_name`s and datatypes; delimiter; missing value; how flagged records
+  are written; the QA report's XML elements, test/bound/info/range names and their order.
+- **Text follows our standard,** not R2R's: units, long names and number formats come from
+  `quantities.py` (see above).
+- **Values are computed the sound way.** Tests compare them with R2R's and document every
+  difference and its cause, with tolerances measured on real filesets. Ratings may differ where
+  NavManager's arithmetic is wrong or fragile; say so in the test and in `docs/architecture.md`.
 
 R2R's control points are what NavManager's `navsimplifier.py` (recursive Douglas–Peucker)
 selects with a **0.01°** tolerance, not the committed 0.1°. NavManager has no GeoCSV writer: its
@@ -144,18 +149,17 @@ nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G).
 
 ## Porting rules
 
-- R2R's XML output is a **parity target**, as it is in sbe-qa-processing. For released R2R nav
-  filesets, the QA 2.0 `certificate` (test names, ratings, results, bounds, infos) and the three
-  `.geoCSV` products must match R2R's by value (see above). Reference files are in
-  `tests/fixtures/` (see its README). Take the rating thresholds and the rounding applied before
-  rating from `xmltools2.inc.php` and `navqa.inc.php` exactly. Document every rule that is inferred rather than documented in
-  the module docstring of `r2r.py`.
-- When the PHP has quirks (buffering, least-count/precision handling, median-based checks in
-  `navqc`), reproduce the observable output first, then note the quirk. Don't silently "fix"
-  behavior that changes ratings.
-- Use numpy/pandas arrays instead of the PHP's line-by-line streaming with fixed buffers. For
-  geodesics, use `pyproj.Geod`, never a hand port of NavManager's Vincenty (decided 2026-10-13:
-  the difference is negligible and only shows at rounding boundaries).
+- R2R's published products are a **format** target (see "What parity with R2R means" above).
+  Reference files are in `tests/fixtures/` (see its README), larger ones in `data/`. Take the
+  QC rules, rating thresholds and test definitions from NavManager, but implement them soundly.
+  Document every rule that is inferred rather than documented in the module docstring.
+- When the PHP has quirks (buffer boundaries, least-count/precision handling, stale variables,
+  off-by-one records), **don't reproduce them**. Note each one, with evidence of its effect on
+  R2R's products where a fileset shows it, in the module docstring and in the "Shortcomings"
+  section of `docs/architecture.md`. Phase 1's reader still reproduces some (the checksum test,
+  the dropped last GGA, the day advancing on equal times); revisit them under this rule.
+- Use numpy/pandas arrays instead of the PHP's line-by-line streaming with fixed buffers. Prefer
+  maintained libraries to NavManager's hand-written math: for geodesics, `pyproj.Geod`.
 - Per-file failures are recorded on the result, not raised, so one bad raw file never stops a
   cruise (the same pattern as `CastData.errors` in sbe-qa-processing).
 - This project is MIT-licensed, and NavManager is GPL-3.0. Port behavior from specs and observed
