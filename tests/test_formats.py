@@ -56,7 +56,7 @@ def test_example_checksums_are_correct():
         for example in definition.examples:
             for sentence in _nmea_parts(example):
                 if "*" in sentence:
-                    assert parse_sentence(sentence, navmanager_checksum=False), (
+                    assert parse_sentence(sentence), (
                         definition.id,
                         sentence,
                     )

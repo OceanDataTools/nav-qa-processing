@@ -117,7 +117,7 @@ def _emit(state: _State, out: list[DatedFix]) -> None:
     state.buffer = []
 
 
-def read(files: list[tuple[str, list[str]]], navmanager_checksum: bool = True) -> Result:
+def read(files: list[tuple[str, list[str]]]) -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given"""
     state = _State()
     out: list[DatedFix] = []
@@ -127,7 +127,7 @@ def read(files: list[tuple[str, list[str]]], navmanager_checksum: bool = True) -
         for number, line in enumerate(lines, start=1):
             if "$" not in line:
                 continue
-            sentence = parse_sentence(line, navmanager_checksum)
+            sentence = parse_sentence(line)
             if sentence is None:
                 if "GGA" in line or "ZDA" in line:  # only the sentences this reader uses
                     rejected[name] = rejected.get(name, 0) + 1

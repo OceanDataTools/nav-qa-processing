@@ -5,7 +5,7 @@ from nav_qa_processing.formats.nmea import checksum
 
 
 def nmea(body: str) -> str:
-    return f"${body}*{checksum(body):02X}" if checksum(body) >= 0x10 else f"${body}"
+    return f"${body}*{checksum(body):02X}"
 
 
 def gga(hhmmss: str) -> str:

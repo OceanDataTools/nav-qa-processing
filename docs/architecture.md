@@ -611,7 +611,7 @@ Resolved:
   only in its Unix-time layout. NavManager has no nav28.
 - **NavManager's checksum test** compares unpadded lowercase hex, so it rejects every correct
   checksum below `0x10`. In SP2613 that discards 39 % of VTG and 29 % of RMC sentences but no
-  GGA or ZDA. `nmea.parse_sentence(navmanager_checksum=True)` reproduces it by default.
+  GGA or ZDA. It isn't reproduced: `nmea.parse_sentence` checks two-digit hex (#13).
 - **SP2613's time window** is the cruise day (depart and arrive 2026-07-09). Files are selected
   by their first to last ZDA, so the 2026-07-07 file is left out, as in R2R's bestres.
 - **Reproduce NavManager's numeric quirks?** No (2026-10-13): parity is about the products'

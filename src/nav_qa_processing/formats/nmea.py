@@ -4,10 +4,9 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
 - A line can hold a partial sentence followed by a complete one after a stream interruption.
   Only the text from the last `$` is used.
 - A sentence without a checksum is accepted. A sentence with one is accepted only when it
-  matches. Quirk: NavManager compares the supplied checksum, lowercased, with the computed one
-  as unpadded lowercase hex. A correct checksum below 0x10 (e.g. `*0A`) is therefore rejected.
-  `navmanager_checksum=False` checks it correctly; the default reproduces NavManager, since it
-  decides which records R2R kept.
+  matches, compared by value: `*0A`, `*0a` and a nonstandard one-digit `*A` are all 0x0A.
+  NavManager compares unpadded hex text, so it rejects every correct two-digit checksum below
+  0x10 (e.g. `*0A`); that isn't reproduced (#13).
 - Positions keep the receiver's precision: a coordinate with n decimal minutes is reported
   with n + 2 decimal degrees (`lat_decimals`, `lon_decimals`). Times keep their decimals too.
 - Empty numeric GGA fields parse as missing here. NavManager turns them into 0, which QC
@@ -39,7 +38,7 @@ def checksum(body: str) -> int:
     return value
 
 
-def parse_sentence(line: str, navmanager_checksum: bool = True) -> Sentence | None:
+def parse_sentence(line: str) -> Sentence | None:
     """The last sentence on `line`, or None if there is none or its checksum is wrong"""
     start = line.rfind("$")
     if start < 0:
@@ -49,11 +48,14 @@ def parse_sentence(line: str, navmanager_checksum: bool = True) -> Sentence | No
     if star:
         computed = checksum(data[1:])
         supplied = supplied.strip().lower()
-        expected = f"{computed:x}" if navmanager_checksum else f"{computed:02x}"
-        if supplied != expected:
+        if not _is_hex(supplied) or int(supplied, 16) != computed:
             return None
         return Sentence(data.split(","), supplied)
     return Sentence(data.split(","), None)
+
+
+def _is_hex(text: str) -> bool:
+    return 1 <= len(text) <= 2 and all(c in "0123456789abcdef" for c in text)
 
 
 def decimals(text: str) -> int:
