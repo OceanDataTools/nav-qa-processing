@@ -13,3 +13,10 @@ These files are unmodified unless noted. The checksums match R2R's `manifest-md5
 
 This project standardizes descriptions, unit names and coordinate formats (see
 `docs/architecture.md`). Compare these files with our output by parsed values, not byte for byte.
+
+Larger references are fetched into `data/` (gitignored) by the tests' skip messages:
+
+| Cruise | Raw fileset | Why |
+|---|---|---|
+| SP2613 | 169851 (product 620146) | the files above, in full; one day, 56,925 records, rated G |
+| SP2424 | 161900 (product 615579) | 150,924 records, past navsogcog's 86,400-record buffer: R2R's first-buffer speeds carry its bug; nav29 with an ISO timestamp and a space; rated G, no flagged fixes |
