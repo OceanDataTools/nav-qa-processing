@@ -2,6 +2,8 @@
 
 One TOML file per R2R raw navigation format ID (NavManager's `nav1` … `nav33`, `uhdas`,
 `siomet`, `metoc_nav`), plus `sentences.toml` for the NMEA and proprietary sentences they use.
+File names pad the number to two digits so they sort in order (`nav01.toml` holds `nav1`); the
+`id` inside keeps R2R's spelling, and that is the ID everywhere else.
 `formats/catalog.py` loads them, and `nav-qa-processing formats [ID]` prints them.
 
 The facts (record layouts, sentences, vessels) follow NavManager's `doc/fileformat/*.txt` and

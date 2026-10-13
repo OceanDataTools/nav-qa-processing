@@ -15,9 +15,15 @@ def test_every_navmanager_format_id_is_defined():
     assert set(catalog.formats()) == expected
 
 
+def _file_stem(format_id: str) -> str:
+    """nav1 -> nav01: file names pad the number to 2 digits; the IDs stay R2R's"""
+    number = format_id.removeprefix("nav")
+    return f"nav{int(number):02d}" if number.isdigit() else format_id
+
+
 def test_file_names_match_ids():
-    for path in DEFINITIONS.glob("nav*.toml"):
-        assert path.stem in catalog.formats()
+    stems = {p.stem for p in DEFINITIONS.glob("*.toml")} - {"sentences"}
+    assert stems == {_file_stem(format_id) for format_id in catalog.formats()}
 
 
 def test_formats_are_in_numeric_order():
