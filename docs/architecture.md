@@ -161,6 +161,9 @@ flowchart LR
 - QC works on fixed 3,600-record buffers. Speeds and accelerations are not evaluated across buffer
   boundaries, so which fixes get flagged depends on where the chunks fall. The end-of-file buffer
   is processed by a second, near-duplicate copy of the loop (`navqc.inc.php:917`).
+- navsogcog's full-buffer loop (86,400 records) computes each speed before calling Vincenty for
+  the current pair, so it divides the previous segment's distance by the current elapsed time.
+  Only the end-of-file loop is right. R2R's published SOG carries this (SP2424).
 - Library functions call `exit(1)` on errors, and callers suppress warnings with `@`
   (`@navqa(...)`, `@navdatalist(...)`). Failures surface as missing output, not as messages.
 - Missing values are the string `"NAN"`, and min/max use sentinels (±10000). Types are checked by
@@ -358,7 +361,7 @@ src/nav_qa_processing/
   rawnav.py         read_fileset -> RawNav (DataFrame + per-file errors + per-column precision)
   r2rnav.py         read/write legacy .r2rnav files, precision-preserving value formatting
   geocsv.py         read/write GeoCSV 2.0 nav products (header block, DOIs; column metadata from quantities.py)
-  geodesy.py        distance/azimuth on WGS-84 (pyproj.Geod), speed, acceleration
+  geodesy.py        distance/azimuth on WGS-84 (pyproj.Geod), speed, acceleration, SOG/COG
   qc.py             flagging rules -> per-record flag bitmask (NavBestRes)
   products.py       bestres, sample(interval) (Nav1Min), control (Douglas–Peucker) (NavControl)
   stats.py          navqa statistics (modal interval, completeness, gaps, ranges)
@@ -428,9 +431,30 @@ was flagged. The rules work on the whole series at once with numpy, not in 3,600
 A `navmanager_buffering=True` compatibility mode reproduces the buffer-boundary behavior if parity
 tests show it changes ratings. The default follows the parity evidence.
 
-**Geodesy via pyproj.** `pyproj.Geod(ellps="WGS84").inv` replaces the hand-written Vincenty.
-Before relying on it, a unit test checks that it agrees with NavManager's Vincenty to well below
-the precision of the r2rnav output.
+**Geodesy via pyproj.** `pyproj.Geod(ellps="WGS84").inv` (Karney's algorithm) replaces
+NavManager's hand-written Vincenty. On SP2613 and SP2424 the two differ by at most 5.4 µm per step,
+1.1e-5 m s-1 in speed and 0.001° in course while under way. The differences show only where a value
+sits on a rounding boundary: 8 of SP2613's 56,924 speeds and 12 of SP2424's 150,923 move by
+0.01 m s-1. Course differs more on short steps, because course is as sensitive to position as
+1/step; under a millimetre (at the dock) it is noise.
+
+We could reproduce R2R's last digits by porting NavManager's Vincenty, which has a rounded
+semi-minor axis and takes the azimuth from λ one iteration early. That port was built, matched
+every R2R speed, and was dropped (2026-10-13) in favor of the maintained library. Speed and course
+parity is therefore within a documented tolerance, not exact (see `tests/test_geodesy.py`). pyproj
+is also slightly slower (36 ms against 21 ms for SP2424's 150,923 segments), which doesn't matter
+next to the 3 s it takes to read the raw files.
+
+**Speed and course in the products follow navsogcog's rules, but not its bug.** Each good fix takes the
+segment to the next good fix; the last good fix repeats the previous one; and coordinates are
+used as written in r2rnav (rounded to the receiver's precision). navsogcog also reads 86,400
+records at a time, and in every full buffer it divides the *previous* segment's distance by the
+current elapsed time. R2R's products carry this: all 86,399 first-buffer speeds of SP2424
+(150,924 records) match the bug, and the rest match the correct formula. The bug lags speed one
+fix behind the ship (and, where the time step changes, divides one step's distance by another's
+time), so our products use correct speeds by default (decided 2026-10-13). The parity tests
+reproduce it with `navmanager_buffer=NAVSOGCOG_BUFFER` to compare with R2R. Not yet reported
+upstream.
 
 **QA statistics stay on the pre-QC data**, as `navqa.php` does, so that the certificate matches
 R2R's. The statistics and the QC rules share `geodesy.py` and the same speed/acceleration
@@ -561,7 +585,7 @@ Comparisons with R2R parse the numbers and map the units.
 | Phase | Scope | Exit criterion |
 |---|---|---|
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
-| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613 bestres/1min/control match R2R's `.geoCSV` by value (`tests/fixtures`, plus the full bestres in `data/`) |
+| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613 bestres/1min/control match R2R's `.geoCSV` by value (`tests/fixtures`, plus the full bestres in `data/`). **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance |
 | 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | certificate matches R2R by value on released filesets |
 | 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
 | 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |

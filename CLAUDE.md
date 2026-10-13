@@ -27,11 +27,15 @@ plan in `docs/architecture.md`):
 - `rawnav.py`: `read_fileset(paths, format_id, start, end)` -> `RawNav` (DataFrame, receiver
   decimals, files read/skipped, errors). It selects files by their ZDA span, as navdatalist does.
 - `r2rnav.py`: read/write legacy r2rnav.
+- `geodesy.py`: distance and azimuth with pyproj (not NavManager's Vincenty: dropped by decision),
+  segment speed/course, acceleration, and `sog_cog` (navsogcog's rules; its 86,400-record
+  buffer bug, which R2R's products carry, only with `navmanager_buffer=NAVSOGCOG_BUFFER`: correct
+  speeds are the default).
 - `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
   into `data/<CRUISE>_<FILESET>_gnss/`.
 - `cli.py`: only the `formats` subcommand so far.
 
-SP2613's pre-QC records match R2R's full bestres by value (`tests/test_rawnav.py`; R2R evidently ran it
+SP2613's (and SP2424's) pre-QC records match R2R's full bestres by value (`tests/test_rawnav.py`; R2R evidently ran it
 with the 2026-07-09 cruise-day window, which excludes the 07-07 file). Add
 dependencies (matplotlib, reportlab, svglib, cartopy, nbformat, …) as the modules that need
 them land, and commit `uv.lock` with each change. Update this file as modules come into existence, and remove any section below
@@ -123,7 +127,10 @@ unit names in writers. The proposed table and rules are in "Standardized quantit
 `docs/architecture.md`. Identifiers stay as R2R spells them, because R2R's tools key on them:
 test, bound, info and range names, GeoCSV `field_standard_name`s and XML element names. Parity
 with R2R is therefore **by value**: the same names, ratings, records, times and flags, with
-numbers equal after parsing. It is never byte for byte.
+numbers equal after parsing. It is never byte for byte. One exception: speed and course
+come from pyproj, not NavManager's Vincenty, so they match R2R within a documented tolerance (a
+speed may round 0.01 m s-1 the other way at a rounding half; course within 0.001° + 0.003°·m /
+step) rather than exactly. See `geodesy.py` and `tests/test_geodesy.py`.
 
 R2R's control points are what NavManager's `navsimplifier.py` (recursive Douglas–Peucker)
 selects with a **0.01°** tolerance, not the committed 0.1°. NavManager has no GeoCSV writer: its
@@ -147,8 +154,8 @@ nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G).
   `navqc`), reproduce the observable output first, then note the quirk. Don't silently "fix"
   behavior that changes ratings.
 - Use numpy/pandas arrays instead of the PHP's line-by-line streaming with fixed buffers. For
-  geodesics, use a maintained library (e.g. `pyproj.Geod`) rather than porting Vincenty by hand,
-  unless parity requires it.
+  geodesics, use `pyproj.Geod`, never a hand port of NavManager's Vincenty (decided 2026-10-13:
+  the difference is negligible and only shows at rounding boundaries).
 - Per-file failures are recorded on the result, not raised, so one bad raw file never stops a
   cruise (the same pattern as `CastData.errors` in sbe-qa-processing).
 - This project is MIT-licensed, and NavManager is GPL-3.0. Port behavior from specs and observed
