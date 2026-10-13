@@ -1,0 +1,19 @@
+id = "nav23"
+title = "MLML UDAS: $PTSUR records, signed positions"
+system = "Moss Landing Marine Laboratories Underway Data Acquisition System (UDAS)"
+file_type = "ASCII text, comma-separated, one header line of column names"
+vessels = ["Point Sur"]
+position = "Furuno or Ashtech signed degrees and decimal minutes"
+time = "UTC date (YYYYMMDD) and time (hhmmss)"
+description = "The nav14 layout, except that the degree fields carry a sign for the hemisphere."
+notes = [
+  "NavManager's own description of this format is mislabeled as nav14.",
+  "No signed sample has been found: the Point Sur UDAS filesets checked (PS0921, PS1104, PS1218) are all unsigned (nav14). NavManager's own description reused the nav14 sample.",
+]
+examples = [
+]
+
+[[fields]]
+name = "…"
+example = ""
+meaning = "As nav14, with signed latitude and longitude degrees"

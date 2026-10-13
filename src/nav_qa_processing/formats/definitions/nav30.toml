@@ -1,0 +1,35 @@
+id = "nav30"
+title = "OpenRVDAS: RMC (read as nav32)"
+system = "OpenRVDAS"
+file_type = "ASCII text: ISO 8601 UTC timestamp, a space, one NMEA sentence"
+vessels = ["Nathaniel B. Palmer", "Laurence M. Gould"]
+sentences = ["DTM", "ZDA", "GLL", "GGA", "RMC", "VTG"]
+r2r_formats = [100573]
+position = "RMC"
+time = "RMC date and time"
+description = "OpenRVDAS logs from the USAP vessels: each line is OpenRVDAS's ISO 8601 UTC timestamp, a space and one NMEA sentence. NavManager reads it like nav32, taking position, date and time from RMC."
+notes = [
+  "The receiver in the example has the GPS week-number rollover fault: its ZDA and RMC dates are exactly 1024 weeks early (2005-03-13 for 2024-10-27). A reader that trusts the receiver's date places the whole cruise in 2005; the OpenRVDAS timestamp is right.",
+  "Examples: NBP2410, fileset 165727, file gnss_pcode_deck04_nbp2410pcod-2024-10-27.",
+  "Older USAP RVDAS files (R2R format 100214, \"USAP RVDATA Navigation\", 2001–2024) prefix the same sentences with YY+DDD:hh:mm:ss.sss, e.g. \"13+344:00:00:00.616 $GPGGA,…\" (LMG1312, fileset 142583). Which NavManager ID read them isn't known.",
+  "R2R format 100573 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
+]
+references = ["www.nmea.org"]
+examples = [
+  "2024-10-27T11:48:32.014357Z $GPDTM,W84,,0000.0000,N,00000.0000,E,0.0,W84*5F",
+  "2024-10-27T11:48:32.282476Z $GPZDA,114832,13,03,2005,00,00*43",
+  "2024-10-27T11:48:32.525546Z $GPGLL,5822.0992,S,06354.1400,W,114832,A,A*4B",
+  "2024-10-27T11:48:32.526890Z $GPGGA,114832,5822.0992,S,06354.1400,W,1,11,0.7,33.7,M,,,,*2D",
+  "2024-10-27T11:48:32.680500Z $GPRMC,114832,A,5822.0992,S,06354.1400,W,11.1,166.2,130305,11.9,E,A*18",
+  "2024-10-27T11:48:32.788682Z $GPVTG,166.2,T,154.3,M,11.1,N,20.5,K,A*25",
+]
+
+[[fields]]
+name = "timestamp"
+example = "2024-10-27T11:48:32.014357Z"
+meaning = "OpenRVDAS time, ISO 8601 UTC"
+
+[[fields]]
+name = "sentence"
+example = "$GPRMC,…"
+meaning = "NMEA sentence, after a space"

@@ -1,0 +1,35 @@
+id = "nav24"
+title = "Logger ID and ISO timestamp, then NMEA (Sikuliaq)"
+system = "Shipboard logger"
+file_type = "ASCII text: whitespace-separated prefix, then one NMEA sentence"
+vessels = ["Sikuliaq"]
+sentences = ["ZDA", "GGA", "RMC", "VTG", "GST", "HDT", "GLL", "PSXN"]
+position = "GGA"
+time = "GGA time of day, dated by ZDA"
+description = "Each line is a logger ID, an ISO 8601 UTC timestamp and one NMEA sentence. Lines starting with # are header comments describing the platform and cruise."
+notes = [
+  "Seen with a C-Nav 3050 receiver (logger gnss_cnav) and a Seapath (ins_seapath_position).",
+]
+references = ["www.nmea.org"]
+examples = [
+  "gnss_cnav  2014-12-11T00:00:01.0020Z  $GNZDA,000001.00,11,12,2014,00,00*7D",
+  "gnss_cnav  2014-12-11T00:00:01.0811Z  $GNRMC,000001.00,A,2304.167961,N,16553.836924,W,7.87,100.6,111214,0,E,D*17",
+  "gnss_cnav  2014-12-11T00:00:01.2517Z  $GNGGA,000001.00,2304.167961,N,16553.836924,W,2,11,1.0,44.542,M,0.000,M,2.0,0103*43",
+  "ins_seapath_position\t2018-11-28T02:03:53.7248Z\t$GPZDA,020353.69,28,11,2018,,*6F",
+  "ins_seapath_position\t2018-11-28T02:03:53.8110Z\t$GPGGA,020353.69,6007.115740,N,14925.627470,W,2,12,1.3,9.04,M,10.04,M,1.4,0001*5A",
+]
+
+[[fields]]
+name = "logger"
+example = "gnss_cnav"
+meaning = "Logger ID"
+
+[[fields]]
+name = "timestamp"
+example = "2014-12-11T00:00:01.0020Z"
+meaning = "Logger time, ISO 8601 UTC"
+
+[[fields]]
+name = "sentence"
+example = "$GNZDA,…"
+meaning = "NMEA sentence"

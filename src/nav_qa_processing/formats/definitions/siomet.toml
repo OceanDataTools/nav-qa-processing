@@ -1,0 +1,44 @@
+id = "siomet"
+title = "SIO MetAcq: corrected MET data files"
+system = "Scripps MET data acquisition system (MetAcq)"
+file_type = "ASCII text, whitespace-separated, with four # header lines"
+vessels = ["Roger Revelle", "Melville", "Robert Gordon Sproul", "Healy"]
+r2r_formats = [100039]
+position = "LA and LO columns [decimal degrees], found from header line 4"
+time = "Time column (hhmmss) dated by the date on header line 2"
+description = "MetAcq's corrected data files (*.MET, one per day). Header line 2 holds the date, line 4 the column codes. Each record starts with hhmmss, and LA and LO hold the ship's latitude and longitude in decimal degrees. R2R publishes the full description as format 100039."
+notes = [
+  "Only the *.MET files are read; a MetAcq fileset also holds *.COR ($WICOR sentences), *.DCC (SAMOS) and *.LOG files.",
+  "-99 marks a missing value.",
+  "Examples: SP2613, fileset 169850, file 260707.MET (header line 4 and data lines shortened after LO).",
+  "R2R format 100039 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
+]
+references = ["https://service.rvdata.us/info/format/100039/MetAcq.pdf"]
+examples = [
+  "# R/V Sproul MET System,CRUISE:SP2613",
+  "# Tue 07-Jul-26  20:42:04",
+  "# Met Data - Corrected",
+  "#Time      AT      BP      BS      RH      RT      DP     PR      PA     WS     WD     TW     TI       TT        TC       SA       SD       SV        TG       FL       OT       OX       OS      FI      ST     BT     LF     HF          LA           LO …",
+  "204204   20.86 1013.37 1014.55   76.44   21.07   16.84    0.1 2230.87    2.1  306.9    2.1  308.0   27.383    1.0390    0.488   -3.219 1503.418    0.1039   -0.001   26.450    1.823    5.616    0.00   19.31  -99.0  -99.0  -99.0   32.707630  -117.236708 …",
+  "204219   20.87 1013.38 1014.56   76.54   21.07   16.87    0.1 2240.01    2.0  314.3    2.0  314.8   27.382    1.0390    0.488   -3.219 1503.416    0.1039    0.000   26.449    1.823    5.616    0.00   19.31  -99.0  -99.0  -99.0   32.707630  -117.236708 …",
+]
+
+[[fields]]
+name = "Time"
+example = "204204"
+meaning = "UTC time (hhmmss)"
+
+[[fields]]
+name = "LA"
+example = "32.707630"
+meaning = "Latitude [degrees_north]"
+
+[[fields]]
+name = "LO"
+example = "-117.236708"
+meaning = "Longitude [degrees_east]"
+
+[[fields]]
+name = "…"
+example = ""
+meaning = "Meteorology, thermosalinograph and other columns, named by code on header line 4"

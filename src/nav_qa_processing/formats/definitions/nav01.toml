@@ -1,0 +1,23 @@
+id = "nav1"
+title = "Raw NMEA: GGA dated by ZDA"
+system = "Raw receiver output"
+file_type = "ASCII text, one NMEA 0183 sentence per line"
+vessels = ["Melville", "Roger Revelle"]
+sentences = ["GGA", "ZDA", "VTG"]
+r2r_formats = [100010, 100137]
+position = "GGA"
+time = "GGA time of day, dated by the nearest ZDA"
+description = "Bare NMEA sentences with no logger prefix. GGA, VTG and ZDA sentences repeat in turn. GGA carries the position and fix quality but only the time of day; the date comes from the ZDA sentences around it."
+notes = [
+  "Checksums may be missing; sentences without one are accepted.",
+  "R2R also files Healy's 2016–2025 GNSS logs under 100010, although most of them have a Unix or ISO 8601 timestamp and a space before each sentence, the nav29 layouts (e.g. HLY18TB fileset 131211, HLY25TA fileset 166763).",
+]
+references = ["www.nmea.org"]
+examples = [
+  "$GPVTG,336.8,T,340.7,M,1.5,N,2.8",
+  "$GPZDA,235600,24,05,2009,00,00*42",
+  "$GPGGA,235601,2600.4311,N,12229.8443,E,2,7,0.4,45,M,,M",
+  "$GPVTG,336.3,T,340.2,M,1.5,N,2.8",
+  "$GPZDA,235601,24,05,2009,00,00*43",
+  "$GPGGA,235602,2600.4315,N,12229.8441,E,2,7,0.4,45,M,,M",
+]

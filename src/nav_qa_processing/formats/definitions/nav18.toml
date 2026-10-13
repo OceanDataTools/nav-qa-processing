@@ -1,0 +1,38 @@
+id = "nav18"
+title = "WHOI Calliope (2009): GPRMC_GP1850 records"
+system = "WHOI Calliope data acquisition system"
+file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
+vessels = ["Oceanus"]
+sentences = ["RMC"]
+r2r_formats = [100075]
+position = "RMC"
+time = "RMC date and time"
+description = "As nav17, but tagged GPRMC_GP1850 or GPRMC_1850 (Furuno GP1850). Used on Oceanus in 2009."
+notes = [
+  "RMC has no fix quality, satellite count, HDOP or altitude.",
+]
+references = ["www.nmea.org"]
+examples = [
+  "GPRMC_GP1850\t39960.00003\t00:00:02\t$GPRMC,000002,A,4131.437,N,07040.331,W,0.1,266.0,270509,15.9,W*46",
+  "GPRMC_GP1850\t39960.00072\t00:01:02\t$GPRMC,000102,A,4131.437,N,07040.333,W,0.1,266.0,270509,15.9,W*45",
+]
+
+[[fields]]
+name = "tag"
+example = "GPRMC_GP1850"
+meaning = "Talker, sentence type and receiver model"
+
+[[fields]]
+name = "number"
+example = "39960.00003"
+meaning = "Undocumented numeric field"
+
+[[fields]]
+name = "time"
+example = "00:00:02"
+meaning = "Logger time, UTC (hh:mm:ss)"
+
+[[fields]]
+name = "sentence"
+example = "$GPRMC,…"
+meaning = "NMEA RMC sentence"

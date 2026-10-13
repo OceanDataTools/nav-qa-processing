@@ -1,0 +1,163 @@
+id = "nav6"
+title = "UDel Surface Mapping System (SMS) records"
+system = "University of Delaware Surface Mapping System (SMS)"
+file_type = "ASCII text, comma-separated; CRLF line ends, records may contain LF"
+vessels = ["Hugh R. Sharp"]
+r2r_formats = [100015]
+position = "Latitude and longitude in degrees and decimal minutes"
+time = "UTC date and time fields"
+description = "One multiplexed record every 10 s with navigation, depth, meteorology and underway science values. Position is given twice: in degrees and minutes with a hemisphere letter, and as decimal degrees."
+notes = [
+  "Records end in CRLF, and a bare LF can occur inside a record.",
+  "The decimal-longitude column doesn't agree with the degrees-and-minutes longitude in the sample; use the degrees-and-minutes columns.",
+  "-99 marks a missing value.",
+]
+examples = [
+  "HRS110302GF,3/2/2011,10:01:00,5:1:0,,3847.3009,N,38.788348,07509.6838,W,15.494730,180.1,0.0,0.0,0.0,0.0,  5.9, 224,  6.9, 214,188.9,6.0,0.44,  75, 1023,-99,-99, 1.914  ,,3.15,-99",
+  "HRS110302GF,3/2/2011,10:01:10,5:1:10,,3847.3011,N,38.788352,07509.6833,W,15.494722,82.2,0.0,0.0,0.0,0.0,  5.5, 218,  7.6, 216,198.9,7.0,0.44,  75, 1023, 23.5219,-99, 1.903  ,,3.15,-99",
+]
+
+[[fields]]
+name = "cruise_id"
+example = "HRS110302GF"
+meaning = "Cruise ID"
+
+[[fields]]
+name = "date"
+example = "3/2/2011"
+meaning = "UTC date (M/D/YYYY)"
+
+[[fields]]
+name = "time"
+example = "10:01:00"
+meaning = "UTC time (hh:mm:ss)"
+
+[[fields]]
+name = "local_time"
+example = "5:1:0"
+meaning = "Local time (h:m:s)"
+
+[[fields]]
+name = "counter"
+example = ""
+meaning = "Seconds since 1904-01-01 (often empty)"
+
+[[fields]]
+name = "lat"
+example = "3847.3009,N"
+meaning = "Latitude, degrees and decimal minutes, hemisphere"
+
+[[fields]]
+name = "lat_decimal"
+example = "38.788348"
+meaning = "Latitude [degrees_north]"
+
+[[fields]]
+name = "lon"
+example = "07509.6838,W"
+meaning = "Longitude, degrees and decimal minutes, hemisphere"
+
+[[fields]]
+name = "lon_decimal"
+example = "15.494730"
+meaning = "Labeled decimal longitude; doesn't match (see notes)"
+
+[[fields]]
+name = "cog"
+example = "180.1"
+meaning = "Course over ground [degree]"
+
+[[fields]]
+name = "sog"
+example = "0.0"
+meaning = "Speed over ground [knot]"
+
+[[fields]]
+name = "depth_ft"
+example = "0.0"
+meaning = "Depth [ft]"
+
+[[fields]]
+name = "depth_m"
+example = "0.0"
+meaning = "Depth [m]"
+
+[[fields]]
+name = "depth_fathom"
+example = "0.0"
+meaning = "Depth [fathom]"
+
+[[fields]]
+name = "rel_wind_speed_1"
+example = "5.9"
+meaning = "Relative wind speed, sensor 1 [knot]"
+
+[[fields]]
+name = "rel_wind_dir_1"
+example = "224"
+meaning = "Relative wind direction, sensor 1 [degree]"
+
+[[fields]]
+name = "rel_wind_speed_2"
+example = "6.9"
+meaning = "Relative wind speed, sensor 2 [knot]"
+
+[[fields]]
+name = "rel_wind_dir_2"
+example = "214"
+meaning = "Relative wind direction, sensor 2 [degree]"
+
+[[fields]]
+name = "true_wind_speed"
+example = "188.9"
+meaning = "Labeled true wind speed [knot] (uncertain)"
+
+[[fields]]
+name = "true_wind_dir"
+example = "6.0"
+meaning = "Labeled true wind direction [degree] (uncertain)"
+
+[[fields]]
+name = "air_temp"
+example = "0.44"
+meaning = "Labeled air temperature [degC] (uncertain)"
+
+[[fields]]
+name = "humidity"
+example = "75"
+meaning = "Relative humidity [percent]"
+
+[[fields]]
+name = "pressure"
+example = "1023"
+meaning = "Barometric pressure [mbar]"
+
+[[fields]]
+name = "water_temp"
+example = "-99"
+meaning = "Water temperature [degC] (uncertain)"
+
+[[fields]]
+name = "salinity"
+example = "-99"
+meaning = "Salinity [PSU] (uncertain)"
+
+[[fields]]
+name = "fluorometer"
+example = "1.914"
+meaning = "Fluorometer, raw"
+
+[[fields]]
+name = "keel_depth"
+example = ""
+meaning = "Keel depth [m] (uncertain)"
+
+[[fields]]
+name = "science_log"
+example = "3.15"
+meaning = "Science log (uncertain)"
+
+[[fields]]
+name = "unknown"
+example = "-99"
+meaning = "Unknown"

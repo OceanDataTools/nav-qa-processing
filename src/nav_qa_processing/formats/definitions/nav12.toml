@@ -1,0 +1,33 @@
+id = "nav12"
+title = "Device ID and year:day-of-year timestamp, then NMEA"
+system = "Shipboard logger"
+file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
+vessels = ["Healy", "Marcus G. Langseth"]
+sentences = ["ZDA", "GGA", "GLL", "GSA", "VTG"]
+r2r_formats = [100021]
+position = "GGA"
+time = "GGA time of day, dated by ZDA"
+description = "Each line is a device ID, the logger timestamp as year:day-of-year:hh:mm:ss.ssss, and one NMEA sentence. GGA, GLL, GSA, VTG and ZDA repeat in turn."
+references = ["www.nmea.org"]
+examples = [
+  "cnav\t2010:258:00:00:00.0656\t$GPZDA,235959.00,14,9,2010,+0,+0*58",
+  "cnav\t2010:258:00:00:00.6557\t$GPGGA,000000.00,2118.98294,N,15753.17430,W,2,8,1.2,25.62,M,6.61,M,10,0108*4C",
+  "cnav\t2010:258:00:00:00.7676\t$GPGLL,2118.98293,N,15753.17429,W,000000.00,A*19",
+  "cnav\t2010:258:00:00:01.0227\t$GPZDA,000000.00,15,9,2010,+0,+0*58",
+  "cnav\t2010:258:00:00:02.0127\t$GPGGA,000001.00,2118.98295,N,15753.17431,W,2,8,1.2,25.61,M,6.61,M,10,0108*4E",
+]
+
+[[fields]]
+name = "device"
+example = "cnav"
+meaning = "Device ID"
+
+[[fields]]
+name = "timestamp"
+example = "2010:258:01:05:34.0656"
+meaning = "Logger time: year:day-of-year:hh:mm:ss.ssss"
+
+[[fields]]
+name = "sentence"
+example = "$GPZDA,…"
+meaning = "NMEA sentence"

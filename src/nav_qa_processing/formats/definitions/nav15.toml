@@ -1,0 +1,32 @@
+id = "nav15"
+title = "OSU DAS: DATA records with ISO timestamp and quoted NMEA"
+system = "Oregon State University data acquisition system"
+file_type = "ASCII text, comma-separated, with META_/VESSEL/CRUISE/SOURCE header records"
+vessels = ["Wecoma", "Oceanus"]
+sentences = ["GGA", "GSA", "GSV", "VTG"]
+r2r_formats = [100046]
+position = "GGA"
+time = "GGA time of day, dated by the logger timestamp"
+description = "Header records describe the vessel, cruise and data source. Data records are DATA, an ISO 8601 UTC timestamp, and one quoted NMEA sentence."
+references = ["www.nmea.org"]
+examples = [
+  "DATA, 2011-04-11T00:00:00.158Z, \"$GPGGA,000000,4437.5473,N,12402.7120,W,2,11,0.8,8.5,M,-21.8,M,,*70\"",
+  "DATA, 2011-04-11T00:00:00.286Z, \"$GPGSA,A,3,,23,07,04,13,16,03,20,08,10,30,02,1.3,0.8,1.1*36\"",
+  "DATA, 2011-04-11T00:00:00.819Z, \"$GPVTG,000.0,T,342.6,M,000.0,N,0000.1,K*7C\"",
+  "DATA, 2011-04-11T00:00:01.129Z, \"$GPGGA,000001,4437.5473,N,12402.7120,W,2,11,0.8,8.5,M,-21.8,M,,*71\"",
+]
+
+[[fields]]
+name = "record"
+example = "DATA"
+meaning = "Record type"
+
+[[fields]]
+name = "timestamp"
+example = "2011-04-11T01:59:57.047Z"
+meaning = "Logger time, ISO 8601 UTC"
+
+[[fields]]
+name = "sentence"
+example = "\"$GPGGA,…\""
+meaning = "NMEA sentence in double quotes"

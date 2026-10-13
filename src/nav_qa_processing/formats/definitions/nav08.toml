@@ -1,0 +1,103 @@
+id = "nav8"
+title = "University of Hawaii DAS: POS/MV records"
+system = "University of Hawaii data acquisition system (Applanix POS/MV-320 V4)"
+file_type = "ASCII text, whitespace-separated"
+vessels = ["Kilo Moana"]
+r2r_formats = [100017]
+position = "Decimal degrees"
+time = "Year, day of year, hour, minute, second, millisecond fields"
+description = "One record per second from the POS/MV: time, position in decimal degrees, HDOP, speed and course over ground, satellite count, fix quality, heading and attitude."
+examples = [
+  "2009 200 17 00 07 686 *gpo  21.315698 -157.886312  0.90  0.00 208.40 09 1 68.38 -0.29  0.50  0.03",
+  "2009 200 17 00 08 686 *gpo  21.315698 -157.886312  0.90  0.00 220.70 09 1 68.35 -0.31  0.48  0.02",
+]
+
+[[fields]]
+name = "year"
+example = "2009"
+meaning = "Year"
+
+[[fields]]
+name = "doy"
+example = "200"
+meaning = "Day of year (1 = January 1)"
+
+[[fields]]
+name = "hour"
+example = "17"
+meaning = "Hour, UTC"
+
+[[fields]]
+name = "minute"
+example = "00"
+meaning = "Minute"
+
+[[fields]]
+name = "second"
+example = "07"
+meaning = "Whole seconds"
+
+[[fields]]
+name = "millisecond"
+example = "686"
+meaning = "Milliseconds"
+
+[[fields]]
+name = "code"
+example = "*gpo"
+meaning = "Logger code"
+
+[[fields]]
+name = "lat"
+example = "21.315698"
+meaning = "Latitude [degrees_north]"
+
+[[fields]]
+name = "lon"
+example = "-157.886312"
+meaning = "Longitude [degrees_east]"
+
+[[fields]]
+name = "hdop"
+example = "0.90"
+meaning = "Horizontal dilution of precision"
+
+[[fields]]
+name = "sog"
+example = "0.00"
+meaning = "Speed over ground [knot]"
+
+[[fields]]
+name = "cog"
+example = "208.40"
+meaning = "Course over ground, true [degree]"
+
+[[fields]]
+name = "nsat"
+example = "09"
+meaning = "Satellites in use"
+
+[[fields]]
+name = "quality"
+example = "1"
+meaning = "NMEA GGA fix quality (see the GGA sentence)"
+
+[[fields]]
+name = "heading"
+example = "68.38"
+meaning = "True heading [degree]"
+
+[[fields]]
+name = "roll"
+example = "-0.29"
+meaning = "Roll [degree], sign convention unknown"
+
+[[fields]]
+name = "pitch"
+example = "0.50"
+meaning = "Pitch [degree], sign convention unknown"
+
+[[fields]]
+name = "heave"
+example = "0.03"
+meaning = "Heave, sign convention unknown"

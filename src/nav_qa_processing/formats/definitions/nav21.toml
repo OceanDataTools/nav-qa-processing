@@ -1,0 +1,86 @@
+id = "nav21"
+title = "MLML UDAS (2008): multiplexed records"
+system = "Moss Landing Marine Laboratories Underway Data Acquisition System (UDAS)"
+file_type = "ASCII text, comma-separated, one header line of column names"
+vessels = ["Point Sur"]
+r2r_formats = [100081]
+position = "Furuno or Ashtech degrees and decimal minutes, without sign"
+time = "GMT date (M/D/YY) and time"
+description = "The 2008 UDAS layout: date and time first, then Furuno and Ashtech positions as separate degree and minute fields, headings, speed, wind and science values."
+notes = [
+  "Positions carry no sign or hemisphere: north and west are assumed.",
+  "Columns after the barometric pressure don't line up with the header names.",
+]
+examples = [
+  "9/18/08,00:02:36,42,34.875,131,58.586,42,34.869,131,58.594,215.21,00,8.0,GOOD,217.09,8.36,218.83,309.08,21.50,146.45,17.20,309.25,20.01,144.68,15.81,63.74,17.63,1007.96,29.77,525.69,93.94,17.51730,0.74853,4.27207,32.54859,17.68724,3.68,74.91,1.16,,0.18,308.58",
+]
+
+[[fields]]
+name = "date"
+example = "9/18/08"
+meaning = "GMT date (M/D/YY)"
+
+[[fields]]
+name = "time"
+example = "00:02:36"
+meaning = "GMT time (hh:mm:ss)"
+
+[[fields]]
+name = "furuno_lat"
+example = "42,34.875"
+meaning = "Furuno latitude: degrees, decimal minutes"
+
+[[fields]]
+name = "furuno_lon"
+example = "131,58.586"
+meaning = "Furuno longitude: degrees, decimal minutes"
+
+[[fields]]
+name = "ashtech_lat"
+example = "42,34.869"
+meaning = "Ashtech latitude: degrees, decimal minutes"
+
+[[fields]]
+name = "ashtech_lon"
+example = "131,58.594"
+meaning = "Ashtech longitude: degrees, decimal minutes"
+
+[[fields]]
+name = "ashtech_heading"
+example = "215.21"
+meaning = "Ashtech heading, true [degree]"
+
+[[fields]]
+name = "differential"
+example = "00"
+meaning = "Differential fix"
+
+[[fields]]
+name = "stw"
+example = "8.0"
+meaning = "Speed through water"
+
+[[fields]]
+name = "stw_quality"
+example = "GOOD"
+meaning = "Speed through water quality"
+
+[[fields]]
+name = "cog"
+example = "217.09"
+meaning = "Course over ground, true [degree]"
+
+[[fields]]
+name = "sog"
+example = "8.36"
+meaning = "Speed over ground [knot]"
+
+[[fields]]
+name = "gyro"
+example = "218.83"
+meaning = "Gyro heading, true [degree]"
+
+[[fields]]
+name = "…"
+example = ""
+meaning = "Wind (starboard and port), air temperature, pressure and other values"

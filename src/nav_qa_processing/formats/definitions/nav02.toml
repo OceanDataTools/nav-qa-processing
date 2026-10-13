@@ -1,0 +1,31 @@
+id = "nav2"
+title = "NOAA SCS: logger date and time, then GGA"
+system = "NOAA Shipboard Computer System (SCS)"
+file_type = "ASCII text, comma-separated"
+vessels = ["Atlantic Explorer", "Clifford A. Barnes", "Cape Hatteras", "Endeavor", "Savannah"]
+sentences = ["GGA"]
+r2r_formats = [100011]
+position = "GGA"
+time = "GGA time of day, dated by the logger's date"
+description = "Each line is the logger's date (MM/DD/YYYY) and time (hh:mm:ss.sss, UTC), then a GGA sentence. The logger clock's source isn't recorded."
+references = ["www.nmea.org"]
+examples = [
+  "03/15/2010,14:08:45.876,$GPGGA,140844,2605.395,N,08006.974,W,2,08,0.90,0,M,,,1196,0017*21",
+  "03/15/2010,14:08:46.876,$GPGGA,140845,2605.395,N,08006.974,W,2,08,0.90,0,M,,,1197,0017*21",
+  "03/15/2010,14:08:47.876,$GPGGA,140847,2605.395,N,08006.974,W,2,08,0.90,0,M,,,1198,0017*2C",
+]
+
+[[fields]]
+name = "date"
+example = "03/15/2010"
+meaning = "Logger date, UTC (MM/DD/YYYY)"
+
+[[fields]]
+name = "time"
+example = "14:08:45.876"
+meaning = "Logger time, UTC (hh:mm:ss.sss)"
+
+[[fields]]
+name = "sentence"
+example = "$GPGGA,…"
+meaning = "NMEA GGA sentence"

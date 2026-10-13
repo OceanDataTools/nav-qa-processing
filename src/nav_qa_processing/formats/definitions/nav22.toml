@@ -1,0 +1,15 @@
+id = "nav22"
+title = "Raw NMEA GGA with no date (date from the file name)"
+system = "Raw receiver output"
+file_type = "ASCII text, one NMEA sentence per line"
+vessels = ["Roger Revelle", "New Horizon"]
+sentences = ["GGA", "VTG", "PASHR"]
+position = "GGA"
+time = "GGA time of day, dated by the YYYYMMDDHHmmss stamp in the file name"
+description = "PASHR ATT, GGA and VTG sentences repeat in turn. No sentence carries a date: it comes from the YYYYMMDDHHmmss timestamp in the file name."
+references = ["www.nmea.org"]
+examples = [
+  "$PASHR,ATT,000016.0,082.92,-001.50,-000.47,0.0014,0.0165,0*2F",
+  "$GPGGA,000000.00,2107.6817,N,11957.6289,E,1,08,01.0,+00054,M,,M,,*7D",
+  "$GPVTG,000.00,T,,,000.01,N,000.01,K*1D",
+]

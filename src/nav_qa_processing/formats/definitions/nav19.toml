@@ -1,0 +1,81 @@
+id = "nav19"
+title = "OSU DAS (2009–2010): multiplexed records with day-of-year clock"
+system = "Oregon State University data acquisition system"
+file_type = "ASCII text, comma-separated, one header line of column names"
+vessels = ["Wecoma"]
+r2r_formats = [100077]
+position = "P-code receiver decimal degrees"
+time = "TrueTime clock day of year and time; the year isn't recorded"
+description = "One record every 2 s: record number, TrueTime clock as day-of-year:hh:mm:ss, positions from the P-code and DGPS receivers, depths, meteorology, radiometers, thermosalinograph, and speed and course over ground."
+notes = [
+  "The year must come from outside the file.",
+  "-999999 marks a missing value.",
+]
+examples = [
+  "27006,089:15:00:01,89.62501,15:00:00,16.439647,-102.063678,1626.3735,10203.8190,-999999,-999999,-999999,-999999,1012.7,1012.96,26.9,-50.0000E+0,73.3,-10.0000E+3,200.0000E-3,184.4873E+0,28.3844E+0,185.8810E+0,28.8036E+0,473.9582E+0,398.3661E+0,127.3548E+15,317.0966E+0,3.489417E+2,8.275876E+0,27.5527E+0,5.4332E+0,33.9938E+0,27.3397E+0,136.2400E+0,354.3319E+0,7.9682E+0,321.2,9.5E+0,-999999,-999999",
+]
+
+[[fields]]
+name = "record"
+example = "27006"
+meaning = "Record number"
+
+[[fields]]
+name = "truetime"
+example = "089:15:00:01"
+meaning = "TrueTime clock (day-of-year:hh:mm:ss)"
+
+[[fields]]
+name = "truetime_day"
+example = "89.62501"
+meaning = "TrueTime clock, decimal day of year"
+
+[[fields]]
+name = "pcode_time"
+example = "15:00:00"
+meaning = "P-code receiver time (hh:mm:ss)"
+
+[[fields]]
+name = "lat"
+example = "16.439647"
+meaning = "P-code latitude [degrees_north]"
+
+[[fields]]
+name = "lon"
+example = "-102.063678"
+meaning = "P-code longitude [degrees_east]"
+
+[[fields]]
+name = "dgps_lat"
+example = "1626.3735"
+meaning = "DGPS latitude, degrees and decimal minutes (unsigned)"
+
+[[fields]]
+name = "dgps_lon"
+example = "10203.8190"
+meaning = "DGPS longitude, degrees and decimal minutes (unsigned)"
+
+[[fields]]
+name = "…"
+example = ""
+meaning = "3.5 and 12 kHz depths and validity, pressure, air temperature, humidity, wind, radiometers, gyro, thermosalinograph, fluorometer"
+
+[[fields]]
+name = "cog"
+example = "321.2"
+meaning = "Course over ground [degree]"
+
+[[fields]]
+name = "sog"
+example = "9.5E+0"
+meaning = "Speed over ground [knot]"
+
+[[fields]]
+name = "sensor1"
+example = "-999999"
+meaning = "Science-provided sensor 1, raw"
+
+[[fields]]
+name = "sensor2"
+example = "-999999"
+meaning = "Science-provided sensor 2, raw"

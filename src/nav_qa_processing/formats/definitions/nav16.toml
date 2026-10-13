@@ -1,0 +1,58 @@
+id = "nav16"
+title = "Nobeltec track export: TrackMarks block"
+system = "Nobeltec navigation software"
+file_type = "ASCII text, key = value lines"
+vessels = ["Blue Heron"]
+r2r_formats = [100064]
+position = "Degrees, decimal minutes and hemisphere"
+time = "Date and time with Z"
+description = "A Nobeltec export of a vessel track. The track points sit between \"TrackMarks = {{\" and \"}}\", one per line: latitude and longitude as degrees, minutes and hemisphere, then the UTC date and time."
+notes = [
+  "Track points are typically one per minute (TrackingTimeIntervalSeconds).",
+]
+examples = [
+  "TrackMarks = {{",
+  "46 48.43090 N 091 59.56850 W 2011-03-29 08:48:42Z",
+  "46 48.45470 N 091 59.51440 W 2011-03-29 08:49:42Z",
+  "}}",
+]
+
+[[fields]]
+name = "lat_deg"
+example = "46"
+meaning = "Latitude, integer degrees"
+
+[[fields]]
+name = "lat_min"
+example = "48.43090"
+meaning = "Latitude, decimal minutes"
+
+[[fields]]
+name = "lat_hemisphere"
+example = "N"
+meaning = "N or S"
+
+[[fields]]
+name = "lon_deg"
+example = "091"
+meaning = "Longitude, integer degrees"
+
+[[fields]]
+name = "lon_min"
+example = "59.56850"
+meaning = "Longitude, decimal minutes"
+
+[[fields]]
+name = "lon_hemisphere"
+example = "W"
+meaning = "E or W"
+
+[[fields]]
+name = "date"
+example = "2011-03-29"
+meaning = "Date (YYYY-MM-DD)"
+
+[[fields]]
+name = "time"
+example = "08:48:42Z"
+meaning = "UTC time"

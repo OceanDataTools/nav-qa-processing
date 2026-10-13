@@ -1,0 +1,70 @@
+id = "metoc_nav"
+title = "Atlantic Explorer METOC: Campbell TOA5 navigation table"
+system = "BIOS METOC system on a Campbell Scientific CR6 logger"
+file_type = "ASCII text, comma-separated Campbell TOA5: four header lines, quoted strings"
+vessels = ["Atlantic Explorer"]
+r2r_formats = [100232]
+position = "Lat_deg/Lat_min and Lon_deg/Lon_min columns, found from header line 2"
+time = "Quoted TIMESTAMP column (YYYY-MM-DD hh:mm:ss), the logger clock, treated as UTC"
+description = "The navigation table (MainMetMast_Nav.dat) logged by the Campbell CR6 on Atlantic Explorer's main met mast. TOA5 header lines: 1 the logger and program, 2 the column names, 3 units, 4 the processing of each column. Each record has the timestamp, a record number, latitude and longitude as degrees plus decimal minutes, then SOG, COG and GPS heading."
+notes = [
+  "The minutes carry the sign as well as the degrees: -64,-42.4246 is 64° 42.4246′ W, so the position is degrees + minutes/60 (= -64.70708). Applying the degrees' sign to unsigned minutes would be wrong by twice the minutes.",
+  "No GGA quality, satellite count, HDOP or altitude: those are written NAN.",
+  "NavManager's navformat.php labels this format \"USAP Navigation (OpenRVDAS)\", but its parser was added for Atlantic Explorer (NavManager commit 776878e, 2020-09-01) and R2R files the data as format 100232, \"METOC Navigation Format (csv)\" (Atlantic Explorer, at least 2018–2022).",
+  "NavManager's reader also accepts decimal Latitude/Longitude columns, but uses the degree and minute columns (since commit 8c3582c, 2022).",
+  "Examples: AE1822, fileset 138309, file MainMetMast_Nav.dat.",
+]
+examples = [
+  "\"TOA5\",\"MainMetMast\",\"CR6\",\"8186\",\"CR6.Std.07.02\",\"CPU:MainMetMast_2018July27th_ROC_TWind_v2.CR6\",\"30817\",\"Nav\"",
+  "\"TIMESTAMP\",\"RECORD\",\"Lat_deg\",\"Lat_min\",\"Lon_deg\",\"Lon_min\",\"SOG_kts\",\"COG_deg\",\"GPS_HDT_deg\"",
+  "\"TS\",\"RN\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"",
+  "\"\",\"\",\"Smp\",\"Smp\",\"Smp\",\"Smp\",\"Smp\",\"Smp\",\"Smp\"",
+  "\"2018-08-12 12:04:41\",1029035,32,21.8818,-64,-42.4246,7.8,239,239.5",
+  "\"2018-08-12 12:04:42\",1029036,32,21.8807,-64,-42.4265,7.8,239,239.3",
+  "\"2018-08-12 12:04:43\",1029037,32,21.8796,-64,-42.4283,7.8,238,239.1",
+]
+
+[[fields]]
+name = "TIMESTAMP"
+example = "\"2018-08-12 12:04:41\""
+meaning = "Logger time (YYYY-MM-DD hh:mm:ss), quoted; the file doesn't state the time zone, and NavManager treats it as UTC"
+
+[[fields]]
+name = "RECORD"
+example = "1029035"
+meaning = "Logger record number"
+
+[[fields]]
+name = "Lat_deg"
+example = "32"
+meaning = "Latitude, signed integer degrees"
+
+[[fields]]
+name = "Lat_min"
+example = "21.8818"
+meaning = "Latitude, decimal minutes with the same sign as the degrees"
+
+[[fields]]
+name = "Lon_deg"
+example = "-64"
+meaning = "Longitude, signed integer degrees"
+
+[[fields]]
+name = "Lon_min"
+example = "-42.4246"
+meaning = "Longitude, decimal minutes with the same sign as the degrees"
+
+[[fields]]
+name = "SOG_kts"
+example = "7.8"
+meaning = "Speed over ground [knot]"
+
+[[fields]]
+name = "COG_deg"
+example = "239"
+meaning = "Course over ground, true [degree]"
+
+[[fields]]
+name = "GPS_HDT_deg"
+example = "239.5"
+meaning = "GPS heading, true [degree]"

@@ -1,0 +1,128 @@
+id = "nav13"
+title = "LUMCON MIDAS: multiplexed underway records"
+system = "LUMCON Multiple Instrument Data Acquisition System (MIDAS)"
+file_type = "ASCII text, comma-separated, one header line of column names"
+vessels = ["Pelican"]
+r2r_formats = [100022]
+position = "Trimble degrees and decimal minutes, without hemisphere"
+time = "Logger date and time"
+description = "One record every 5 s with the Trimble receiver's time and position, followed by meteorology, thermosalinograph and depth values."
+notes = [
+  "Latitude and longitude carry no hemisphere or sign: north and west are assumed.",
+  "Whether the logger time is UTC isn't documented.",
+]
+examples = [
+  "Date,Time,Trimble-Time,Trimble-Latitute,Trimble-Longitude,Trimble-COG,Trimble-SOG,TRUE-WIND-Spd-Speed,TRUE-WIND-Spd-Direction,Humidity-Value,Barometer-Value,Temperature-Value,PAR-Value,Temp-in-Seachest,Therm-Temperature,Therm-Conductivity,Therm-Salinity,Transmissometer-%-Value,Turner-AU10-Data,WetLabs-microgram-per-liter-Value,Depth-High,Depth-Low,",
+  "07/09/2009,00:24:32,002600.80,3009.06390826,08539.97126976,73.8,000.073,12.93,263.87,81.28,1011.5,27.55,25.9,29,28.05949,5.2497858,32.35914,-0.331,4.975,2.61,09.98,00.00,",
+  "07/09/2009,00:24:37,002613.60,3009.06392792,08539.97127510,87.6,000.052,12.48,262.82,81.1,1011.58,27.53,25.33,29,28.06010,5.2496810,32.35800,-0.331,4.990,2.61,13.51,00.00,",
+]
+
+[[fields]]
+name = "date"
+example = "07/09/2009"
+meaning = "Logger date (MM/DD/YYYY)"
+
+[[fields]]
+name = "time"
+example = "00:24:32"
+meaning = "Logger time (hh:mm:ss)"
+
+[[fields]]
+name = "trimble_time"
+example = "002600.80"
+meaning = "Receiver time of day (hhmmss.ss)"
+
+[[fields]]
+name = "lat"
+example = "3009.06390826"
+meaning = "Latitude, degrees and decimal minutes (north assumed)"
+
+[[fields]]
+name = "lon"
+example = "08539.97126976"
+meaning = "Longitude, degrees and decimal minutes (west assumed)"
+
+[[fields]]
+name = "cog"
+example = "73.8"
+meaning = "Course over ground [degree]"
+
+[[fields]]
+name = "sog"
+example = "000.073"
+meaning = "Speed over ground [knot]"
+
+[[fields]]
+name = "true_wind_speed"
+example = "12.93"
+meaning = "True wind speed [knot]"
+
+[[fields]]
+name = "true_wind_dir"
+example = "263.87"
+meaning = "True wind direction [degree]"
+
+[[fields]]
+name = "humidity"
+example = "81.28"
+meaning = "Relative humidity [percent]"
+
+[[fields]]
+name = "pressure"
+example = "1011.5"
+meaning = "Barometric pressure [hPa]"
+
+[[fields]]
+name = "air_temp"
+example = "27.55"
+meaning = "Air temperature [degC]"
+
+[[fields]]
+name = "par"
+example = "25.9"
+meaning = "PAR"
+
+[[fields]]
+name = "seachest_temp"
+example = "29"
+meaning = "Sea chest temperature [degC]"
+
+[[fields]]
+name = "tsg_temp"
+example = "28.05949"
+meaning = "Thermosalinograph temperature [degC]"
+
+[[fields]]
+name = "tsg_cond"
+example = "5.2497858"
+meaning = "Thermosalinograph conductivity [S m-1]"
+
+[[fields]]
+name = "tsg_sal"
+example = "32.35914"
+meaning = "Thermosalinograph salinity [PSU]"
+
+[[fields]]
+name = "transmissometer"
+example = "-0.331"
+meaning = "Transmissometer [percent]"
+
+[[fields]]
+name = "turner"
+example = "4.975"
+meaning = "Turner AU-10 fluorometer"
+
+[[fields]]
+name = "wetlabs"
+example = "2.61"
+meaning = "WET Labs fluorometer [ug L-1]"
+
+[[fields]]
+name = "depth_high"
+example = "09.98"
+meaning = "Depth, high frequency [m]"
+
+[[fields]]
+name = "depth_low"
+example = "00.00"
+meaning = "Depth, low frequency [m]"

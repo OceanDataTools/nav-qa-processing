@@ -1,0 +1,35 @@
+id = "nav3"
+title = "NOAA SCS: logger date and time, then GLL, VTG and occasional GGA"
+system = "NOAA Shipboard Computer System (SCS)"
+file_type = "ASCII text, comma-separated"
+vessels = ["Blue Heron"]
+sentences = ["GLL", "VTG", "GGA"]
+r2r_formats = [100012]
+position = "GLL"
+time = "Logger date and time"
+description = "The nav2 layout, but the sentences are mostly GLL and VTG, with an occasional GGA. GLL sentences may be cut short after the longitude, so the logger's timestamp is the record time."
+notes = [
+  "Records from GLL have no fix quality, satellite count, HDOP or altitude.",
+]
+references = ["www.nmea.org"]
+examples = [
+  "09/16/2010,13:12:09.546,$GPGLL,4646.622,N,09204.105,W",
+  "09/16/2010,13:12:19.640,$GPVTG,122,T,123,M,8.9,N,16.4,K",
+  "09/16/2010,13:12:49.531,$GPGLL,4646.570,N,09203.984,W",
+  "09/16/2010,13:12:59.531,$GPGLL,4646.558,N,09203.954,W",
+]
+
+[[fields]]
+name = "date"
+example = "09/16/2010"
+meaning = "Logger date, UTC (MM/DD/YYYY)"
+
+[[fields]]
+name = "time"
+example = "13:12:09.546"
+meaning = "Logger time, UTC (hh:mm:ss.sss)"
+
+[[fields]]
+name = "sentence"
+example = "$GPGLL,…"
+meaning = "NMEA sentence, possibly truncated"

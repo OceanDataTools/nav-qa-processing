@@ -1,0 +1,34 @@
+id = "nav29"
+title = "STARC logger: timestamp, then NMEA (GGA dated by ZDA)"
+system = "Scripps STARC serial logger"
+file_type = "ASCII text: logger timestamp, then one NMEA sentence"
+vessels = ["Robert Gordon Sproul", "Roger Revelle", "Sally Ride", "Healy"]
+sentences = ["GGA", "ZDA", "GLL", "VTG", "RMC", "HDT", "GSA", "PSXN"]
+r2r_formats = [100150]
+position = "GGA"
+time = "GGA time of day, dated by ZDA; the logger timestamp is ignored"
+description = "Each line is the logger's timestamp and one NMEA sentence. Two layouts occur: a Unix time and a space before the sentence (2018 Sproul, Healy), or an ISO 8601 UTC time and a comma (STARC serial_logger *.raw from 2016, e.g. Sproul 2026). The position and fix data come from GGA; ZDA gives the date."
+notes = [
+  "R2R lists the comma layout as \"STARC serial_logger/*.raw format from 2016\" (R2R format 100150).",
+  "The reader takes the text from the last $ on a line, so either prefix works.",
+  "Examples: the Unix-time lines are NavManager's sample (2018); the ISO lines are SP2613, fileset 169851, file SP2613_mru_trimble_bx992-2026-07-09.txt (Trimble BX992).",
+]
+references = ["www.nmea.org"]
+examples = [
+  "1531596045.688 $INZDA,192045.68,14,07,2018,,*7A",
+  "1531596045.718 $INGGA,192045.68,4437.541871,N,12402.686139,W,2,07,1.3,-4.31,M,-22.07,M,2.0,0135*4B",
+  "1531596045.758 $INGLL,4437.541871,N,12402.686139,W,192045.68,A,D*67",
+  "2026-07-09T15:11:57.510016Z,$GNGGA,151157.50,3242.16878136,N,11714.02628853,W,2,13,0.8,7.887,M,-35.627,M,6.4,0133*6E",
+  "2026-07-09T15:11:57.510016Z,$GNGLL,3242.16878136,N,11714.02628853,W,151157.50,A,D*62",
+  "2026-07-09T23:06:26.014004Z,$GNZDA,230626.01,09,07,2026,00,00*72",
+]
+
+[[fields]]
+name = "timestamp"
+example = "2026-07-09T15:11:57.510016Z"
+meaning = "Logger time: Unix seconds or ISO 8601 UTC"
+
+[[fields]]
+name = "sentence"
+example = "$GNGGA,…"
+meaning = "NMEA sentence, after a space or a comma"

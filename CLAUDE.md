@@ -4,15 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`nav-qa-processing` ports R2R's **NavManager** (PHP/Java, at `../../NavManager`, i.e.
-`GitHub_Repos/NavManager`) to a modern Python package. It follows the architecture and conventions of
+`nav-qa-processing` ports R2R's **NavManager** (PHP/Java, https://github.com/rvdata/NavManager,
+cloned at `../../NavManager`, i.e. `GitHub_Repos/NavManager`) to a modern Python package. Port from
+`master`; the other upstream branches are summarized in `docs/architecture.md` ("Upstream
+branches"). Check them, e.g. `git diff master...origin/<branch>`, before concluding NavManager
+lacks something. It follows the architecture and conventions of
 the sibling project `../sbe-qa-processing`. When this file doesn't settle a structural or tooling
 question, do what `sbe-qa-processing` does: read its `CLAUDE.md`, `pyproject.toml` and
 `src/sbe_qa_processing/` (especially `qa.py`, `r2r.py`, `xml_report.py`, `config.py`,
 `openvdm.py`, `cli.py`).
 
-GitHub: `OceanDataTools/nav-qa-processing`, private for now. The repo so far has only a
-scaffold: `pyproject.toml`, a stub `cli.py` (`--version` only) and `quantities.py`. Add
+GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far (Phase 1 of the
+plan in `docs/architecture.md`):
+- `quantities.py`: the project-wide quantity table (see below).
+- `formats/definitions/*.toml`: a definition of every R2R raw nav format ID (layout, sentences,
+  vessels, examples) plus `sentences.toml`, written in this project's words (see its README).
+  `formats/catalog.py` loads them and `nav-qa-processing formats [ID]` prints them. Add or fix a
+  format's description there, not in code.
+- `formats/__init__.py`: the registry. `READERS` maps format IDs to readers (so far only
+  `nav29`); `get(id)` refuses formats without one. `nmea.py` (sentences, checksum, GGA, ZDA) and
+  `gga_zda.py` (GGA dated by ZDA, NavManager's buffer rules and quirks in its docstring).
+- `rawnav.py`: `read_fileset(paths, format_id, start, end)` -> `RawNav` (DataFrame, receiver
+  decimals, files read/skipped, errors). It selects files by their ZDA span, as navdatalist does.
+- `r2rnav.py`: read/write legacy r2rnav.
+- `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
+  into `data/<CRUISE>_<FILESET>_gnss/`.
+- `cli.py`: only the `formats` subcommand so far.
+
+SP2613's pre-QC records match R2R's full bestres by value (`tests/test_rawnav.py`; R2R evidently ran it
+with the 2026-07-09 cruise-day window, which excludes the 07-07 file). Add
 dependencies (matplotlib, reportlab, svglib, cartopy, nbformat, …) as the modules that need
 them land, and commit `uv.lock` with each change. Update this file as modules come into existence, and remove any section below
 that stops describing reality.
@@ -45,8 +65,9 @@ The pipeline runs over the primary GPS feed. Each stage is a `bin/*.php` script 
    format. It dispatches on an input format ID (`nav1`…`nav33`, `uhdas`, `siomet`, `metoc_nav`).
    Some formats have parsers in `include/parsers/`, and others are inline `case` blocks in
    `navcopy.inc.php`. NMEA sentence classes are in `nmeatools.inc.php`. Each format is documented
-   in `doc/fileformat/format-*.txt`, and `bin/navformat.php` lists them. Port parsers per format
-   from these docs together with the PHP.
+   in `doc/fileformat/format-*.txt` (more in the `docs` branch), and `bin/navformat.php` lists
+   them. Our own definitions of them are in `formats/definitions/`. Port parsers per format from
+   those together with the PHP.
 3. **navqc** (`navqc.inc.php`) flags bad records with a leading `#` to produce **NavBestRes**.
    It flags:
    - an invalid or dead-reckoning GGA fix (`valid_gga_fix`: quality, satellite count, HDOP),
@@ -105,7 +126,9 @@ with R2R is therefore **by value**: the same names, ratings, records, times and 
 numbers equal after parsing. It is never byte for byte.
 
 R2R's control points are what NavManager's `navsimplifier.py` (recursive Douglas–Peucker)
-selects with a **0.01°** tolerance, not the committed 0.1°. NavManager has no GeoCSV writer.
+selects with a **0.01°** tolerance, not the committed 0.1°. NavManager has no GeoCSV writer: its
+`geocsv` branch only switches to comma delimiters and `#` headers, so R2R's GeoCSV header block
+comes from R2R's own tooling.
 
 Nav QA reports are named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`. Find them through the
 `documents` field of `service.rvdata.us/api/qa_info/?fileset_id=…`. The product bag is in
