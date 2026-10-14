@@ -42,8 +42,19 @@ of Phase 2 of the plan in `docs/architecture.md`):
 - `stats.py`: `compute(nav, qc_result, thresholds, extent)` -> `NavStats` (navqa's statistics on
   the pre-QC records, done soundly: completeness from interval slots, QC's acceleration) and the
   core checks (`CheckResult`: pass/warn/info/n/a against `Thresholds`). In `NavQAResult.stats`.
-- `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...), and an empty
-  `integrations/` package; `tests/test_boundaries.py` keeps core from importing it.
+- `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...);
+  `tests/test_boundaries.py` keeps core from importing `integrations/`.
+- `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's
+  IDs, catalog dates, `Port`s, `Device`, format ID/alias, provenance; `identifier`
+  `<cruise>_<fileset>` or `<cruise>_gnss`), `load_cruise_config`, `config_to_toml`.
+  `configs/<CRUISE>_<FILESET>.toml` are hand-made from R2R's reports and catalog (SP2613,
+  SP2503, SP2424).
+- `integrations/r2r/rules.py`: `run_r2r_tests(stats)` -> `R2RResult` (R2R's six tests, G/Y
+  bounds stated once, results rated as written through `quantities.py`; infos TotalTests…).
+- `integrations/r2r/xml_report.py`: `build_qa_xml`/`write_qa_xml(result, r2r, path)` with the
+  structure of R2R's current nav report (the duplicate `<r2r:id>` omitted, register X1) and
+  `qa_xml_name`. `tests/test_r2r_xml.py` compares it with R2R's SP2613, SP2503 and SP2424
+  reports: same element paths, ratings, infos and values but for accelerations (A5).
 - `qc.py`: `flag(nav, thresholds, start, end)` -> `QCResult` (per-record `Flag` bitmask, the
   acceleration limit used, notes). No speed rule; acceleration over a time base with velocity
   vectors; excursions flagged, steps reported (decisions in its docstring).
