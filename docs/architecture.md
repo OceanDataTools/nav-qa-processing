@@ -407,7 +407,8 @@ src/nav_qa_processing/
 ```
 
 What exists today: `quantities`, `config`, `fileset`, `formats/`, `rawnav`, `geodesy`, `qc`,
-`products`, `geocsv`, `r2rnav`, `qa`, `network`, `readable`, and an empty `integrations/`. The rest is planned by phase below. Shared code (network,
+`products`, `geocsv`, `r2rnav`, `qa`, `stats`, `network`, `readable`, and an empty
+`integrations/`. The rest is planned by phase below. Shared code (network,
 readable, CLI conventions, the OpenVDM hook mechanics, the R2R XML wrapper) could later move to a
 package common to both projects; that is not a prerequisite.
 

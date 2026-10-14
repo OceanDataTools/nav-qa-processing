@@ -79,3 +79,13 @@ def test_no_zda_is_an_error_not_an_exception():
 def test_invalid_zda_is_recorded_and_skipped():
     result = gga_zda.read([("f", [gga("120000.00"), nmea("GPZDA,120000.01,,,,,")])])
     assert "ZDA without a valid date" in result.errors[0]
+
+
+def test_a_file_starting_after_a_long_gap_takes_its_own_zda():
+    """The first GGA of a file that starts 13.5 h after the last one ended sits next to the
+    previous file's last ZDA, but belongs with the ZDA right after it (SP2503)
+    """
+    first = [gga("023307.50"), zda("023308.01", 13)]
+    second = [gga("160333.50"), zda("160334.01", 13), gga("160334.00")]
+    result = gga_zda.read([("a", first), ("b", second)])
+    assert [f.day for f in result.fixes] == [date(2026, 7, 13)] * 3

@@ -21,4 +21,5 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 |---|---|---|
 | SP2613 | 169851 (product 620146) | the files above, in full; one day, 56,925 records, rated G |
 | SP1925 | 134952 (product 609448) | 45,723 records, 303 flagged by R2R (stale repeats while barely moving): the first released cruise with flagged fixes found; 1 Hz, 6-decimal positions; no QA 2.0 report |
+| SP2503 | 167484 (product 619357) | QA rated R: completeness 47.34 %, longest gap 48,625.5 s (Y); 87,431 fixes over three files, the first of them the previous cruise's; its first fix is at exactly 00:00:00, which R2R's bestres lacks (register R3) |
 | SP2424 | 161900 (product 615579) | 150,924 R2R records (we read 150,925: NavManager drops the final fix), past navsogcog's 86,400-record buffer: R2R's first-buffer speeds carry its bug; nav29 with an ISO timestamp and a space; rated G, no flagged fixes |

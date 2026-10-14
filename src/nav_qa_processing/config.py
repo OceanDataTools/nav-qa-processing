@@ -85,8 +85,16 @@ class Thresholds(Readable):
     """
 
     # -- QA statistics --
-    max_speed: float = 8.7  # [m s-1]
-    max_gap: float = 300.0  # [s]
+    max_speed: float = 8.7  # [m s-1] a speed above this is unreasonable
+    max_gap: float = 300.0  # [s] a step this long or longer is a gap
+    # -- Core checks: pass at or within these, warn otherwise. The defaults equal R2R's green
+    #    bounds; R2R's own G/Y/R ratings belong to the R2R integration --
+    min_completeness: float = 95.0  # [percent]
+    max_longest_gap: float = 900.0  # [s]
+    max_out_of_sequence: float = 5.0  # [percent] of records
+    max_bad_quality: float = 5.0  # [percent] of records reporting a quality indicator
+    max_unreasonable_speeds: float = 5.0  # [percent] of speeds
+    max_unreasonable_accelerations: float = 5.0  # [percent] of accelerations
     # -- QC --
     max_accel: float = 1.0  # [m s-2]
     # Acceleration at a fix uses velocities over at least this long before and after it (not in
@@ -121,6 +129,12 @@ class Thresholds(Readable):
 THRESHOLD_UNITS = {
     "max_speed": "m s-1",
     "max_gap": "s",
+    "min_completeness": "%",
+    "max_longest_gap": "s",
+    "max_out_of_sequence": "%",
+    "max_bad_quality": "%",
+    "max_unreasonable_speeds": "%",
+    "max_unreasonable_accelerations": "%",
     "max_accel": "m s-2",
     "accel_time_base": "s",
     "date_margin_days": "days",

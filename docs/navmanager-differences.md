@@ -25,7 +25,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP1925 (134952, 303 flagged fixes, rate
 |---|---|---|---|---|
 | R1 | reader | Correct checksums below 0x10 rejected | Sentences dropped (39 % of VTG, 29 % of RMC in SP2613) | Fixed (#13) |
 | R2 | reader | Last GGA after the final ZDA dropped | One record lost per cruise (SP2424) | Fixed (#14) |
-| R3 | reader | GGA repeating the last dated time, or at 00:00:00, dropped | Records lost (none in the references) | Fixed (#14) |
+| R3 | reader | GGA repeating the last dated time, or at 00:00:00, dropped | Records lost (SP2503: its first fix, at 00:00:00) | Fixed (#14) |
 | R4 | reader | An equal time of day advances the date | A repeated fix dated 24 h later (none in the references) | Fixed (#15) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -43,7 +43,12 @@ SP2424 (161900, 150,925 fixes, rated G), SP1925 (134952, 303 flagged fixes, rate
 | F1 | R2R GeoCSV | Inconsistent units and long names, trimmed numbers | Header text and number formats | Standardized text (#9) |
 | F2 | R2R GeoCSV | Flagged records without speed and course | — | Same structure (#10) |
 | D1 | docs | Format and processing documents that disagree with the code | Misleading documentation | Our own definitions |
-| A1 | QA | navqa issues found in review (PHP 8 error, port distances, completeness > 100 %) | Ratings and infos | Phase 3 |
+| A1 | QA | navqa issues found in review (PHP 8 error, port distances, thresholds twice) | Ratings and infos | Phase 3 |
+| A2 | navqa | Modal interval truncated to ms, ties to whichever comes first | None in the references | Rounded; ties to the shorter step (#24) |
+| A3 | navqa | Completeness from accumulated "countable epochs"; the end-of-file loop compares ms with s | Completeness can exceed 100 % | Occupied interval slots (#24) |
+| A4 | navqa | Quality 3 (PPS) counted as bad, though navqc accepts 1–5 | Bad-quality percentage | QC's valid range (#24) |
+| A5 | navqa | Speeds and accelerations between every pair of records, scalar | SP2424: 0.16 % unreasonable accelerations, ±14 m s-2 (GNSS noise) | QC's acceleration over 2 s (#24) |
+| A6 | navqa | Percentages over "actual epochs" (in-sequence steps), −1 and −2 for speeds and accelerations | Negligible | Over records, speeds, accelerations (#24) |
 
 ## Reader (navdatalist, navcopy, nmeatools)
 
@@ -67,14 +72,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP1925 (134952, 303 flagged fixes, rate
 
 - **NavManager:** `parse_nav29` skips a GGA whose `hhmmss` equals `$dateBufferLast->hhmmss`.
 - **Here:** kept; duplicates are QC's decision (`TIME_SEQUENCE`).
-- **Evidence:** none in the reference filesets; covered by synthetic tests (`tests/test_gga_zda.py`).
+- **Evidence:** SP2503 (raw GNSS fileset 167484): its raw data starts at exactly 2025-02-13T00:00:00.00Z, and R2R's bestres lacks that fix; every other record matches (`tests/test_stats.py` data). Synthetic tests in `tests/test_gga_zda.py`.
 - **Why (confirmed in code):** the check was meant to drop a duplicate across a buffer flush, but it only compares with the single last dated record. Before anything is dated, and after a ZDA arrives with nothing buffered, `$dateBufferLast->hhmmss` is unset; PHP's loose `==` treats null as equal to `0.0`, so a GGA at exactly 00:00:00 is dropped.
 - **Effect:** occasional fixes lost, including any fix at exactly midnight after an empty buffer.
 
 ### R4. An equal GGA time of day advances the date
 
 - **NavManager:** `parse_nav29`, ZDA flush: after the leading GGAs dated by the ZDA, a GGA keeps its predecessor's date only if its time is *later* (`>`), so an equal time moves to the next day. The end-of-input block uses `<` for "earlier", so there an equal time stays.
-- **Here:** each GGA is dated from the nearest ZDA, moving a day only across midnight; an equal time keeps its date.
+- **Here:** each GGA is dated from the ZDA either side of it in the stream that is closer in time of day, moving a day only across midnight; an equal time keeps its date. (A first version used the nearest ZDA by position in the stream; at a 13.5 h gap between files it misdated SP2503's first fix of its second file by a day, which the QA comparison caught.)
 - **Evidence:** none in the reference filesets; synthetic tests.
 - **Why (suspected):** an inconsistent comparison between two near-duplicate copies of the dating loop; the day-rollover test should have been "time decreased", not "time didn't increase".
 - **Effect:** a receiver repeating a fix would put the repeat 24 h later, where QC sees it as out of sequence.
@@ -217,15 +222,55 @@ SP2424 (161900, 150,925 fixes, rated G), SP1925 (134952, 303 flagged fixes, rate
 - **Why (suspected):** documents written once and not updated as the code and vessels changed.
 - **Here:** the format definitions in `formats/definitions/` are written from the code and real data (#2, #4, #5).
 
-## QA (navqa) — from code review, to be checked in Phase 3
+## QA statistics (navqa)
+
+Compared with R2R's QA 2.0 reports for SP2613, SP2424 and SP2503 (`tests/test_stats.py`):
+completeness, longest gap, out-of-sequence, bad-quality and unreasonable-speed percentages, and
+the NSV, HDOP, altitude and speed ranges equal R2R's at R2R's precision on all three. Only the
+acceleration results differ (A5).
 
 ### A1. Issues found reading navqa
 
 - `count()` is called on a scalar mode value (`navqa.inc.php`, ~line 375), a `TypeError` on PHP ≥ 8.
 - `navqa.php` takes the "ports" from the first and last records of the file it assesses, so distance from port is always about 0, and it prints the start distance as the end distance.
-- Percent completeness assumes one sampling rate and can exceed 100 % when it changes.
-- The rating thresholds are written twice: in the rating `switch` and as literal bound values.
-- **Status:** to be confirmed against R2R's QA reports when the QA statistics and ratings are ported.
+- The rating thresholds are written twice: in the rating `switch` and as literal bound values (`xmltools2.inc.php`).
+- **Status:** the ratings and the XML come with #27.
+
+### A2. Modal interval
+
+- **NavManager:** `navqa()` first pass (~line 240): steps between consecutive records (forward, at most 30 days), truncated to milliseconds with `intval(1e3 * …)`; the mode by `array_mode`, taking the first value when several tie.
+- **Here:** steps rounded to the millisecond; a tie goes to the shorter step (`stats.modal_interval`).
+- **Why (confirmed):** `intval` truncates, so a step of 0.4999 s counts as 499 ms; which tied value comes first depends on the order values were first seen.
+- **Effect:** none in the references (0.5 s on all three).
+
+### A3. Completeness
+
+- **NavManager:** completeness = "countable epochs" / ⌊1 + duration / modal interval⌋. Countable epochs walk the steps, counting each step at least one interval long and accumulating shorter ones until they reach it. In the full-buffer loop the comparison is `intval($delt)/1e3 >= $epochInterval` (milliseconds over 1,000 against seconds); in the end-of-file loop it is `intval($delt[$inx]) >= $stats->epochInterval` (milliseconds against seconds), so there every step counts, however short.
+- **Here:** the share of interval slots, from the first in-sequence record to the last, that hold a record; at most 100 %.
+- **Evidence:** equal to R2R's on SP2613 (99.98 %), SP2424 (100.00 %) and SP2503 (47.34 %, rated R).
+- **Why (confirmed in code):** the two copies of the loop scale the step differently; the end-of-file copy is missing `/1e3`.
+- **Effect:** where the last buffer has records closer together than the interval, completeness counts too many epochs and can exceed 100 % (which the R2R cookbook says to discard, but the XML still rates).
+
+### A4. Bad quality indicator
+
+- **NavManager:** a record is bad unless its quality is 1, 2, 4 or 5 (`navqa.inc.php`, ~line 700); a missing quality (`"NAN"`) also counts as bad.
+- **Here:** quality outside QC's valid range, 1 to 5, over the records that report one; no result when none does.
+- **Why (suspected):** written separately from navqc's `valid_gga_fix`, which accepts 1–5; quality 3 (PPS, a valid fix) was left out.
+- **Effect:** PPS fixes, rare on research vessels, would count as bad (none in the references).
+
+### A5. Speeds and accelerations
+
+- **NavManager:** speeds between every pair of consecutive records (scalar, its Vincenty, G1), accelerations as the change of speed between consecutive pairs over the time between their midpoints, within 3,600-record buffers; unreasonable above `MAX_SPEED` and `MAX_ACCEL` (the absolute value, so slowing counts too).
+- **Here:** speeds the same way, which match R2R's percentages and range; accelerations are QC's (velocity vectors over a 2 s time base, #7), so QA and QC agree; the range is the signed change of speed over the same time base.
+- **Evidence:** SP2424: R2R 0.16 % unreasonable accelerations and −14.257 to 14.766 m s-2; ours 0.01 % and about −0.9 to 1.0. SP2503: 0.04 % against 0.01 %. SP2613: 0.00 % both, R2R's range −0.898 to 0.872, ours about ±0.5.
+- **Why (confirmed):** at 2 Hz, centimetres of GNSS noise between 0.5 s fixes are metres per second squared of apparent acceleration; navqc's own check is inverted (Q2), so the noise never shows as flags, only in the QA percentage.
+- **Effect:** R2R's acceleration test and range measure GNSS noise on high-rate receivers.
+
+### A6. Denominators
+
+- **NavManager:** out-of-sequence and bad-quality percentages are over "actual epochs" (the in-sequence steps, records − 1); unreasonable speeds over actual epochs − 1; accelerations over actual epochs − 2 (`xmltools2.inc.php`).
+- **Here:** out of sequence over the usable records; bad quality over the records reporting a quality; speeds over the speeds; accelerations over the accelerations.
+- **Effect:** negligible for real filesets.
 
 ## Not NavManager: R2R's catalog and the data
 
