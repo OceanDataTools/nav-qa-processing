@@ -14,6 +14,8 @@ The rules (docs/architecture.md, "Standardized quantities"):
 - Integers are written without decimals.
 - Datetimes are UTC, `YYYY-MM-DDThh:mm:ss[.f…]Z`, at the receiver's time precision.
 - Missing values are written `NAN`.
+- Descriptions contain no commas: GeoCSV writes them as one comma-separated `field_long_name`
+  list.
 
 Names are R2R's identifiers (GeoCSV `field_standard_name`s) where R2R has one. Don't rename them.
 """
@@ -173,14 +175,14 @@ ANTENNA_HEIGHT = Quantity(
 )
 SPEED_MADE_GOOD = Quantity(
     "speed_made_good",
-    "Speed over ground, from successive positions",
+    "Speed over ground from successive positions",
     Datatype.FLOAT,
     "m s-1",
     decimals=2,
 )
 COURSE_MADE_GOOD = Quantity(
     "course_made_good",
-    "Course over ground, clockwise from true north",
+    "Course over ground clockwise from true north",
     Datatype.FLOAT,
     "degree",
     decimals=3,
@@ -190,7 +192,7 @@ COURSE_MADE_GOOD = Quantity(
 
 HORIZONTAL_ACCELERATION = Quantity(
     "horizontal_acceleration",
-    "Horizontal acceleration, from successive speeds",
+    "Horizontal acceleration",
     Datatype.FLOAT,
     "m s-2",
     decimals=3,
