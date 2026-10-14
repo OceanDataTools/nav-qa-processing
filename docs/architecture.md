@@ -150,6 +150,9 @@ flowchart LR
 
 ### Shortcomings
 
+Every difference found while porting, with evidence from R2R's filesets and the suspected
+reason, is kept in `docs/navmanager-differences.md`.
+
 **Platform**
 - PHP 5-era code. In `navqa`, `count()` is called on a scalar mode value
   (`navqa.inc.php:375`), which throws a `TypeError` on PHP ≥8.

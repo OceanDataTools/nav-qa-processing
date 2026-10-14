@@ -168,6 +168,10 @@ fixes); see `tests/fixtures/README.md`.
   Reference files are in `tests/fixtures/` (see its README), larger ones in `data/`. Take the
   QC rules, rating thresholds and test definitions from NavManager, but implement them soundly.
   Document every rule that is inferred rather than documented in the module docstring.
+- **Record every difference from NavManager in `docs/navmanager-differences.md`** as soon as it's
+  found: NavManager's behavior with file and line, ours, the evidence (filesets, counts, test),
+  *why* NavManager does it (confirmed in code, or suspected), and the effect on R2R's products.
+  Add a row to its summary table. The user presents this register as a report.
 - When the PHP has quirks (buffer boundaries, least-count/precision handling, stale variables,
   off-by-one records), **don't reproduce them**. Note each one, with evidence of its effect on
   R2R's products where a fileset shows it, in the module docstring and in the "Shortcomings"

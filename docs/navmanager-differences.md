@@ -1,0 +1,234 @@
+# Differences from NavManager
+
+A register of every place where nav-qa-processing deliberately behaves differently from R2R's
+NavManager (https://github.com/rvdata/NavManager, `master` at `f8e4158`, 2025-07-02), or where
+R2R's published products differ from what NavManager's own code or documentation says. It is
+kept up to date as differences are found, so that it can be presented as a report.
+
+The project's parity policy (decided 2026-10-13, `CLAUDE.md`): match the **format** of R2R's
+published products exactly, compute values soundly, and don't reproduce NavManager's quirks;
+document each difference instead. Each entry gives:
+
+- **NavManager:** what it does, and where (file and approximate line in `NavManager/`).
+- **Here:** what this package does instead.
+- **Evidence:** the R2R filesets and counts that show it, and the test that checks it.
+- **Why:** the mechanism behind NavManager's behavior. *Confirmed* means read in the code and
+  reproduced; *suspected* means inferred from the data and the code, not proven.
+- **Effect:** on R2R's published products or ratings.
+
+Reference filesets (see `tests/fixtures/README.md`): SP2613 (raw GNSS 169851, one day, rated G),
+SP2424 (161900, 150,925 fixes, rated G), SP1925 (134952, 303 flagged fixes, rated R).
+
+## Summary
+
+| ID | Stage | Difference | Effect on R2R's products | Status here |
+|---|---|---|---|---|
+| R1 | reader | Correct checksums below 0x10 rejected | Sentences dropped (39 % of VTG, 29 % of RMC in SP2613) | Fixed (#13) |
+| R2 | reader | Last GGA after the final ZDA dropped | One record lost per cruise (SP2424) | Fixed (#14) |
+| R3 | reader | GGA repeating the last dated time, or at 00:00:00, dropped | Records lost (none in the references) | Fixed (#14) |
+| R4 | reader | An equal time of day advances the date | A repeated fix dated 24 h later (none in the references) | Fixed (#15) |
+| G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
+| G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
+| G3 | navsogcog | Full-buffer speeds use the previous segment's distance | SOG lags one fix in the first 86,399 records of long cruises (SP2424) | Not reproduced (#12) |
+| G4 | navsogcog | Division by zero for equal times | None after QC | NaN |
+| Q1 | navqc | Speed rule commented out | No speed flags | No speed rule, by decision (#7) |
+| Q2 | navqc | Main-loop acceleration check inverted ("Flipped check") | Acceleration flags almost never fire (SP2424: 0) | Sound check (#7) |
+| Q3 | navqc | Speed magnitudes, nearest-fix flagging, at most 2 iterations | Sideways jumps missed; neighbours flagged | Velocity vectors, step/excursion test (#7) |
+| Q4 | navqc | 3,600-record buffers | Flags depend on buffer boundaries | Whole series (#7) |
+| Q5 | navqc | Acceleration limit set to 3× position resolution [m], from one record | Silent, dimensionally odd limit | Derived from resolution, reported (#7) |
+| Q6 | navqc | Null island only at 00:00:00 | 0,0 fixes at other times kept | Any time (#7) |
+| Q7 | navqc | Stale-repeat decisions near the 0.25 m/s threshold | SP1925: 94 flags R2R-only, 10 ours-only | Documented (#10) |
+| P1 | navsample | Nearest record to each whole minute, with a skewed window and ring-buffer gaps | 1min misses nodes at buffer wraps and after the last fix | Nearest within half an interval (#8) |
+| P2 | NavControl | Committed tolerance 0.1°, R2R uses 0.01° | None (R2R runs 0.01°) | shapely at 0.01° (#8) |
+| F1 | R2R GeoCSV | Inconsistent units and long names, trimmed numbers | Header text and number formats | Standardized text (#9) |
+| F2 | R2R GeoCSV | Flagged records without speed and course | — | Same structure (#10) |
+| D1 | docs | Format and processing documents that disagree with the code | Misleading documentation | Our own definitions |
+| A1 | QA | navqa issues found in review (PHP 8 error, port distances, completeness > 100 %) | Ratings and infos | Phase 3 |
+
+## Reader (navdatalist, navcopy, nmeatools)
+
+### R1. Correct NMEA checksums below 0x10 are rejected
+
+- **NavManager:** `NMEA0183Message::init` (`include/nmeatools.inc.php`, ~line 33) computes the checksum with `dechex()` and compares it with the supplied one, lowercased, as text.
+- **Here:** checksums are compared by value, so `*0A`, `*0a` and a nonstandard one-digit `*A` are all 0x0A (`formats/nmea.py`).
+- **Evidence:** SP2613: 39 % of VTG and 29 % of RMC sentences are rejected, all with correct checksums; no GGA or ZDA is affected in SP2613 or SP2424 (`tests/test_nmea.py`).
+- **Why (confirmed):** PHP's `dechex()` returns unpadded hex (`a`, not `0a`), while receivers write two digits. Every correct checksum below 0x10 fails the text comparison.
+- **Effect:** about 1 in 16 sentences of any type is dropped. In SP2613 none was a GGA or ZDA, so no published fix was lost; on another cruise, fixes or the ZDAs that date them could be.
+
+### R2. The last GGA after the final ZDA is dropped
+
+- **NavManager:** `parse_nav29` (`include/parsers/nav29.php`, end-of-input block): the loop `for ($inx=1; $inx < $binx - 1; $inx++)` prints one record fewer than the buffer holds.
+- **Here:** every valid GGA is kept (`formats/gga_zda.py`).
+- **Evidence:** SP2424 has 150,925 valid GGAs; R2R's bestres has 150,924, missing the final fix, 2024-11-04T03:16:44.50Z (`tests/test_rawnav.py`).
+- **Why (confirmed):** an off-by-one. `$binx` is the next free (1-based) index, so the buffer holds `$binx - 1` records, but the loop stops before the last one.
+- **Effect:** one fix lost at the end of every cruise whose last GGA follows its last ZDA. Here SP2424's 1min and control also end on that fix (P1).
+
+### R3. A GGA repeating the last dated time, or at 00:00:00, is dropped
+
+- **NavManager:** `parse_nav29` skips a GGA whose `hhmmss` equals `$dateBufferLast->hhmmss`.
+- **Here:** kept; duplicates are QC's decision (`TIME_SEQUENCE`).
+- **Evidence:** none in the reference filesets; covered by synthetic tests (`tests/test_gga_zda.py`).
+- **Why (confirmed in code):** the check was meant to drop a duplicate across a buffer flush, but it only compares with the single last dated record. Before anything is dated, and after a ZDA arrives with nothing buffered, `$dateBufferLast->hhmmss` is unset; PHP's loose `==` treats null as equal to `0.0`, so a GGA at exactly 00:00:00 is dropped.
+- **Effect:** occasional fixes lost, including any fix at exactly midnight after an empty buffer.
+
+### R4. An equal GGA time of day advances the date
+
+- **NavManager:** `parse_nav29`, ZDA flush: after the leading GGAs dated by the ZDA, a GGA keeps its predecessor's date only if its time is *later* (`>`), so an equal time moves to the next day. The end-of-input block uses `<` for "earlier", so there an equal time stays.
+- **Here:** each GGA is dated from the nearest ZDA, moving a day only across midnight; an equal time keeps its date.
+- **Evidence:** none in the reference filesets; synthetic tests.
+- **Why (suspected):** an inconsistent comparison between two near-duplicate copies of the dating loop; the day-rollover test should have been "time decreased", not "time didn't increase".
+- **Effect:** a receiver repeating a fix would put the repeat 24 h later, where QC sees it as out of sequence.
+
+## Geodesy and speed/course (navtools, navsogcog)
+
+### G1. Hand-written Vincenty
+
+- **NavManager:** `vincenty()` (`include/navtools.inc.php`, ~line 61).
+- **Here:** `pyproj.Geod` (Karney's algorithm), decided 2026-10-13 (`geodesy.py`).
+- **Evidence:** on SP2613 the two differ by at most 5.4 µm per step, 1.1e-5 m s-1 in speed and 0.001° in course while under way; 8 of 56,924 speeds and ~4,300 courses (mostly at the dock) round differently. A vectorized port of NavManager's version matched every R2R speed, confirming the details below (`tests/test_geodesy.py`).
+- **Why (confirmed):**
+  - The semi-minor axis is rounded to 6356752.314 m while the flattening is exact, so the two constants disagree slightly.
+  - The azimuth is computed after the loop from `$sinLambda`/`$cosLambda`, which were set at the *start* of the last iteration, before λ's final update. On steps of a few millimetres the loop stops after one pass, so the azimuth uses the uncorrected longitude difference: up to ~0.07° off on 2 mm steps.
+  - `$iterLimit` is never decremented, so nearly antipodal points (where Vincenty doesn't converge) loop forever.
+- **Effect:** last-digit differences only; physically negligible.
+
+### G2. Speed and course from coordinates as written
+
+- **NavManager:** navsogcog reads navqc's r2rnav text, so it computes from coordinates rounded to the receiver's precision.
+- **Here:** full-precision coordinates.
+- **Evidence:** SP2613: 41 speeds round differently with full precision, 8 with rounded coordinates (G1 accounts for those 8).
+- **Why (confirmed):** the pipeline passes text files between stages.
+- **Effect:** last-digit differences only.
+
+### G3. navsogcog: full-buffer speeds use the previous segment's distance
+
+- **NavManager:** `navsogcog()` (`include/navsogcog.inc.php`, ~line 189): in the full-buffer branch (86,400 records), `$sog = $distance / $delt` runs before `vincenty()` for the current pair (~line 194). The end-of-file branch (~lines 341–346) calls `vincenty()` first and is correct.
+- **Here:** every speed is the current segment's distance over its elapsed time.
+- **Evidence:** SP2424 (150,925 fixes): all 86,399 first-buffer speeds in R2R's bestres equal the previous segment's distance over the current time step; every later speed is correct. In the first buffer, 15,175 speeds differ from the correct value by more than 0.005 m s-1, 7,114 by more than 0.1, the largest by 7.38 m s-1 (`tests/test_geodesy.py`).
+- **Why (confirmed):** two statements in the wrong order in one of two copies of the loop; the stale `$distance` is also undefined (treated as 0) for the very first segment. The full-buffer copy only runs on files over 86,400 records, so short test files would never show it.
+- **Effect:** SOG lags the ship by one fix in the first 86,399 records (about a day at 1 Hz) of most multi-day cruises. A position spike's speed lands on the following fix. Where the time step changes, one step's distance is divided by another's time. Course is unaffected. Not yet reported upstream.
+
+### G4. Division by zero for equal times
+
+- **NavManager:** navsogcog's end-of-file branch divides by `$delt` without checking for 0; the full-buffer branch sets 0.
+- **Here:** NaN.
+- **Why (confirmed):** missing guard; in practice navqc flags equal times first.
+- **Effect:** none on published products.
+
+## Quality control (navqc)
+
+### Q1. The speed rule is commented out
+
+- **NavManager:** `navqc()` (`include/navqc.inc.php`, ~line 565): the rule "two successive speeds over the limit: flag the fix between" is commented out with `//`.
+- **Here:** no speed rule, by decision (2026-10-13): a vessel's top speed varies and currents change speed over ground, so acceleration is the better indicator. `max_speed` is used only by the QA test.
+- **Why (suspected):** a fixed speed limit flagged good fixes on fast vessels or with GNSS noise, and was disabled rather than tuned.
+- **Effect:** R2R never flags a fix for speed.
+
+### Q2. The main-loop acceleration check is inverted
+
+- **NavManager:** `navqc()`, main buffer loop (~line 548): `if (!$epochOK[$inx])`, commented "Flipped check - Webb Pinner" and "Skip flagged positions": speeds are computed only *from* fixes already flagged. The end-of-file loop (~line 1014) uses `if ($epochOK[$inx])`.
+- **Here:** every good fix is checked (`qc.py`, Q3).
+- **Evidence:** SP2424: R2R flags nothing; a sound check finds 33 fixes in six 2–4 s excursions of 1–2 m (sideways swings no ship can make, two of them at 3.6 m s-1), plus three steps (`tests/test_qc.py`).
+- **Why (suspected):** the 2016 change likely stopped the check from flagging GNSS noise and DGPS steps on high-rate receivers, which a pair-by-pair check at 1 m s-2 does; as a side effect it disabled the check on clean data. The end-of-file copy wasn't changed, so the last part of each file is checked differently.
+- **Effect:** acceleration flags are rare and depend on other flags; position errors of a few metres stay in bestres, 1min and control.
+
+### Q3. Speed magnitudes, nearest-fix flagging, at most two iterations
+
+- **NavManager:** acceleration between successive scalar speeds; the fix nearest in time to an excessive acceleration is flagged; the loop runs while `$iter < $maxIter` from 1 with `$maxIter = 3`.
+- **Here:** acceleration at each fix from velocity *vectors* over a 2 s time base; each peak is resolved against the track either side: an excursion that comes back is flagged, a step that stays is reported; repeated until nothing new is flagged.
+- **Why (confirmed for the mechanics):** scalar speeds barely change when a fix jumps sideways, so lateral errors are missed; the nearest fix to the acceleration's time is often a good neighbour of the bad one; `$iter < 3` from 1 allows two passes, though the comment says up to 3.
+- **Effect:** missed sideways errors; good neighbours flagged instead of the bad fix.
+
+### Q4. 3,600-record buffers
+
+- **NavManager:** navqc reads 3,600 records at a time; speed and acceleration aren't evaluated across buffer boundaries, and the end of the file goes through a near-duplicate copy of the loop.
+- **Here:** whole series.
+- **Why (suspected):** memory limits of the PHP 5 era.
+- **Effect:** whether a fix is flagged can depend on where a buffer boundary falls.
+
+### Q5. Acceleration limit from position resolution
+
+- **NavManager:** `navqc()`, ~line 245: if one record's position resolution is 1.11 m or coarser, the acceleration limit becomes 3 × that resolution, a length in metres used as m s-2.
+- **Here:** the limit is raised only when quantization alone would exceed it over the time base (4 × resolution / time base²), and the QC notes say so.
+- **Why (confirmed in code comments):** a workaround for one vessel (Endeavor) with low-precision coordinates.
+- **Effect:** silent; depends on one record.
+
+### Q6. Null island only at midnight
+
+- **NavManager:** a fix is rejected as 0,0 only if it is also at 00:00:00.
+- **Here:** 0,0 at any time.
+- **Why (suspected):** the case seen was a receiver's empty default record, which has both.
+- **Effect:** 0,0 fixes at other times would stay in the products (none in the references).
+
+### Q7. Stale-repeat decisions near the threshold
+
+- **NavManager and here:** a repeated position is flagged while the median of the 10 preceding speeds exceeds 0.25 m s-1.
+- **Evidence:** SP1925 (45,723 fixes, 1 Hz, 6-decimal positions): R2R flags 303, this package 219, 209 the same. Every difference is a repeated position while the ship barely moves (median of the preceding speeds 0.16–0.32 m s-1). NavManager's median skips the latest speed (`array_slice($speedHori, $vnx-11, 10)`) and restarts per buffer; neither changes the count (`tests/test_geocsv.py`).
+- **Why (suspected):** NavManager's inverted acceleration loop (Q2) computes speeds from the flagged repeats and flags further repeats next to them.
+- **Effect:** R2R flags more repeated positions at low speed.
+
+## Products (navsample, NavControl)
+
+### P1. 1min sampling
+
+- **NavManager:** `navsample()` (`include/navsample.inc.php`): for each whole minute, the record exactly on it, else the nearer of the records either side, if within half the interval.
+- **Here:** for each whole multiple of the interval, the nearest good record within half an interval (`products.py`).
+- **Evidence:** SP2613's 1min (475 records) equals R2R's; SP2424's equals R2R's but for its final fix (R2), which is the record nearest 03:17:00 (`tests/test_products.py`).
+- **Why (confirmed in code):**
+  - Nodes are always whole minutes (`gmmktime($hour, $minute, 0, …)`), whatever the interval.
+  - The window is ≤ `intval($interval/2) - 1` after a node but ≤ `intval($interval/2)` before it.
+  - The buffer is a 3,600-record ring (`$binx = 1` on wrap), so at each wrap the previous record is lost and a node bracketed across the wrap gets no record.
+  - At the start, the undefined previous time counts as 0, so a node just before the first fix is filled; at the end no record follows, so a node just after the last fix never is.
+- **Effect:** occasional missing 1min records; the interval option only works for minutes.
+
+### P2. Control-point tolerance
+
+- **NavManager:** `include/NavControl/navsimplifier.py` (recursive Douglas–Peucker, planar on lon/lat) is committed with a 0.1° tolerance; the Java version uses 0.01°.
+- **Here:** shapely's `simplify` at 0.01°, on unwrapped longitudes.
+- **Evidence:** R2R's SP2613 control equals the Python simplifier at 0.01° (5 points; 0.1° gives 3) and shapely's result.
+- **Why (suspected):** R2R's production copy of the script has a locally changed tolerance.
+- **Effect:** none on R2R's products; the repository's script doesn't reproduce them.
+
+## R2R's published GeoCSV (R2R's pipeline, not in NavManager)
+
+### F1. Header text and number formats
+
+- **R2R:** bestres swaps the speed and course long names; the SOG unit is `meter\second` in bestres and `meter/second` in 1min; units say `degree_east` where R2R's other GeoCSV and the GeoCSV spec use `degrees_east`; numbers are printed PHP-style (`7.76` for `7.760`, `5` for `5.0`); control coordinates use Python's `repr` (`32.702744442`).
+- **Here:** the same structure with standardized CF/UDUNITS units, descriptions and fixed decimals (`quantities.py`, #9).
+- **Why (suspected):** the GeoCSV writer was added in R2R's catalog pipeline on top of NavManager's r2rnav output; NavManager has no GeoCSV writer (its `geocsv` branch only changes delimiters).
+- **Effect:** text only; values parse the same.
+
+### F2. Flagged records
+
+- **R2R:** a flagged bestres record is `#` + time through antenna height, without speed and course (SP1925).
+- **Here:** the same (#10).
+
+## Documentation
+
+### D1. Documents that disagree with the code or data
+
+- `bin/navformat.php` labels `metoc_nav` "USAP Navigation (OpenRVDAS)"; it was added for Atlantic Explorer's METOC system (commit 776878e, 2020-09-01; R2R format 100232).
+- `doc/fileformat/format-nav23.txt` is headed "nav14" and reuses nav14's unsigned sample.
+- `format-UNIXD.txt` and `format-PYRTM.txt` call a decimal day of year a "decimal year".
+- The generic GLL and ZDA examples have wrong checksums; the nav10 sample contains a shell prompt.
+- `format-nav29.txt` describes only the Unix-time layout; R2R's nav29 files are also ISO-timestamped, with a comma or a space.
+- R2R's processing description says 1min takes "the first valid record of each minute"; navsample takes the nearest record (P1).
+- The GeoCSV format document `r2rnav_geocsv.txt` describes tab-separated r2rnav, not GeoCSV.
+- **Why (suspected):** documents written once and not updated as the code and vessels changed.
+- **Here:** the format definitions in `formats/definitions/` are written from the code and real data (#2, #4, #5).
+
+## QA (navqa) — from code review, to be checked in Phase 3
+
+### A1. Issues found reading navqa
+
+- `count()` is called on a scalar mode value (`navqa.inc.php`, ~line 375), a `TypeError` on PHP ≥ 8.
+- `navqa.php` takes the "ports" from the first and last records of the file it assesses, so distance from port is always about 0, and it prints the start distance as the end distance.
+- Percent completeness assumes one sampling rate and can exceed 100 % when it changes.
+- The rating thresholds are written twice: in the rating `switch` and as literal bound values.
+- **Status:** to be confirmed against R2R's QA reports when the QA statistics and ratings are ported.
+
+## Not NavManager: R2R's catalog and the data
+
+- R2R files Healy's 2016–2025 GNSS logs under format 100010 ("raw NMEA: GGA + ZDA", nav1), though most have nav29's timestamped layouts.
+- NBP2410's receiver dates are 1024 weeks early (GPS week-number rollover): its ZDA and RMC say 2005-03-13 on 2024-10-27. A reader that dates fixes from RMC (NavManager's nav30/nav32 path) would put the cruise in 2005; not yet checked against R2R's products.
+- Point Sur's UDAS files drop the Ashtech differential column from 2011, shifting later columns.
