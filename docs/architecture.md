@@ -122,8 +122,10 @@ flowchart LR
    3× the position resolution [m] when that is 1.11 m or more, judged from one record: a
    workaround for one vessel (Endeavor).
 5. **navsogcog** appends instantaneous SOG and COG, computed from each fix to the next.
-6. **navsample** decimates to a fixed interval without interpolating. With `-c`, it shells out to
-   Java `navsimplifier`, which runs Douglas–Peucker with a planar tolerance of 0.01° on lon/lat.
+6. **navsample** decimates without interpolating: for each whole minute it takes the good record
+   at that time, or else the nearer of the records either side if within half the interval. With
+   `-c`, it shells out to Java `navsimplifier`, which runs Douglas–Peucker with a planar
+   tolerance of 0.01° on lon/lat.
 
 ### Strengths
 
@@ -266,7 +268,8 @@ description (`service.rvdata.us/docs/product/r2rnav/R2R_Navigation_DataProcessin
 v1.1) is the better reference. Its key points:
 - The QA runs on the converted data before QC.
 - QC flags bad points and never discards them.
-- 1min takes the first valid record of each minute.
+- 1min takes the first valid record of each minute. (navsample actually takes the record
+  nearest each minute, within half a minute.)
 - Control runs Ramer–Douglas–Peucker on 1min.
 - An "XML DP report" also exists, but I haven't found it online.
 
@@ -503,11 +506,22 @@ How the values are *written* follows the standard formats below.
 A cruise TOML or OpenVDM's site TOML can override them. The XML `bounds` elements are written
 from the same values, so the thresholds are no longer stated twice.
 
-**Products.** `sample(interval)` keeps the first good fix in each interval and carries its
-SOG/COG, as navsample does. `control()` re-implements the recursive Douglas–Peucker of
-`navsimplifier.py` with a 0.01° tolerance. That algorithm and tolerance select exactly R2R's
-SP2613 control points (see Part 1). Coordinates are written in the standard format below, not
-with Python's `repr`. A shapely or antimeridian-aware variant can come later behind an option.
+**Products** (`products.py`, #8):
+- `bestres` is every pre-QC record with its QC flags and SOG/COG (good fixes only).
+- `sample(interval)` takes, for each whole multiple of the interval, the good record nearest to
+  it within half an interval, never interpolating, and keeps its SOG/COG. That is navsample's
+  rule (not "the first valid record of each minute", as R2R's processing description says),
+  without its quirks: whole-minute nodes whatever the interval, a 29 s/30 s asymmetric window,
+  and a ring buffer that loses a node across each 3,600-record wrap.
+- `control()` is Douglas–Peucker on 1min with a 0.01° planar tolerance, by shapely (GEOS), on
+  unwrapped longitudes so the antimeridian isn't a 360° jump. It selects exactly the points of
+  R2R's control (NavManager's recursive `navsimplifier.py` at 0.01°): 5 for SP2613, and SP2424's
+  10 but for the last.
+
+SP2613's 1min (475 records) and control equal R2R's. SP2424's equal R2R's except at the end:
+we keep its final fix (#14), which is also the record nearest 03:17:00, a node NavManager's
+navsample never fills because no record follows it. Coordinates are written in the standard
+format below, not with Python's `repr`.
 
 **GeoCSV is the primary product format.** `geocsv.py` writes R2R's header keywords (see Part 1),
 including the cruise DOI (`source_event`) and the raw fileset DOI (`source_dataset`), with the
@@ -612,7 +626,7 @@ Comparisons with R2R parse the numbers and map the units.
 | Phase | Scope | Exit criterion |
 |---|---|---|
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
-| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance. **QC done (#7):** SP2613 unflagged like R2R; SP2424's differences documented |
+| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance. **QC done (#7):** SP2613 unflagged like R2R; SP2424's differences documented. **Products done (#8):** SP2613's 1min and control equal R2R's; SP2424's but for its final fix |
 | 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | the QA 2.0 report has R2R's structure; results and ratings compared with R2R's on released filesets, differences documented |
 | 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
 | 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |
