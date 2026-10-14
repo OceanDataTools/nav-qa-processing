@@ -10,6 +10,7 @@ These files are unmodified unless noted. The checksums match R2R's `manifest-md5
 | `SP2613_1min.geoCSV` | R2R product fileset 620146 (`r2rnav_geocsv`), md5 `1b064f07de049292a5c30865cbfa2651` |
 | `SP2613_control.geoCSV` | R2R product fileset 620146, md5 `9b9be3d90691cfaa646d8e4ec5b2d300` |
 | `SP2613_bestres_head.geoCSV` | The first 40 lines of `SP2613_bestres.geoCSV` (product fileset 620146): the header block and 23 records. The full file (4.6 MB, 56,925 records) is too large to commit |
+| `SP1925_bestres_head.geoCSV` | The first 60 lines of `SP1925_bestres.geoCSV` (R2R product fileset 609448, raw GNSS fileset 134952, Furuno GP170, nav29 Unix-time layout, QA rated R), md5 of the full file `f153beb7aa98978eedca25652da7b037`: the header block and 43 records, 3 of them flagged. R2R writes a flagged record as `#` + time through antenna height, without speed and course |
 
 This project standardizes descriptions, unit names and coordinate formats (see
 `docs/architecture.md`). Compare these files with our output by parsed values, not byte for byte.
@@ -19,4 +20,5 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | Cruise | Raw fileset | Why |
 |---|---|---|
 | SP2613 | 169851 (product 620146) | the files above, in full; one day, 56,925 records, rated G |
+| SP1925 | 134952 (product 609448) | 45,723 records, 303 flagged by R2R (stale repeats while barely moving): the first released cruise with flagged fixes found; 1 Hz, 6-decimal positions; no QA 2.0 report |
 | SP2424 | 161900 (product 615579) | 150,924 R2R records (we read 150,925: NavManager drops the final fix), past navsogcog's 86,400-record buffer: R2R's first-buffer speeds carry its bug; nav29 with an ISO timestamp and a space; rated G, no flagged fixes |
