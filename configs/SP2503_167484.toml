@@ -1,0 +1,62 @@
+# R2R's GNSS fileset 167484 (Trimble BX992) of SP2503, from R2R's catalog and QA report
+# Fetch: uv run scripts/fetch_r2r_fileset.py SP2503 167484
+
+[cruise]
+id = "SP2503"
+name = "Testing of Towed Phased Array Doppler Sonars"
+vessel_id = "32QU"
+vessel_name = "Robert Gordon Sproul"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+date_issued = "2026-01-29"
+date_modified = "2026-02-19T05:53:14Z"
+depart_date = 2025-02-13
+arrive_date = 2025-02-14
+doi = "doi:10.7284/911239"
+
+[cruise.extent]
+westernmost = -117.5004267363
+easternmost = -117.1566115753
+southernmost = 32.6029247222
+northernmost = 32.7192687763
+
+[cruise.depart_port]
+name = "San Diego"
+port_id = "100055"
+country_id = "us"
+state_id = "ca"
+longitude = -117.175
+latitude = 32.71667
+
+[cruise.arrive_port]
+name = "San Diego"
+port_id = "100055"
+country_id = "us"
+state_id = "ca"
+longitude = -117.175
+latitude = 32.71667
+
+[fileset]
+id = "167484"
+doi = "doi:10.7284/167484"
+date_created = "2026-01-30"
+format_id = "100150"
+format_alias = "starc_raw"
+
+[fileset.device]
+id = "101253"
+make_id = "com.trimble"
+model_id = "100542"
+model_name = "BX992"
+
+[nav]
+format = "nav29"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

@@ -312,7 +312,9 @@ pattern sbe-qa-processing fetches for CTD. Find it through the `documents` field
   from a single run.
 
 The wrapper and the GeoCSV writer are not in the NavManager repository. They live in R2R's
-unpublished catalog pipeline.
+unpublished catalog pipeline. Its `filesetinfo/cruise` repeats `<r2r:id>`, and SP2424's 2024
+report has an empty `cruise` and `fileset`. `integrations/r2r/xml_report.py` writes this
+structure, with `<r2r:id>` once and standardized text (register X1).
 
 ---
 
@@ -578,10 +580,11 @@ one fix late, and compares the rest. Not yet reported upstream.
 **QA statistics stay on the pre-QC data**, as `navqa.php` does: that's the definition of the
 tests, not a quirk. The statistics and the QC rules share `geodesy.py` and the same
 speed/acceleration definitions, which removes NavManager's two divergent implementations. Where
-NavManager's arithmetic is fragile, `stats.py` and `r2r.py` choose a sound rule and document the
+NavManager's arithmetic is fragile, `stats.py` and `integrations/r2r/rules.py` choose a sound rule and document the
 difference from R2R:
 - the modal interval when there are ties;
-- rounding to 2 decimals before rating, which decides ratings at the boundaries;
+- results rated as written (rounded to their quantity's decimals), so a report's value and its
+  rating always agree (register A7);
 - completeness above 100 % when the sampling interval changes.
 
 How the values are *written* follows the standard formats below.

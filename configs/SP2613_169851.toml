@@ -1,0 +1,62 @@
+# R2R's GNSS fileset 169851 (Trimble BX992) of SP2613, from R2R's catalog and QA report
+# Fetch: uv run scripts/fetch_r2r_fileset.py SP2613 169851
+
+[cruise]
+id = "SP2613"
+name = "MPL Internship Program Day at Sea"
+vessel_id = "32QU"
+vessel_name = "Robert Gordon Sproul"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+date_issued = "2026-07-22"
+date_modified = "2026-07-31T04:28:14Z"
+depart_date = 2026-07-09
+arrive_date = 2026-07-09
+doi = "doi:10.7284/911454"
+
+[cruise.extent]
+westernmost = -117.3773103608
+easternmost = -117.2262308092
+southernmost = 32.5997440998
+northernmost = 32.7053695673
+
+[cruise.depart_port]
+name = "San Diego"
+port_id = "100055"
+country_id = "us"
+state_id = "ca"
+longitude = -117.175
+latitude = 32.71667
+
+[cruise.arrive_port]
+name = "San Diego"
+port_id = "100055"
+country_id = "us"
+state_id = "ca"
+longitude = -117.175
+latitude = 32.71667
+
+[fileset]
+id = "169851"
+doi = "doi:10.7284/169851"
+date_created = "2026-07-22"
+format_id = "100150"
+format_alias = "starc_raw"
+
+[fileset.device]
+id = "101253"
+make_id = "com.trimble"
+model_id = "100542"
+model_name = "BX992"
+
+[nav]
+format = "nav29"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

@@ -17,7 +17,7 @@ document each difference instead. Each entry gives:
 - **Effect:** on R2R's published products or ratings.
 
 Reference filesets (see `tests/fixtures/README.md`): SP2613 (raw GNSS 169851, one day, rated G),
-SP2424 (161900, 150,925 fixes, rated G), SP1925 (134952, 303 flagged fixes, rated R).
+SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness), SP1925 (134952, 303 flagged fixes, rated R).
 
 ## Summary
 
@@ -43,12 +43,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP1925 (134952, 303 flagged fixes, rate
 | F1 | R2R GeoCSV | Inconsistent units and long names, trimmed numbers | Header text and number formats | Standardized text (#9) |
 | F2 | R2R GeoCSV | Flagged records without speed and course | — | Same structure (#10) |
 | D1 | docs | Format and processing documents that disagree with the code | Misleading documentation | Our own definitions |
-| A1 | QA | navqa issues found in review (PHP 8 error, port distances, thresholds twice) | Ratings and infos | Phase 3 |
+| A1 | QA | navqa issues found in review (PHP 8 error, port distances, thresholds twice) | Ratings and infos | Bounds stated once (#27) |
 | A2 | navqa | Modal interval truncated to ms, ties to whichever comes first | None in the references | Rounded; ties to the shorter step (#24) |
 | A3 | navqa | Completeness from accumulated "countable epochs"; the end-of-file loop compares ms with s | Completeness can exceed 100 % | Occupied interval slots (#24) |
 | A4 | navqa | Quality 3 (PPS) counted as bad, though navqc accepts 1–5 | Bad-quality percentage | QC's valid range (#24) |
 | A5 | navqa | Speeds and accelerations between every pair of records, scalar | SP2424: 0.16 % unreasonable accelerations, ±14 m s-2 (GNSS noise) | QC's acceleration over 2 s (#24) |
 | A6 | navqa | Percentages over "actual epochs" (in-sequence steps), −1 and −2 for speeds and accelerations | Negligible | Over records, speeds, accelerations (#24) |
+| A7 | xmltools2 | Ratings of values as written; gaps at the receiver's time precision; uncomputable results | A gap just over a bound; division by zero | Rated as written through `quantities.py`; no result is R (#27) |
+| X1 | R2R QA XML | Duplicate `<r2r:id>` in `cruise`, PHP number printing, mixed unit names, a double space | Text only | R2R's structure, standardized text (#27) |
 
 ## Reader (navdatalist, navcopy, nmeatools)
 
@@ -234,7 +236,7 @@ acceleration results differ (A5).
 - `count()` is called on a scalar mode value (`navqa.inc.php`, ~line 375), a `TypeError` on PHP ≥ 8.
 - `navqa.php` takes the "ports" from the first and last records of the file it assesses, so distance from port is always about 0, and it prints the start distance as the end distance.
 - The rating thresholds are written twice: in the rating `switch` and as literal bound values (`xmltools2.inc.php`).
-- **Status:** the ratings and the XML come with #27.
+- **Status (#27):** the G/Y bounds are stated once (`integrations/r2r/rules.py`) and written to the XML from the same values. There's no distance-from-port statistic here; the ports in the report come from R2R's catalog (the cruise TOML).
 
 ### A2. Modal interval
 
@@ -256,6 +258,7 @@ acceleration results differ (A5).
 - **NavManager:** a record is bad unless its quality is 1, 2, 4 or 5 (`navqa.inc.php`, ~line 700); a missing quality (`"NAN"`) also counts as bad.
 - **Here:** quality outside QC's valid range, 1 to 5, over the records that report one; no result when none does.
 - **Why (suspected):** written separately from navqc's `valid_gga_fix`, which accepts 1–5; quality 3 (PPS, a valid fix) was left out.
+- **Missing indicators:** navqa counts a missing quality (`"NAN"`) as bad, but drops the count (reported as 0.00 %, G) when every bad record is a missing one (~line 1521). So a fileset without any quality indicator is G both here and in NavManager; one where some records lack it counts them as bad there, and leaves them out here.
 - **Effect:** PPS fixes, rare on research vessels, would count as bad (none in the references).
 
 ### A5. Speeds and accelerations
@@ -271,6 +274,24 @@ acceleration results differ (A5).
 - **NavManager:** out-of-sequence and bad-quality percentages are over "actual epochs" (the in-sequence steps, records − 1); unreasonable speeds over actual epochs − 1; accelerations over actual epochs − 2 (`xmltools2.inc.php`).
 - **Here:** out of sequence over the usable records; bad quality over the records reporting a quality; speeds over the speeds; accelerations over the accelerations.
 - **Effect:** negligible for real filesets.
+
+### A7. Ratings (xmltools2)
+
+- **NavManager:** `xml_write2` rates each value with the bounds written as literals in the rating `switch` and again as bound elements. Percentages are `sprintf("%0.2f")` before rating; the longest gap is written at the receiver's time precision (`timeNROD` decimals, ~line 1222) and rated as written. Percentages divide by "actual epochs", which is zero for an empty fileset.
+- **Here:** every result is rounded to its quantity's decimals (percentages 2, durations 3) and rated as written, so the report's value and its rating always agree. A result that can't be computed (no usable fixes) has no value (`xsi:nil="true"`) and is rated R.
+- **Evidence:** SP2613 (G), SP2503 (R: completeness 47.34 % R, gap 48,625.50 s Y) and SP2424 (G): every rating, the overall rating and the infos equal R2R's (`tests/test_r2r_xml.py`).
+- **Why (confirmed in code):** the thresholds were written twice by hand; the gap keeps the receiver's precision because it's a time.
+- **Effect:** a gap between a bound and the next centisecond (900.004 s) is G in NavManager, Y here.
+
+## R2R's QA 2.0 XML
+
+### X1. Report text and structure
+
+- **R2R:** the nav report (`<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`) has `<r2r:id>` twice in `filesetinfo/cruise` (before `cname` and after `operator_id`); bounds are PHP integers (`95`, `86400`); units are `Percent`, `Count`, `Dimensionless`, `m/s`, `m/s^2`; ranges are trimmed (`1` for an HDOP of 1.0); the overall rating's description has a double space ("at least  one test RED"). Test descriptions describe navqa's definitions. SP2424's report (2024) has an empty `cruise` and `fileset`; SP2613's and SP2503's (2026) are filled in.
+- **Here:** the same elements in the same order, with `<r2r:id>` once; values and units through `quantities.py` (`95.00` `percent`, `900.000` `s`, `1` for counts and HDOP, `m s-1`, `m s-2`); missing values `xsi:nil="true"`; our own test descriptions, saying what is measured here; the provenance names nav-qa-processing and its version; the log lists the run's errors (manifest, reader). `filesetinfo` comes from the cruise TOML (`configs/`).
+- **Evidence:** `tests/test_r2r_xml.py`: SP2613's and SP2503's element paths equal R2R's but for the second `<r2r:id>`; SP2613's fileset, manifest, references and cruise elements equal R2R's.
+- **Why (suspected):** the report is assembled from a template filled from R2R's database (`r2r_catalog_qa_bootstrap.php`, not in NavManager), with the certificate from `xml_write2`; the duplicate looks like a template slip.
+- **Effect:** text only; values parse the same.
 
 ## Not NavManager: R2R's catalog and the data
 
