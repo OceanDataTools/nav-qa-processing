@@ -14,8 +14,8 @@ question, do what `sbe-qa-processing` does: read its `CLAUDE.md`, `pyproject.tom
 `src/sbe_qa_processing/` (especially `qa.py`, `r2r.py`, `xml_report.py`, `config.py`,
 `openvdm.py`, `cli.py`).
 
-GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far (Phase 1 of the
-plan in `docs/architecture.md`):
+GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far (Phase 1 and part
+of Phase 2 of the plan in `docs/architecture.md`):
 - `quantities.py`: the project-wide quantity table (see below).
 - `formats/definitions/*.toml`: a definition of every R2R raw nav format ID (layout, sentences,
   vessels, examples) plus `sentences.toml`, written in this project's words (see its README).
@@ -30,6 +30,10 @@ plan in `docs/architecture.md`):
 - `r2rnav.py`: read/write legacy r2rnav.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
+- `config.py`: `Thresholds` (QC and QA limits; TOML overrides come with Phase 3).
+- `qc.py`: `flag(nav, thresholds, start, end)` -> `QCResult` (per-record `Flag` bitmask, the
+  acceleration limit used, notes). No speed rule; acceleration over a time base with velocity
+  vectors; excursions flagged, steps reported (decisions in its docstring).
 - `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
   into `data/<CRUISE>_<FILESET>_gnss/`.
 - `cli.py`: only the `formats` subcommand so far.
