@@ -52,6 +52,18 @@ dependencies (matplotlib, reportlab, svglib, cartopy, nbformat, …) as the modu
 them land, and commit `uv.lock` with each change. Update this file as modules come into existence, and remove any section below
 that stops describing reality.
 
+## Architecture: core and integrations (mirror sbe-qa-processing)
+
+Decided 2026-10-14. A **core** runs the nav QA for anyone (`qa.run_qa(fileset, config=None)` ->
+`NavQAResult`; `reports.write_reports`), and optional **integrations** build on it:
+`integrations/r2r/` (R2R's tests, ratings, QA 2.0 XML, catalog configs, downloads; the `r2r`
+commands) and `integrations/openvdm/` (the hook, `site-config`, `config-from-openvdm`; the
+`openvdm` extra). **Core never imports an integration** (`tests/test_boundaries.py`, once Phase 3
+adds it); integrations extend core through hooks (PDF `front` pages, `NotebookExtras`). Configs
+are TOML, as in sbe-qa-processing: the config TOML (`QAConfig`, every field optional), the R2R
+cruise TOML (`CruiseConfig`) and the site TOML, with a `[nav]` table for the GNSS feed. The layout
+and examples are in `docs/architecture.md` ("Package layout", "Configuration TOMLs").
+
 ## Target tooling (mirror sbe-qa-processing)
 
 - uv, hatchling, `src/` layout, package `nav_qa_processing`, console script `nav-qa-processing`
