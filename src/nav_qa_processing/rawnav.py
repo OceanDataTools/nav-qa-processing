@@ -63,7 +63,7 @@ def _zda_span(lines: list[str]) -> tuple[datetime, datetime] | None:
     for line in lines:
         if "ZDA" not in line:
             continue
-        sentence = parse_sentence(line, navmanager_checksum=False)
+        sentence = parse_sentence(line)
         if sentence is None or sentence.kind != "ZDA":
             continue
         zda = ZDA.from_fields(sentence.fields)
@@ -85,7 +85,6 @@ def read_fileset(
     format_id: str,
     start: datetime = GPS_START,
     end: datetime = GPS_END,
-    navmanager_checksum: bool = True,
 ) -> RawNav:
     """RawNav from the raw files `paths` in format `format_id`"""
     spec = formats.get(format_id)
@@ -107,7 +106,7 @@ def read_fileset(
             selected.append((span[0], path.name, lines))
     selected.sort(key=lambda s: s[0])
 
-    result = spec.reader([(name, lines) for _, name, lines in selected], navmanager_checksum)
+    result = spec.reader([(name, lines) for _, name, lines in selected])
     errors += result.errors
     errors += [
         f"{name}: {count} GGA/ZDA sentences failed their checksum"

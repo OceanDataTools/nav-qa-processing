@@ -5,7 +5,7 @@ from nav_qa_processing.formats.nmea import checksum
 
 
 def nmea(body: str) -> str:
-    return f"${body}*{checksum(body):02X}" if checksum(body) >= 0x10 else f"${body}"
+    return f"${body}*{checksum(body):02X}"
 
 
 def gga(hhmmss: str) -> str:
@@ -36,15 +36,34 @@ def test_day_advances_when_time_decreases_after_zda_run():
     assert [d for d, _ in dated(lines)] == [date(2026, 7, 9), date(2026, 7, 9), date(2026, 7, 10)]
 
 
-def test_repeat_of_last_dated_gga_is_dropped():
+def test_repeated_time_is_kept_on_the_same_day():
+    """NavManager drops a repeat of the last dated time, or moves it to the next day (#14, #15);
+    here it's kept, dated, and left for QC to flag
+    """
     lines = [gga("120000.00"), zda("120000.01", 9), gga("120000.00"), gga("120001.00")]
     lines.append(zda("120001.01", 9))
-    assert [t for _, t in dated(lines)] == ["43200", "43201"]
+    assert dated(lines) == [(date(2026, 7, 9), "43200")] * 2 + [(date(2026, 7, 9), "43201")]
 
 
-def test_trailing_buffer_drops_its_last_gga():
+def test_gga_after_the_last_zda_is_kept():
+    """NavManager's final loop drops the last of these (#14)"""
     lines = [zda("120000.00", 9), gga("120001.00"), gga("120002.00"), gga("120003.00")]
-    assert [t for _, t in dated(lines)] == ["43201", "43202"]
+    assert [t for _, t in dated(lines)] == ["43201", "43202", "43203"]
+
+
+def test_gga_at_midnight_before_anything_is_dated_is_kept():
+    lines = [gga("000000.00"), zda("000000.01", 10)]
+    assert dated(lines) == [(date(2026, 7, 10), "00000")]
+
+
+def test_nearest_zda_dates_each_gga_across_midnight():
+    lines = [zda("235959.50", 9), gga("235959.80"), gga("000000.20"), zda("000000.50", 10)]
+    assert [d for d, _ in dated(lines)] == [date(2026, 7, 9), date(2026, 7, 10)]
+
+
+def test_ggas_before_the_first_zda_take_its_date():
+    lines = [gga("235959.00"), gga("235959.50"), zda("000000.01", 10), gga("000000.50")]
+    assert [d for d, _ in dated(lines)] == [date(2026, 7, 9), date(2026, 7, 9), date(2026, 7, 10)]
 
 
 def test_buffer_carries_across_files():

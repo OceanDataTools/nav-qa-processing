@@ -23,7 +23,8 @@ plan in `docs/architecture.md`):
   format's description there, not in code.
 - `formats/__init__.py`: the registry. `READERS` maps format IDs to readers (so far only
   `nav29`); `get(id)` refuses formats without one. `nmea.py` (sentences, checksum, GGA, ZDA) and
-  `gga_zda.py` (GGA dated by ZDA, NavManager's buffer rules and quirks in its docstring).
+  `gga_zda.py` (each GGA dated by the nearest ZDA; every valid GGA kept; NavManager's
+  differences in its docstring).
 - `rawnav.py`: `read_fileset(paths, format_id, start, end)` -> `RawNav` (DataFrame, receiver
   decimals, files read/skipped, errors). It selects files by their ZDA span, as navdatalist does.
 - `r2rnav.py`: read/write legacy r2rnav.
@@ -33,7 +34,8 @@ plan in `docs/architecture.md`):
   into `data/<CRUISE>_<FILESET>_gnss/`.
 - `cli.py`: only the `formats` subcommand so far.
 
-SP2613's (and SP2424's) pre-QC records match R2R's full bestres by value (`tests/test_rawnav.py`; R2R evidently ran it
+SP2613's and SP2424's pre-QC records match R2R's full bestres by value (SP2424 has one more:
+the final fix, which NavManager drops) (`tests/test_rawnav.py`; R2R evidently ran it
 with the 2026-07-09 cruise-day window, which excludes the 07-07 file). Add
 dependencies (matplotlib, reportlab, svglib, cartopy, nbformat, …) as the modules that need
 them land, and commit `uv.lock` with each change. Update this file as modules come into existence, and remove any section below
@@ -156,8 +158,7 @@ nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G).
 - When the PHP has quirks (buffer boundaries, least-count/precision handling, stale variables,
   off-by-one records), **don't reproduce them**. Note each one, with evidence of its effect on
   R2R's products where a fileset shows it, in the module docstring and in the "Shortcomings"
-  section of `docs/architecture.md`. Phase 1's reader still reproduces some (the checksum test,
-  the dropped last GGA, the day advancing on equal times); revisit them under this rule.
+  section of `docs/architecture.md`.
 - Use numpy/pandas arrays instead of the PHP's line-by-line streaming with fixed buffers. Prefer
   maintained libraries to NavManager's hand-written math: for geodesics, `pyproj.Geod`.
 - Per-file failures are recorded on the result, not raised, so one bad raw file never stops a

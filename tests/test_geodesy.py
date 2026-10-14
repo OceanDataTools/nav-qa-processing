@@ -103,8 +103,7 @@ def _check_parity(nav, r2r, correct_from=0):
     navsogcog's buffer bug). R2R used NavManager's Vincenty on coordinates rounded as written;
     we use pyproj at full precision. The tolerances below come from those differences.
     """
-    f = nav.frame
-    assert len(f) == len(r2r)
+    f = nav.frame.iloc[: len(r2r)]  # we keep fixes NavManager drops at the end (#14)
     lon, lat = f["lon"].to_numpy(), f["lat"].to_numpy()
     sog, cog = geodesy.sog_cog(f["time"], lon, lat)
     keep = slice(correct_from, None)
@@ -145,6 +144,8 @@ def test_sp2424_sog_cog_match_r2r_after_the_navsogcog_buffer():
     match. In the first buffer R2R's speed is ours one fix late (constant 0.5 s steps there).
     """
     nav, r2r = _bestres("SP2424", 161900)
+    # NavManager drops the final fix, after the last ZDA (#14)
+    assert len(nav.frame) == len(r2r) + 1
     _check_parity(nav, r2r, correct_from=86_399)
     f = nav.frame
     sog, _ = geodesy.sog_cog(f["time"], f["lon"].to_numpy(), f["lat"].to_numpy())

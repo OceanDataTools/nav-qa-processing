@@ -110,3 +110,21 @@ def test_sp2613_all_records_match_r2r_bestres(sp2613):
     # SP2613 has no flagged records, so pre-QC equals bestres record for record
     assert len(sp2613.frame) == len(r2r) == 56_925
     _compare(sp2613, r2r)
+
+
+def test_sp2424_records_match_r2r_bestres_plus_the_final_fix():
+    """150,924 R2R records, all equal to ours; NavManager drops the final GGA, after the last
+    ZDA, which we keep (#14)
+    """
+    directory = DATA / "SP2424_161900_gnss"
+    path = directory / "products" / "data" / "SP2424_bestres.geoCSV"
+    if not path.exists():
+        pytest.skip(
+            "SP2424 not downloaded; run: uv run scripts/fetch_r2r_fileset.py SP2424 161900"
+        )
+    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav29")
+    r2r = read_geocsv(path)
+    assert nav.errors == []
+    assert len(nav.frame) == len(r2r) + 1 == 150_925
+    assert nav.frame["time"].iloc[-1] == pd.Timestamp("2024-11-04T03:16:44.50Z")
+    _compare(nav, r2r)

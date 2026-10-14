@@ -161,6 +161,10 @@ flowchart LR
 - QC works on fixed 3,600-record buffers. Speeds and accelerations are not evaluated across buffer
   boundaries, so which fixes get flagged depends on where the chunks fall. The end-of-file buffer
   is processed by a second, near-duplicate copy of the loop (`navqc.inc.php:917`).
+- The nav29 parser dates GGAs buffer by buffer: it drops the last GGA after the final ZDA (R2R's
+  SP2424 bestres lacks its final fix), drops a GGA repeating the last dated time or at 00:00:00
+  before anything is dated, and moves a GGA with an equal time of day to the next day. The port
+  dates each GGA from the nearest ZDA and keeps every one (#14, #15).
 - navsogcog's full-buffer loop (86,400 records) computes each speed before calling Vincenty for
   the current pair, so it divides the previous segment's distance by the current elapsed time.
   Only the end-of-file loop is right. R2R's published SOG carries this (SP2424).
@@ -355,7 +359,7 @@ src/nav_qa_processing/
     definitions/    one TOML definition per format ID, plus sentences.toml (done for all 35 IDs)
     catalog.py      loads and prints the definitions
     nmea.py         sentence parsing (GGA, ZDA so far; GLL, RMC, VTG, HDT, GST, GSA to come), checksum
-    gga_zda.py      GGA fixes dated by ZDA (nav29 and the other GGA + ZDA formats)
+    gga_zda.py      GGA fixes dated by the nearest ZDA (nav29 and the other GGA + ZDA formats)
     framing.py      line framings that carry the time (SCS/UNIX-time prefixes), when a format needs one
                     (the FormatSpec registry, one per R2R format ID, lives in formats/__init__.py)
     custom/         the few formats that need code rather than a spec
@@ -611,7 +615,7 @@ Resolved:
   only in its Unix-time layout. NavManager has no nav28.
 - **NavManager's checksum test** compares unpadded lowercase hex, so it rejects every correct
   checksum below `0x10`. In SP2613 that discards 39 % of VTG and 29 % of RMC sentences but no
-  GGA or ZDA. `nmea.parse_sentence(navmanager_checksum=True)` reproduces it by default.
+  GGA or ZDA. It isn't reproduced: `nmea.parse_sentence` checks two-digit hex (#13).
 - **SP2613's time window** is the cruise day (depart and arrive 2026-07-09). Files are selected
   by their first to last ZDA, so the 2026-07-07 file is left out, as in R2R's bestres.
 - **Reproduce NavManager's numeric quirks?** No (2026-10-13): parity is about the products'
