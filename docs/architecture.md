@@ -102,20 +102,25 @@ flowchart LR
    ranges (NSV, HDOP, Altitude, HorizontalSpeed, HorizontalAcceleration). Percentages are
    formatted `%0.2f` before they are compared with the thresholds.
 4. **navqc** flags fixes for any of these reasons:
-   - outside the cruise dates;
+   - more than 30 days outside the cruise dates (or outside the valid GPS dates);
    - `00:00:00` at 0,0;
    - invalid lon or lat;
-   - an invalid GGA fix: quality outside 1–5, 0 satellites, HDOP of 0 or over 50, or more than
-     50 satellites;
+   - an invalid GGA fix: quality outside 1–5, fewer than 4 or more than 50 satellites, HDOP of 0
+     or over 50 (checked only when quality and satellite count are present);
    - \|altitude\| ≥ 500 m;
-   - a timestamp that isn't later than the last good one, or is more than 30 days after it;
-   - identical positions while the running median speed is above 0.25 m/s, which catches stale
-     repeats from loggers with uncalibrated clocks;
-   - speed or acceleration over the limits. Speed is computed with Vincenty on WGS-84. These
-     checks run in up to 3 iterations over each 3,600-record buffer.
+   - a timestamp that isn't later than the last in-sequence one, or is more than 30 days after it;
+   - identical positions while the median of the preceding 10 speeds is above 0.25 m/s, which
+     catches stale repeats from loggers with uncalibrated clocks;
+   - acceleration over the limit, between successive speeds (Vincenty on WGS-84): the fix
+     nearest in time to the excessive acceleration is flagged. These checks run over each
+     3,600-record buffer, in at most 2 iterations (the loop runs while `iter < 3` from 1).
 
-   The acceleration limit is raised to 3× the position resolution when coordinates have fewer than
-   6 decimals. This was a workaround for one vessel (Endeavor).
+   **Speed never flags a fix:** the speed rule (flag the fix between two speeds over the limit)
+   is commented out. **The acceleration check rarely fires:** in the main buffer loop a
+   "Flipped check" (2016) computes speeds only from fixes already flagged, so on clean data it
+   finds nothing; only the end-of-file loop checks every pair. The acceleration limit is raised to
+   3× the position resolution [m] when that is 1.11 m or more, judged from one record: a
+   workaround for one vessel (Endeavor).
 5. **navsogcog** appends instantaneous SOG and COG, computed from each fix to the next.
 6. **navsample** decimates to a fixed interval without interpolating. With `-c`, it shells out to
    Java `navsimplifier`, which runs Douglas–Peucker with a planar tolerance of 0.01° on lon/lat.
@@ -165,6 +170,9 @@ flowchart LR
   SP2424 bestres lacks its final fix), drops a GGA repeating the last dated time or at 00:00:00
   before anything is dated, and moves a GGA with an equal time of day to the next day. The port
   dates each GGA from the nearest ZDA and keeps every one (#14, #15).
+- navqc's speed rule is commented out, and its main-loop acceleration check is inverted (a 2016
+  "Flipped check" computes speeds only from flagged fixes), so on clean data almost nothing is
+  flagged; only the end-of-file loop checks every pair.
 - navsogcog's full-buffer loop (86,400 records) computes each speed before calling Vincenty for
   the current pair, so it divides the previous segment's distance by the current elapsed time.
   Only the end-of-file loop is right. R2R's published SOG carries this (SP2424).
@@ -429,12 +437,26 @@ and `line` for traceability. Missing values are real NaN/`<NA>`. Two things are 
 - **Errors:** per-file parse errors are kept in a list, the same pattern as
   `CastData.errors` in sbe-qa-processing.
 
-**QC flags are a bitmask.** `qc.py` gives each record flag bits, e.g. `DATE_RANGE`, `NULL_ISLAND`,
-`BAD_FIX`, `ALTITUDE`, `OUT_OF_SEQUENCE`, `STALE_DUPLICATE`, `SPEED`, `ACCEL`. A record with any
-bit set is written with `#` in BestRes. The plots, PDF and notebook can then say *why* each fix
-was flagged. The rules work on the whole series at once with numpy, not in 3,600-record buffers,
-so no fix's flags depend on where a buffer boundary falls. Where that makes our flags differ from
-R2R's, the parity tests document it; the buffering isn't reproduced.
+**QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
+`POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `STALE_REPEAT`, `ACCELERATION`. A record with
+any bit set is written with `#` in BestRes, and the plots, PDF and notebook can say *why*. The
+rules work on the whole series, not in 3,600-record buffers. Decided 2026-10-13/14:
+- **No speed rule.** A vessel's top speed varies and currents change speed over ground;
+  acceleration is the better indicator of a bad fix. `max_speed` is only for the QA test.
+- **Acceleration over a time base, with velocity vectors.** The acceleration at each fix comes
+  from the velocities over at least `accel_time_base` (2 s) before and after it, so GNSS noise
+  at high sample rates doesn't trip it (on SP2424 at 2 Hz, checking every pair at 1 m s-2 flags
+  hundreds of fixes), and vectors catch sideways jumps that speed magnitudes miss.
+- **Excursions are flagged; steps are reported.** Around each peak over the limit, the chord
+  across it is compared with the track on either side: if the track comes back, the fixes more
+  than `max_accel · time_base² / 4` (1 m) off the chord are flagged; if it shifts and stays (a
+  DGPS correction), no fix is wrong, nothing is flagged, and the step is reported.
+- **Resolution allowance in the open.** The limit is raised only when coordinate quantization
+  alone would exceed it over the time base, and the QC notes say so.
+
+On SP2613 nothing is flagged, as in R2R's bestres. On SP2424 (150,925 fixes) R2R flags nothing;
+`qc.py` flags 33 fixes in six 2–4 s excursions of 1–2 m and reports three steps, one of them a
+3.7 m jump at the dock (`tests/test_qc.py`).
 
 **Geodesy via pyproj.** `pyproj.Geod(ellps="WGS84").inv` (Karney's algorithm) replaces
 NavManager's hand-written Vincenty. On SP2613 and SP2424 the two differ by at most 5.4 µm per step,
@@ -590,7 +612,7 @@ Comparisons with R2R parse the numbers and map the units.
 | Phase | Scope | Exit criterion |
 |---|---|---|
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
-| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance |
+| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance. **QC done (#7):** SP2613 unflagged like R2R; SP2424's differences documented |
 | 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | the QA 2.0 report has R2R's structure; results and ratings compared with R2R's on released filesets, differences documented |
 | 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
 | 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |
