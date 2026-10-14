@@ -362,66 +362,145 @@ is the porting baseline, and none of these is merged into it):
 
 ### Package layout
 
+The package follows sbe-qa-processing's integration architecture (decided 2026-10-14): a **core**
+that runs the nav QA for anyone, and optional **integrations** that build on it for their own
+users. Core never imports an integration (`tests/test_boundaries.py`); an integration extends
+core through hooks (PDF `front` pages, `NotebookExtras`), never by core knowing about it.
+
 ```
 src/nav_qa_processing/
-  cli.py            run | openvdm | config-from-r2r | formats
+  cli.py            every command: run, formats, openvdm, config-from-openvdm, site-config,
+                    and the r2r group (run, config-from-catalog, config-from-qa, fetch-fileset)
+  -- core --
   quantities.py     the project-wide quantity table: name, description, datatype, unit, format
-  config.py         CruiseConfig, Extent, Port, Thresholds (MAX_SPEED, MAX_ACCEL, MAX_GAP, rating bounds)
-  fileset.py        discover files in a bag or directory; transparent gz/bz2/zip; manifest-md5
-  formats/
-    __init__.py     registry: FormatSpec (definition + reader) by ID, detect(path) -> ranked candidates
-    definitions/    one TOML definition per format ID, plus sentences.toml (done for all 35 IDs)
-    catalog.py      loads and prints the definitions
-    nmea.py         sentence parsing (GGA, ZDA so far; GLL, RMC, VTG, HDT, GST, GSA to come), checksum
-    gga_zda.py      GGA fixes dated by the nearest ZDA (nav29 and the other GGA + ZDA formats)
-    framing.py      line framings that carry the time (SCS/UNIX-time prefixes), when a format needs one
-                    (the FormatSpec registry, one per R2R format ID, lives in formats/__init__.py)
-    custom/         the few formats that need code rather than a spec
+  config.py         QAConfig (every field optional; integration tables ignored), Extent, NavSource,
+                    Thresholds; load and write the config TOML
+  fileset.py        find the GNSS files in a bag or directory; transparent gz/bz2; manifest-md5
+  formats/          FormatSpec registry, definitions/, catalog.py, nmea.py, gga_zda.py, …
   rawnav.py         read_fileset -> RawNav (DataFrame + per-file errors + per-column precision)
-  r2rnav.py         read/write legacy .r2rnav files, precision-preserving value formatting
-  geocsv.py         read/write GeoCSV 2.0 nav products (header block, DOIs; column metadata from quantities.py)
   geodesy.py        distance/azimuth on WGS-84 (pyproj.Geod), speed, acceleration, SOG/COG
-  qc.py             flagging rules -> per-record flag bitmask (NavBestRes)
-  products.py       bestres, sample(interval) (Nav1Min), control (Douglas–Peucker) (NavControl)
-  stats.py          navqa statistics (modal interval, completeness, gaps, ranges)
-  r2r.py            R2R tests, bounds, ratings, infos; inferred rules documented in the docstring
-  qa.py             run_qa(config, fileset) -> NavQAResult
-  xml_report.py     R2R QA 2.0 XML with provenance, certificate, manifest
-  pdf_report.py     ReportLab PDF embedding the SVGs
+  qc.py             flagging rules -> per-record flag bitmask (bestres)
+  products.py       bestres, sample(interval) (1min), control (Douglas–Peucker)
+  stats.py          QA statistics on the pre-QC data, and core checks (pass/warn/fail/info)
+  qa.py             run_qa(fileset, config=None) -> NavQAResult
+  geocsv.py         read/write GeoCSV 2.0 products (R2R's structure; Source passed in)
+  r2rnav.py         read/write legacy .r2rnav files
+  reports.py        write_reports: GeoCSV products, PDF, SVGs, notebook
+  pdf_report.py     ReportLab PDF embedding the SVGs; integrations add `front` pages
   plots.py          one matplotlib Figure per function
   maps.py           cartopy trackline map with Natural Earth; degrades without coastlines
-  notebook.py       nbformat notebook that re-runs the assessment
-  openvdm.py        CruiseConfig from OpenVDM's API; hook skip/chown/pending-checksum logic
+  notebook.py       nbformat notebook that re-runs the assessment; NotebookExtras
+  network.py        reaching(service, url): unreachable servers become a one-line NetworkError
+  readable.py       Readable: results and configs print as short text in Python and Jupyter
+  -- integrations --
+  integrations/r2r/
+    config.py       CruiseConfig(QAConfig): R2R's IDs, ports, fileset, DOIs, provenance
+    catalog.py      configs from R2R's catalog API and from R2R's QA 2.0 XML
+    rules.py        R2R's six tests, bounds, G/Y/R ratings and infos
+    xml_report.py   R2R QA 2.0 XML: provenance, filesetinfo, certificate, supplements, manifest
+    certificate.py  the certificate's PDF pages and notebook cells (Phase 4)
+    reports.py      run_r2r, write_r2r_reports (core reports + XML; R2R's GeoCSV Source)
+    download.py     r2r fetch-fileset (replaces scripts/fetch_r2r_fileset.py)
+  integrations/openvdm/
+    hook.py         QAConfig from OpenVDM's API and the site TOML; skip/chown/pending-checksum
+    site_setup.py   site-config prompts
 ```
 
-`config.py`, `fileset.py`, `xml_report.py`, `pdf_report.py`, `maps.py`, `notebook.py` and
-`openvdm.py` mirror their sbe-qa-processing counterparts. Shared code can be factored into a
-common package later. It is not a prerequisite.
+What exists today: `quantities`, `config` (Thresholds only), `formats/`, `rawnav`, `geodesy`,
+`qc`, `products`, `geocsv`, `r2rnav`. The rest is planned by phase below. Shared code (network,
+readable, CLI conventions, the OpenVDM hook mechanics, the R2R XML wrapper) could later move to a
+package common to both projects; that is not a prerequisite.
+
+### Configuration TOMLs
+
+As in sbe-qa-processing, three TOMLs, with the same `[cruise]`, `[cruise.extent]`, port,
+`[fileset]` and `[provenance]` tables, so a ship running both tools sees one convention:
+
+- **Config TOML** (`config.QAConfig`): every field optional; the QA runs without one. Tables
+  only an integration uses are ignored.
+- **R2R cruise TOML** (`integrations/r2r/config.CruiseConfig`): the config TOML plus R2R's IDs,
+  ports, fileset and provenance; written by `r2r config-from-catalog` or `r2r config-from-qa`.
+- **Site TOML**: per-ship settings for the OpenVDM hook, written by `site-config`; OpenVDM's own
+  values win field by field.
+
+Nav adds a `[nav]` table (the primary GNSS feed), DOIs for the GeoCSV header, and a `[geocsv]`
+attribution:
+
+```toml
+# R2R cruise TOML (r2r config-from-catalog SP2613 169851)
+[cruise]
+id = "SP2613"
+vessel_name = "Robert Gordon Sproul"
+depart_date = 2026-07-09        # the reader's file window and QC's DATE_RANGE
+arrive_date = 2026-07-09
+doi = "doi:10.7284/911454"      # GeoCSV source_event
+
+[cruise.extent]                 # expected area, for a QA check and the map
+westernmost = -117.38
+easternmost = -117.22
+southernmost = 32.59
+northernmost = 32.71
+
+[fileset]
+id = "169851"
+doi = "doi:10.7284/169851"      # GeoCSV source_dataset
+
+[nav]                           # the primary GNSS feed
+format = "nav29"                # a FormatSpec ID (`nav-qa-processing formats`)
+files = "data/*.txt"            # glob within the fileset, when it holds other files
+
+[provenance]
+distro_type = "post-cruise"
+
+[thresholds]                    # optional overrides of config.Thresholds
+max_accel = 1.0                 # [m s-2]
+accel_time_base = 2.0           # [s]
+max_gap = 300.0                 # [s]
+```
+
+```toml
+# Site TOML for the OpenVDM hook
+[vessel]
+name = "Roger Revelle"
+
+[openvdm]
+output_extra_directory = "NAV_QA"
+collection_system = "GNSS"       # where the primary GPS feed lands
+
+[nav]
+format = "nav29"
+files = "*.raw"
+
+[provenance]
+contact_institution = "Scripps Institution of Oceanography"
+
+[geocsv]
+attribution = "R/V Roger Revelle, Scripps Institution of Oceanography"
+```
+
+Without `[nav].format`, the run tries `formats.detect()` (Phase 6), or fails with a message
+listing the formats that can read the files. The GeoCSV `Source` takes its DOIs from
+`[cruise].doi` and `[fileset].doi` and its attribution from `[geocsv]`, or from R2R's values when
+the R2R integration runs; core never defaults to R2R's identity.
 
 ### Data flow
 
 ```mermaid
 flowchart LR
   fs[fileset.py<br/>files + manifest] --> rd[formats/ + rawnav.py<br/>RawNav DataFrame]
-  rd --> st[stats.py<br/>pre-QC statistics]
+  rd --> st[stats.py<br/>statistics + core checks]
   rd --> qc[qc.py<br/>flag bitmask]
-  qc --> pr[products.py<br/>BestRes / 1Min / Control]
-  st --> r2r[r2r.py<br/>tests + ratings]
-  r2r --> res[NavQAResult]
+  qc --> pr[products.py<br/>bestres / 1min / control]
+  st --> res[NavQAResult]
   pr --> res
-  res --> w[writers<br/>GeoCSV · r2rnav · XML · PDF · SVG · notebook]
+  res --> w[reports.py<br/>GeoCSV · PDF · SVG · notebook]
+  res --> r2r[integrations/r2r<br/>tests + ratings · QA 2.0 XML]
 ```
 
-`qa.run_qa(config, fileset)` is the only pipeline entry point. Every writer consumes the
-`NavQAResult` it returns, which holds:
-- the config,
-- the file inventory,
-- per-file errors,
-- the `RawNav` frame,
-- the flags,
-- the products,
-- the statistics,
-- the R2R certificate.
+`qa.run_qa(fileset, config=None)` is the core pipeline. Every writer consumes the `NavQAResult`
+it returns, which holds the config, the file inventory, per-file errors, the `RawNav` frame, the
+QC result, the products and the statistics and core checks. The R2R integration's `run_r2r` adds
+R2R's certificate on top.
 
 ### Key design decisions
 
@@ -506,13 +585,11 @@ difference from R2R:
 
 How the values are *written* follows the standard formats below.
 
-**Thresholds live in config.** `config.Thresholds` holds:
-- the QC limits: `max_speed`, `max_accel`, `max_gap`, the GGA validity limits and the altitude
-  limit;
-- the R2R rating bounds.
-
-A cruise TOML or OpenVDM's site TOML can override them. The XML `bounds` elements are written
-from the same values, so the thresholds are no longer stated twice.
+**Thresholds live in config.** `config.Thresholds` holds the QC and QA limits (`max_speed`,
+`max_accel`, `accel_time_base`, `max_gap`, the GGA validity and altitude limits, …). A config,
+cruise or site TOML's `[thresholds]` table overrides them. R2R's G/Y/R rating bounds belong to the
+R2R integration (`integrations/r2r/rules.py`), and its XML `bounds` are written from the same
+values, so no threshold is stated twice.
 
 **Products** (`products.py`, #8):
 - `bestres` is every pre-QC record with its QC flags and SOG/COG (good fixes only).
@@ -608,9 +685,12 @@ Comparisons with R2R parse the numbers and map the units.
   - histograms of the sampling interval, satellite count, HDOP and quality indicator.
 - **PDF:** a certificate page followed by the figures.
 - **Notebook:** re-runs `run_qa` step by step.
-- **OpenVDM hook:** runs after the GNSS collection-system transfer and writes into an extra
-  directory. Its behavior matches sbe-qa-processing's hook: skip, chown and pending-checksum
-  handling.
+- **OpenVDM hook** (`integrations/openvdm`): runs after the GNSS collection-system transfer and
+  writes the core reports (never R2R's) into an extra directory. Its behavior matches
+  sbe-qa-processing's hook: skip, chown and pending-checksum handling, with pyyaml as the
+  `openvdm` extra.
+- **R2R certificate** (`integrations/r2r/certificate.py`): the certificate's PDF pages and
+  notebook cells, added through core's `front` pages and `NotebookExtras`.
 
 ### Validation strategy
 
@@ -641,9 +721,9 @@ Comparisons with R2R parse the numbers and map the units.
 |---|---|---|
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
 | 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance. **QC done (#7):** SP2613 unflagged like R2R; SP2424's differences documented. **Products done (#8):** SP2613's 1min and control equal R2R's; SP2424's but for its final fix. **GeoCSV done (#9):** R2R's header structure; SP2613's products equal R2R's by parsed value. **Flagged reference done (#10):** SP1925 settles R2R's flagged-record form; flag differences documented |
-| 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | the QA 2.0 report has R2R's structure; results and ratings compared with R2R's on released filesets, differences documented |
-| 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
-| 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |
+| 3 | core: `config.py` (QAConfig, TOML), `fileset.py`, `stats.py`, `qa.py`, `network.py`, `readable.py`, `cli.py run`; `integrations/r2r/`: `config.py`, `rules.py`, `xml_report.py`, `catalog.py`, `download.py`, `reports.py`, the `r2r` commands | core runs without R2R; the QA 2.0 report has R2R's structure; statistics, results and ratings compared with R2R's on released filesets, differences documented |
+| 4 | `reports.py`, `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py`; `integrations/r2r/certificate.py` | report and notebook generated for every validation cruise, with and without R2R's certificate |
+| 5 | `integrations/openvdm/` (`hook.py`, `site_setup.py`), `openvdm`, `config-from-openvdm`, `site-config`, site TOML | hook runs on an OpenVDM test instance |
 | 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture. **Definitions done** for all 35 IDs (`formats/definitions/`); readers and fixtures remain |
 
 ### Open questions
