@@ -37,6 +37,9 @@ of Phase 2 of the plan in `docs/architecture.md`):
 - `products.py`: `bestres(nav, qc_result)`, `sample(bestres, interval)` (1min: the good record
   nearest each whole minute, within half a minute) and `control(one_minute)` (Douglas–Peucker
   at 0.01°, by shapely, on unwrapped longitudes).
+- `geocsv.py`: write and read the GeoCSV 2.0 products (`BESTRES`, `ONE_MINUTE`, `CONTROL`) with
+  R2R's keyword structure and our quantities; source values (attribution, DOIs) are passed in as
+  a `Source`, never defaulted to R2R's.
 - `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
   into `data/<CRUISE>_<FILESET>_gnss/`.
 - `cli.py`: only the `formats` subcommand so far.

@@ -22,7 +22,7 @@ def test_units_are_standard():
 def test_geocsv_unit_and_label():
     assert q.ISO_TIME.geocsv_unit == "ISO_8601"
     assert q.SPEED_MADE_GOOD.geocsv_unit == "m s-1"
-    assert q.SPEED_MADE_GOOD.label == "Speed over ground, from successive positions [m s-1]"
+    assert q.SPEED_MADE_GOOD.label == "Speed over ground from successive positions [m s-1]"
     assert q.ISO_TIME.label == "Date and time (UTC)"
 
 
@@ -91,3 +91,9 @@ def test_datetimes():
 def test_naive_datetimes_are_rejected():
     with pytest.raises(ValueError, match="timezone-aware"):
         q.ISO_TIME.format(datetime(2026, 7, 9), decimals=0)  # noqa: DTZ001
+
+
+def test_descriptions_have_no_commas():
+    """GeoCSV writes them as one comma-separated field_long_name list"""
+    for quantity in q.QUANTITIES.values():
+        assert "," not in quantity.description, quantity.name
