@@ -83,7 +83,7 @@ def test_sog_cog_with_fewer_than_two_good_fixes():
 
 # -- Parity with R2R's published bestres --
 
-FETCH = "uv run scripts/fetch_r2r_fileset.py {cruise} {fileset}"
+FETCH = "uv run nav-qa-processing r2r fetch-fileset {cruise} {fileset}"
 
 
 def _bestres(cruise, fileset, start=None, end=None):

@@ -13,7 +13,7 @@ Different from R2R's reports (docs/navmanager-differences.md, X1):
 """
 
 import xml.etree.ElementTree as ET
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from nav_qa_processing import quantities as q
@@ -55,7 +55,8 @@ def _value(parent: ET.Element, tag: str, text: str, /, **attributes) -> ET.Eleme
 
 
 def _timestamp(moment: datetime) -> str:
-    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    """To the second, as the GeoCSV products' creation_date"""
+    return q.format_datetime(moment, 0)
 
 
 def _port(parent: ET.Element, name: str, port: Port) -> None:

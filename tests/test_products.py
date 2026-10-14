@@ -132,7 +132,7 @@ def _products(cruise, fileset, **window):
     directory = DATA / f"{cruise}_{fileset}_gnss"
     if not (directory / "data").is_dir():
         pytest.skip(
-            f"{cruise} not downloaded; run: uv run scripts/fetch_r2r_fileset.py {cruise} {fileset}"
+            f"{cruise} not downloaded; run: uv run nav-qa-processing r2r fetch-fileset {cruise} {fileset}"
         )
     nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav29", **window)
     one = products.sample(products.bestres(nav, qc.flag(nav)))

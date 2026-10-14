@@ -1,9 +1,8 @@
-# R2R's GNSS fileset 161900 (Trimble BX992) of SP2424, from R2R's catalog and QA report
-# Fetch: uv run scripts/fetch_r2r_fileset.py SP2424 161900
-
+# From R2R's catalog, 2026-10-14
 [cruise]
 id = "SP2424"
 name = "SIO280 Fall 2024"
+pi = "Baumann-Pickering, Simone"
 vessel_id = "32QU"
 vessel_name = "Robert Gordon Sproul"
 operator_id = "edu.ucsd.sio"
@@ -21,24 +20,15 @@ northernmost = 32.7294408163
 [cruise.depart_port]
 name = "San Diego"
 port_id = "100055"
-country_id = "us"
-state_id = "ca"
-longitude = -117.175
-latitude = 32.71667
 
 [cruise.arrive_port]
 name = "San Diego"
 port_id = "100055"
-country_id = "us"
-state_id = "ca"
-longitude = -117.175
-latitude = 32.71667
 
 [fileset]
 id = "161900"
 doi = "doi:10.7284/161900"
 format_id = "100150"
-format_alias = "starc_raw"
 
 [fileset.device]
 id = "101253"

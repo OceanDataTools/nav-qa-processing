@@ -40,6 +40,9 @@ from nav_qa_processing.rawnav import RawNav
 from nav_qa_processing.readable import Readable, block, counts, status_line
 
 UNUSABLE = Flag.DATE_RANGE | Flag.POSITION | Flag.NULL_ISLAND
+# [degree] about 1 cm: R2R's catalog rounds its cruise extent (the track's own) to 10 decimals,
+# which can leave the fixes on its edges just outside it (SP2613: 3 by 3e-11°)
+EXTENT_TOLERANCE = 1e-7
 
 
 @dataclass
@@ -246,7 +249,7 @@ def _checks(stats: NavStats, usable: pd.DataFrame, qc_result, th, extent) -> lis
         checks.append(CheckResult("Within the expected area", "n/a", "no extent configured"))
     else:
         inside = [
-            extent.contains(la, lo)
+            extent.contains(la, lo, EXTENT_TOLERANCE)
             for la, lo in zip(usable["lat"], usable["lon"], strict=True)
             if not (np.isnan(la) or np.isnan(lo))
         ]

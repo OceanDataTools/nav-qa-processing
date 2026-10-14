@@ -1,9 +1,8 @@
-# R2R's GNSS fileset 169851 (Trimble BX992) of SP2613, from R2R's catalog and QA report
-# Fetch: uv run scripts/fetch_r2r_fileset.py SP2613 169851
-
+# From R2R's catalog, 2026-10-14
 [cruise]
 id = "SP2613"
 name = "MPL Internship Program Day at Sea"
+pi = "Pereira, Filipe"
 vessel_id = "32QU"
 vessel_name = "Robert Gordon Sproul"
 operator_id = "edu.ucsd.sio"

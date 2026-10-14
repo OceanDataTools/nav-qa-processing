@@ -402,7 +402,7 @@ src/nav_qa_processing/
     xml_report.py   R2R QA 2.0 XML: provenance, filesetinfo, certificate, supplements, manifest
     certificate.py  the certificate's PDF pages and notebook cells (Phase 4)
     reports.py      run_r2r, write_r2r_reports (core reports + XML; R2R's GeoCSV Source)
-    download.py     r2r fetch-fileset (replaces scripts/fetch_r2r_fileset.py)
+    download.py     r2r fetch-fileset (replaced scripts/fetch_r2r_fileset.py)
   integrations/openvdm/
     hook.py         QAConfig from OpenVDM's API and the site TOML; skip/chown/pending-checksum
     site_setup.py   site-config prompts
@@ -708,7 +708,7 @@ Comparisons with R2R parse the numbers and map the units.
 3. **NavManager parity:** where PHP 7 and Java are available, run NavManager on the same inputs.
    Compare the pre-QC r2rnav, BestRes, 1Min, Control and the certificate. Store the NavManager
    outputs as fixtures, so CI needs neither PHP nor Java.
-4. **R2R parity:** for each released cruise, `scripts/fetch_r2r_fileset.py` fetches three
+4. **R2R parity:** for each released cruise, `nav-qa-processing r2r fetch-fileset` fetches three
    things:
    - the raw GNSS bag,
    - the r2rnav product bag (located through `api/product/?cruise_id=…` or the fileset's
@@ -736,6 +736,9 @@ Comparisons with R2R parse the numbers and map the units.
   We still need one per format family, and at least one rated Y or R with flagged records.
 - **Where is the "XML DP report"** that the processing description mentions, and should we produce
   it?
+- **Per-vessel speed limit?** R2R's catalog has each vessel's `max_speed`
+  (`info/vessel/<ICES>`, e.g. Sproul 5.4 m/s); `max_speed` (8.7 m/s) is one value for every
+  vessel. A cruise TOML could take the vessel's from the catalog.
 
 Resolved:
 - **Format definitions** are written for this project, not copied: NavManager has no LICENSE

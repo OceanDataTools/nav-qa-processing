@@ -40,7 +40,7 @@ class NavQAResult(Readable):
     def source(self) -> geocsv.Source:
         """The GeoCSV header's source values, from the config"""
         return geocsv.Source(
-            cruise_id=self.config.identifier,
+            cruise_id=self.config.cruise_id,
             cruise_doi=self.config.cruise_doi,
             fileset_doi=self.config.fileset_doi,
             attribution=self.config.attribution,

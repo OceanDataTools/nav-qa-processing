@@ -35,7 +35,7 @@ def ours(name, tmp_path_factory):
     directory = DATA / f"{name}_gnss"
     if not (directory / "r2r_qa.2.0.xml").exists():
         pytest.skip(
-            f"{cruise} not downloaded; run: uv run scripts/fetch_r2r_fileset.py {cruise} {fileset}"
+            f"{cruise} not downloaded; run: uv run nav-qa-processing r2r fetch-fileset {cruise} {fileset}"
         )
     result = run_qa(directory, load_cruise_config(CONFIGS / f"{name}.toml"))
     path = write_qa_xml(

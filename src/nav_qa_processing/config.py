@@ -62,12 +62,14 @@ class Extent(Readable):
     def crosses_antimeridian(self) -> bool:
         return self.westernmost > self.easternmost
 
-    def contains(self, latitude: float, longitude: float) -> bool:
-        if not self.southernmost <= latitude <= self.northernmost:
+    def contains(self, latitude: float, longitude: float, tolerance: float = 0.0) -> bool:
+        """Whether the point is in the box, or within `tolerance` [degree] of it"""
+        if not self.southernmost - tolerance <= latitude <= self.northernmost + tolerance:
             return False
+        west, east = self.westernmost - tolerance, self.easternmost + tolerance
         if self.crosses_antimeridian:
-            return longitude >= self.westernmost or longitude <= self.easternmost
-        return self.westernmost <= longitude <= self.easternmost
+            return longitude >= west or longitude <= east
+        return west <= longitude <= east
 
     def __str__(self) -> str:
         across = " (across the antimeridian)" if self.crosses_antimeridian else ""
