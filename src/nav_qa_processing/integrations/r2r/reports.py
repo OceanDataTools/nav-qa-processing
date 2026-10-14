@@ -1,13 +1,12 @@
 """Runs the QA for R2R: the core QA with a cruise config, then R2R's tests; and writes what R2R
-publishes: the three GeoCSV products with R2R's source values, and the QA 2.0 XML.
-
-The PDF, figures and notebook join these when core has them (Phase 4).
+publishes: the core reports (the three GeoCSV products) with R2R's source values, and the QA
+2.0 XML.
 """
 
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from nav_qa_processing import geocsv
+from nav_qa_processing import geocsv, reports
 from nav_qa_processing.fileset import Fileset
 from nav_qa_processing.integrations.r2r.catalog import R2R_REPOSITORY
 from nav_qa_processing.integrations.r2r.config import CruiseConfig, load_cruise_config
@@ -43,34 +42,15 @@ def run_r2r(fileset: Fileset | Path | str, config: CruiseConfig | Path | str) ->
 
 def report_paths(run: R2RRun, output: Path) -> dict[str, Path]:
     """What write_r2r_reports writes, by R2R's names"""
-    cruise_id = run.result.config.cruise_id
-    paths = {
-        name: output / geocsv.file_name(cruise_id, product)
-        for name, product in geocsv.PRODUCTS.items()
+    config = run.result.config
+    return {
+        **reports.report_paths(output, config.cruise_id),
+        "xml": Path(output) / qa_xml_name(config, run.result.finished),
     }
-    paths["xml"] = output / qa_xml_name(run.result.config, run.result.finished)
-    return paths
 
 
 def write_r2r_reports(run: R2RRun, output: Path) -> list[Path]:
-    """The three GeoCSV products and the QA 2.0 XML, into output"""
-    output.mkdir(parents=True, exist_ok=True)
-    result = run.result
-    frames = {
-        geocsv.BESTRES.name: result.bestres,
-        geocsv.ONE_MINUTE.name: result.one_minute,
-        geocsv.CONTROL.name: result.control,
-    }
-    written = [
-        geocsv.write(
-            output,
-            geocsv.PRODUCTS[name],
-            frame,
-            result.nav.decimals,
-            run.source,
-            created=result.finished,
-        )
-        for name, frame in frames.items()
-    ]
-    written.append(write_qa_xml(result, run.r2r, report_paths(run, output)["xml"]))
+    """The core reports with R2R's source values, then the QA 2.0 XML"""
+    written = reports.write_reports(run.result, output, run.source)
+    written.append(write_qa_xml(run.result, run.r2r, report_paths(run, output)["xml"]))
     return written

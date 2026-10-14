@@ -14,8 +14,8 @@ question, do what `sbe-qa-processing` does: read its `CLAUDE.md`, `pyproject.tom
 `src/sbe_qa_processing/` (especially `qa.py`, `r2r.py`, `xml_report.py`, `config.py`,
 `openvdm.py`, `cli.py`).
 
-GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far (Phase 1 and part
-of Phase 2 of the plan in `docs/architecture.md`):
+GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far (Phases 1 and 2, and most
+of Phase 3, of the plan in `docs/architecture.md`):
 - `quantities.py`: the project-wide quantity table (see below).
 - `formats/definitions/*.toml`: a definition of every R2R raw nav format ID (layout, sentences,
   vessels, examples) plus `sentences.toml`, written in this project's words (see its README).
@@ -73,9 +73,13 @@ of Phase 2 of the plan in `docs/architecture.md`):
   bag, `r2r_qa.2.0.xml` via api/qa_info, `products/` via api/product).
 - `integrations/r2r/reports.py`: `run_r2r(fileset, config)` -> `R2RRun`; `write_r2r_reports`
   writes the three GeoCSV products (R2R's source values) and the XML, by R2R's names.
-- `cli.py`: `formats`, and the `r2r` group: `run`, `config-from-catalog`, `config-from-qa`,
-  `fetch-fileset` (`uv run nav-qa-processing r2r fetch-fileset SP2613 169851`). The core `run`
-  command and the rest of sbe's CLI conventions come with #25.
+- `reports.py` (core): `report_paths`, `write_reports(result, output, source=None)`: the three
+  GeoCSV products for now (PDF, figures and notebook in Phase 4).
+- `cli.py`: `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]`, and the `r2r` group (`run`,
+  `config-from-catalog`, `config-from-qa`, `fetch-fileset`). Conventions in its docstring
+  (`-o`/`--force`, integer fileset IDs, uppercase metavars, `-v`/`-vv` on every parser, expected
+  errors one line), checked for every command by `tests/test_cli.py`. Document every command,
+  argument and TOML key in the README's tables when adding one.
 
 SP2613's and SP2424's pre-QC records match R2R's full bestres by value (SP2424 has one more:
 the final fix, which NavManager drops) (`tests/test_rawnav.py`; R2R evidently ran it

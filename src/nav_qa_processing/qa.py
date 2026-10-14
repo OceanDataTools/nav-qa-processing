@@ -4,6 +4,7 @@ core pipeline; every writer consumes the `NavQAResult` it returns.
 """
 
 import importlib.metadata
+import logging
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
@@ -14,6 +15,8 @@ from nav_qa_processing import __version__, formats, geocsv, products, qc, rawnav
 from nav_qa_processing.config import QAConfig, load_config
 from nav_qa_processing.fileset import Fileset, load_fileset, verify_manifest
 from nav_qa_processing.readable import Readable, plural, timestamp
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigError(ValueError):
@@ -122,13 +125,21 @@ def run_qa(
     formats.get(config.nav_format)  # unknown or unsupported: ValueError naming the readable ones
     if not isinstance(fileset, Fileset):
         fileset = load_fileset(fileset, files=config.nav_files, manifest_path=config.manifest_path)
+    logger.info("%s: %s", config.identifier, plural(len(fileset.files), "nav file"))
     errors = verify_manifest(fileset)
 
     start, end = cruise_window(config)
     window = {k: v for k, v in (("start", start), ("end", end)) if v is not None}
     nav = rawnav.read_fileset(fileset.files, config.nav_format, **window)
     errors += nav.errors
+    logger.info(
+        "read %s (%s) from %s",
+        plural(len(nav.frame), "fix", "fixes"),
+        config.nav_format,
+        plural(len(nav.files), "file"),
+    )
     flags = qc.flag(nav, config.thresholds, start, end)
+    logger.info("QC flagged %d", int((flags.flags != 0).sum()))
     best = products.bestres(nav, flags)
     one_minute = products.sample(best)
     return NavQAResult(
