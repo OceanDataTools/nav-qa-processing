@@ -7,9 +7,10 @@ comes from `quantities.py`, so units and descriptions are this project's standar
 R2R's text (`meter\\second`, `degree_east`, swapped long names); values use the receiver's
 precision where the quantity says so.
 
-Flagged bestres records are written as `#` followed by the record, as NavManager's `geocsv` branch
-does, so GeoCSV readers skip them as comments. How R2R writes them is open until a released
-cruise with flagged fixes shows it (#10).
+Flagged bestres records are written as R2R writes them (SP1925, product fileset 609448): `#`
+followed by the record's measured fields only, time through antenna height. Speed and course,
+which come from good fixes only, are left out rather than written `NAN`. GeoCSV readers skip the
+line as a comment.
 
 Header values that identify the source (`attribution`, `source_repository`, the cruise and
 fileset DOIs) are passed in (`Source`): R2R's for R2R's processing, the operator's at sea, empty
@@ -35,6 +36,7 @@ class Product:
     name: str  # in the file name
     title: str
     columns: tuple[tuple[str, q.Quantity], ...]  # (DataFrame column, quantity)
+    flagged_columns: int = 0  # fields written for a flagged record (0: all)
 
 
 _TIME, _LON, _LAT = ("time", q.ISO_TIME), ("lon", q.SHIP_LONGITUDE), ("lat", q.SHIP_LATITUDE)
@@ -44,6 +46,7 @@ BESTRES = Product(
     "Processed Trackline Navigation Data: Best Resolution",
     (_TIME, _LON, _LAT, ("quality", q.NMEA_QUALITY), ("nsat", q.NSV), ("hdop", q.HDOP),
      ("alt", q.ANTENNA_HEIGHT), _SOG, _COG),
+    flagged_columns=7,  # time through antenna height: no SOG/COG for a flagged fix
 )  # fmt: skip
 ONE_MINUTE = Product(
     "1min", "Processed Trackline Navigation Data: One Minute Resolution",
@@ -116,8 +119,9 @@ def write(
     )
     lines = header(product, source, created)
     lines.append(DELIMITER.join(quantity.name for _, quantity in product.columns))
+    short = product.flagged_columns or len(product.columns)
     lines += [
-        ("#" if bad else "") + DELIMITER.join(values)
+        "#" + DELIMITER.join(values[:short]) if bad else DELIMITER.join(values)
         for bad, values in zip(flagged, zip(*columns, strict=True), strict=True)
     ]
     path = Path(directory) / file_name(source.cruise_id, product)
@@ -134,7 +138,8 @@ class GeoCSV:
 
 def read(path: Path) -> GeoCSV:
     """A GeoCSV nav product (ours or R2R's): keywords, columns and typed records. Lines starting
-    with `#` and a digit are flagged records; other `#` lines are keywords or comments.
+    with `#` and a digit are flagged records, which may have fewer fields (missing ones are
+    NaN); other `#` lines are keywords or comments.
     """
     keywords: dict[str, str] = {}
     columns: list[str] = []
@@ -152,12 +157,13 @@ def read(path: Path) -> GeoCSV:
             columns = [c.strip() for c in line.split(keywords.get("delimiter", DELIMITER))]
             continue
         flagged.append(line.startswith("#"))
-        rows.append(line.lstrip("#").split(keywords.get("delimiter", DELIMITER)))
+        values = line.lstrip("#").split(keywords.get("delimiter", DELIMITER))
+        rows.append(values + [None] * (len(columns) - len(values)))
     records = pd.DataFrame(rows, columns=columns)
     types = keywords.get("field_type", "").split(DELIMITER)
     missing = keywords.get("field_missing", q.MISSING)
     for name, kind in zip(columns, types, strict=False):
-        values = records[name].replace(missing, np.nan)
+        values = records[name].replace(missing, np.nan).replace({None: np.nan})
         if kind == "datetime":
             records[name] = pd.to_datetime(values, utc=True, format="ISO8601")
         elif kind == "integer":

@@ -87,7 +87,8 @@ def test_round_trip_with_a_flagged_record_and_missing_values(tmp_path):
     lines = path.read_text().splitlines()
     assert lines[17] == "2026-07-09T15:11:57.50Z,-117.233771,32.702813,2,13,0.8,7.887,3.31,157.712"
     assert lines[18].endswith(",7.760,3.30,157.601")  # receiver precision, never trimmed
-    assert lines[19].startswith("#2026-07-09T15:11:58.50Z,") and lines[19].endswith(",NAN,NAN")
+    # a flagged record: time through antenna height only, as R2R writes it (SP1925)
+    assert lines[19] == "#2026-07-09T15:11:58.50Z,-117.233758,32.702785,0,13,NAN,7.892"
     back = geocsv.read(path).records
     assert back["flagged"].tolist() == [False, False, True]
     assert (back["iso_time"] == frame["time"]).all()
@@ -139,3 +140,54 @@ def test_sp2613_products_match_r2r(tmp_path):
                 assert turn.max() < 0.0111
             else:
                 np.testing.assert_array_equal(mine, r2r, err_msg=f"{product.name} {name}")
+
+
+# -- Flagged records, as R2R writes them (SP1925) --
+
+
+def test_r2rs_flagged_records_have_only_the_measured_fields():
+    """R2R writes a flagged bestres record as '#' + time through antenna height (SP1925)"""
+    path = FIXTURES / "SP1925_bestres_head.geoCSV"
+    flagged = [line for line in path.read_text().splitlines() if line[:2] == "#2"]
+    assert len(flagged) == 3 and all(len(line.split(",")) == 7 for line in flagged)
+    records = geocsv.read(path).records
+    assert records["flagged"].sum() == 3 and len(records) == 43
+    assert records.loc[records["flagged"], "speed_made_good"].isna().all()
+    assert records.loc[records["flagged"], "antenna_height"].notna().all()
+
+
+def test_our_flagged_records_have_r2rs_structure(tmp_path):
+    ours = geocsv.write(tmp_path, geocsv.BESTRES, bestres_frame(), DECIMALS, SOURCE, CREATED)
+    flagged = [line for line in ours.read_text().splitlines() if line[:2] == "#2"]
+    r2r = [line for line in (FIXTURES / "SP1925_bestres_head.geoCSV").read_text().splitlines()
+           if line[:2] == "#2"]  # fmt: skip
+    assert {len(line.split(",")) for line in flagged} == {len(line.split(",")) for line in r2r}
+
+
+def test_sp1925_flags_compared_with_r2r(tmp_path):
+    """303 fixes flagged by R2R, 219 by us, 209 by both. Every difference is a stale-repeat
+    decision on a repeated position while the ship barely moves (median of the preceding speeds
+    near the 0.25 m/s threshold). NavManager's lagged median and its 3,600-record buffers don't
+    explain them; its inverted acceleration loop, which works only from fixes already flagged,
+    likely flags more repeats next to them.
+    """
+    directory = DATA / "SP1925_134952_gnss"
+    if not (directory / "data").is_dir():
+        pytest.skip(
+            "SP1925 not downloaded; run: uv run scripts/fetch_r2r_fileset.py SP1925 134952"
+        )
+    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav29")
+    result = qc.flag(nav)
+    theirs = geocsv.read(directory / "products" / "data" / "SP1925_bestres.geoCSV").records
+    assert len(nav.frame) == len(theirs) == 45_723
+    assert (nav.frame["time"].to_numpy() == theirs["iso_time"].to_numpy()).all()
+    ours, r2r = result.flags != 0, theirs["flagged"].to_numpy()
+    assert (r2r.sum(), ours.sum(), (ours & r2r).sum()) == (303, 219, 209)
+    assert result.count(qc.Flag.STALE_REPEAT) == 219
+    lon, lat = nav.frame["lon"].to_numpy(), nav.frame["lat"].to_numpy()
+    repeated = np.r_[False, (lon[1:] == lon[:-1]) & (lat[1:] == lat[:-1])]
+    assert repeated[ours != r2r].mean() > 0.99
+    # our file has R2R's records and flags
+    best = products.bestres(nav, result)
+    written = geocsv.read(geocsv.write(tmp_path, geocsv.BESTRES, best, nav.decimals, SOURCE))
+    assert (written.records["flagged"].to_numpy() == ours).all()

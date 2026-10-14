@@ -459,7 +459,12 @@ rules work on the whole series, not in 3,600-record buffers. Decided 2026-10-13/
 
 On SP2613 nothing is flagged, as in R2R's bestres. On SP2424 (150,925 fixes) R2R flags nothing;
 `qc.py` flags 33 fixes in six 2–4 s excursions of 1–2 m and reports three steps, one of them a
-3.7 m jump at the dock (`tests/test_qc.py`).
+3.7 m jump at the dock (`tests/test_qc.py`). SP1925 (45,723 fixes at 1 Hz, 6-decimal positions) is
+the first released cruise found with flagged fixes: R2R flags 303, `qc.py` 219, 209 of them the
+same. Every difference is a stale-repeat decision on a repeated position while the ship barely
+moves (median of the preceding speeds near 0.25 m s-1). NavManager's lagged median and its
+buffers don't explain them; its inverted acceleration loop, working only from fixes already
+flagged, likely flags more repeats next to them (`tests/test_geocsv.py`).
 
 **Geodesy via pyproj.** `pyproj.Geod(ellps="WGS84").inv` (Karney's algorithm) replaces
 NavManager's hand-written Vincenty. On SP2613 and SP2424 the two differ by at most 5.4 µm per step,
@@ -530,9 +535,9 @@ number formats come from `quantities.py` (descriptions therefore contain no comm
 them as one comma-separated list). The values that identify the source (`attribution`,
 `source_repository`, the cruise DOI in `source_event`, the raw fileset DOI in `source_dataset`)
 are passed in as a `Source`: R2R's for R2R's processing, the operator's at sea, empty when
-unknown; R2R's identity is never a default. Flagged bestres records are written as `#` + the
-record, as NavManager's `geocsv` branch does, so GeoCSV readers skip them as comments, until a
-released cruise shows R2R's convention (#10). `geocsv.read` parses ours and R2R's files alike;
+unknown; R2R's identity is never a default. Flagged bestres records are written as R2R writes
+them (SP1925, #10): `#` followed by time through antenna height only, without speed and course,
+so GeoCSV readers skip them as comments. `geocsv.read` parses ours and R2R's files alike;
 SP2613's three products written here equal R2R's by parsed value (speed and course within the
 geodesy tolerance).
 
@@ -632,7 +637,7 @@ Comparisons with R2R parse the numbers and map the units.
 | Phase | Scope | Exit criterion |
 |---|---|---|
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
-| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance. **QC done (#7):** SP2613 unflagged like R2R; SP2424's differences documented. **Products done (#8):** SP2613's 1min and control equal R2R's; SP2424's but for its final fix. **GeoCSV done (#9):** R2R's header structure; SP2613's products equal R2R's by parsed value |
+| 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance. **QC done (#7):** SP2613 unflagged like R2R; SP2424's differences documented. **Products done (#8):** SP2613's 1min and control equal R2R's; SP2424's but for its final fix. **GeoCSV done (#9):** R2R's header structure; SP2613's products equal R2R's by parsed value. **Flagged reference done (#10):** SP1925 settles R2R's flagged-record form; flag differences documented |
 | 3 | `stats.py`, `r2r.py`, `xml_report.py`, `config.py`, `cli.py run` | the QA 2.0 report has R2R's structure; results and ratings compared with R2R's on released filesets, differences documented |
 | 4 | `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py` | report and notebook generated for every validation cruise |
 | 5 | `openvdm.py`, `cli.py openvdm`, site TOML | hook runs on an OpenVDM test instance |
@@ -642,10 +647,6 @@ Comparisons with R2R parse the numbers and map the units.
 
 - **Which other R2R nav filesets should be parity references?** SP2613 (nav29, G) is the first.
   We still need one per format family, and at least one rated Y or R with flagged records.
-- **How does R2R write a flagged bestres record in GeoCSV?** NavManager's `geocsv` branch
-  writes it as `#` + the comma-separated record, the same prefix as its header lines, so GeoCSV
-  readers skip it as a comment. That supports the plan. A published cruise with flagged fixes
-  would confirm it.
 - **Where is the "XML DP report"** that the processing description mentions, and should we produce
   it?
 
@@ -660,6 +661,9 @@ Resolved:
   GGA or ZDA. It isn't reproduced: `nmea.parse_sentence` checks two-digit hex (#13).
 - **SP2613's time window** is the cruise day (depart and arrive 2026-07-09). Files are selected
   by their first to last ZDA, so the 2026-07-07 file is left out, as in R2R's bestres.
+- **How does R2R write a flagged bestres record in GeoCSV?** As `#` followed by the record's
+  measured fields only, time through antenna height, without speed and course (SP1925, product
+  fileset 609448: 303 flagged records; #10). `geocsv.py` does the same.
 - **Reproduce NavManager's numeric quirks?** No (2026-10-13): parity is about the products'
   format. Flags, speeds and ratings are computed soundly and compared with R2R's in tests, with
   the differences documented. This settles the buffer-boundary question.

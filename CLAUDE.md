@@ -39,7 +39,8 @@ of Phase 2 of the plan in `docs/architecture.md`):
   at 0.01°, by shapely, on unwrapped longitudes).
 - `geocsv.py`: write and read the GeoCSV 2.0 products (`BESTRES`, `ONE_MINUTE`, `CONTROL`) with
   R2R's keyword structure and our quantities; source values (attribution, DOIs) are passed in as
-  a `Source`, never defaulted to R2R's.
+  a `Source`, never defaulted to R2R's. Flagged bestres records are `#` + time through antenna
+  height, as R2R writes them (SP1925).
 - `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
   into `data/<CRUISE>_<FILESET>_gnss/`.
 - `cli.py`: only the `formats` subcommand so far.
@@ -158,7 +159,8 @@ comes from R2R's own tooling.
 Nav QA reports are named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`. Find them through the
 `documents` field of `service.rvdata.us/api/qa_info/?fileset_id=…`. The product bag is in
 `api/product/?cruise_id=…`. First parity reference: SP2613 (raw GNSS fileset 169851, format
-nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G).
+nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G). Others: SP2424 (past navsogcog's buffer) and SP1925 (flagged
+fixes); see `tests/fixtures/README.md`.
 
 ## Porting rules
 
