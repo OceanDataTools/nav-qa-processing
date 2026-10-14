@@ -245,7 +245,7 @@ def _acceleration(t, lon, lat, good, time_base, limit) -> tuple[np.ndarray, int,
     for iteration in range(1, MAX_ITERATIONS + 1):
         index = np.flatnonzero(good)
         tg = t[index]
-        acceleration = _acceleration_at_fixes(tg, lon[index], lat[index], time_base)
+        acceleration = acceleration_at_fixes(tg, lon[index], lat[index], time_base)
         over = np.flatnonzero(acceleration > limit)  # NaN at the ends compares False
         for start, end in settled:
             over = over[(tg[over] < start) | (tg[over] > end)]
@@ -313,9 +313,11 @@ def _local_metres(lon, lat, lat0) -> tuple[np.ndarray, np.ndarray]:
     return x, y
 
 
-def _acceleration_at_fixes(t, lon, lat, time_base) -> np.ndarray:
-    """|Δ velocity| / (half the span) [m s-2] at each fix, from the velocities over at least
-    `time_base` before and after it; NaN where there isn't that much track on both sides
+def acceleration_at_fixes(t, lon, lat, time_base, signed: bool = False) -> np.ndarray:
+    """Horizontal acceleration [m s-2] at each fix, from the velocities over at least
+    `time_base` before and after it, divided by half the span: the magnitude of the change in
+    velocity, or with `signed` the change in speed (negative when slowing). NaN where there
+    isn't that much track on both sides
     """
     n = len(t)
     acceleration = np.full(n, np.nan)
@@ -329,7 +331,8 @@ def _acceleration_at_fixes(t, lon, lat, time_base) -> np.ndarray:
     i, j = before[k], after[k]
     v_in = _velocity(t[i], lon[i], lat[i], t[k], lon[k], lat[k])
     v_out = _velocity(t[k], lon[k], lat[k], t[j], lon[j], lat[j])
-    acceleration[k] = np.hypot(*(v_out - v_in)) / (0.5 * (t[j] - t[i]))
+    change = np.hypot(*v_out) - np.hypot(*v_in) if signed else np.hypot(*(v_out - v_in))
+    acceleration[k] = change / (0.5 * (t[j] - t[i]))
     return acceleration
 
 

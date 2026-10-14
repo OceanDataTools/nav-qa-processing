@@ -1,10 +1,12 @@
 """GGA fixes dated by ZDA sentences: the reader behind nav29 (and the other GGA + ZDA formats).
 
-A GGA carries only the time of day. Each GGA takes its date from the ZDA nearest to it in the
-stream of sentences (across files, in the order given; a tie goes to the following ZDA). If the
-two times of day are more than 12 hours apart, they straddle midnight, and the date moves a day:
-back when the GGA's time is the later one, forward when it's the earlier. This assumes the
-nearest ZDA is within 12 hours of the GGA, which holds for any receiver that sends ZDA.
+A GGA carries only the time of day. Each GGA is dated from one of the ZDAs either side of it in
+the stream of sentences (across files, in the order given): the one closer to it in time of day,
+counting across midnight (a tie goes to the following ZDA). If the two times of day are more
+than 12 hours apart, they straddle midnight, and the date moves a day: back when the GGA's time
+is the later one, forward when it's the earlier. Comparing times rather than positions in the
+stream matters at a gap: the first GGA of a file that starts 13.5 h after the previous file
+ended is next to the previous file's last ZDA, but belongs with the ZDA right after it (SP2503).
 
 - Any line prefix (a logger timestamp) is ignored. The text from the last `$` is the sentence.
 - Every GGA with a parseable time is kept, including repeated or out-of-order times: QC decides
@@ -61,6 +63,12 @@ def _zda_day(zda: ZDA) -> date | None:
         return None
 
 
+def _apart(a_ns: int, b_ns: int) -> int:
+    """How far apart two times of day are [ns], across midnight"""
+    difference = abs(a_ns - b_ns) % _DAY
+    return min(difference, _DAY - difference)
+
+
 def date_from(zda_day: date, zda_ns: int, gga_ns: int) -> date:
     """The date of a GGA at time of day `gga_ns`, from a nearby ZDA's date and time of day"""
     difference = gga_ns - zda_ns
@@ -113,13 +121,9 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
         return Result([], errors, rejected)
     for fix, at in zip(fixes, fix_positions, strict=True):
         following = bisect_left(zda_positions, at)
-        if following == len(zda_positions):
-            nearest = following - 1
-        elif following == 0:
-            nearest = 0
-        else:  # the nearer of the ZDAs before and after; a tie goes to the following one
-            before, after = zda_positions[following - 1], zda_positions[following]
-            nearest = following if after - at <= at - before else following - 1
+        candidates = [i for i in (following, following - 1) if 0 <= i < len(zdas)]
+        # the one closer in time of day, across midnight; a tie goes to the following ZDA
+        nearest = min(candidates, key=lambda i: _apart(zdas[i][1], fix.gga.time.ns))
         zda_day, zda_ns = zdas[nearest]
         fix.day = date_from(zda_day, zda_ns, fix.gga.time.ns)
     return Result(fixes, errors, rejected)

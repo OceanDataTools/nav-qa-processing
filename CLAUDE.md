@@ -39,6 +39,9 @@ of Phase 2 of the plan in `docs/architecture.md`):
 - `qa.py`: `run_qa(fileset, config=None)` -> `NavQAResult` (the core pipeline: reader within
   the cruise-date window, QC, products; `source` for GeoCSV; errors as text). `ConfigError`
   when the config can't run the QA (no `[nav] format`).
+- `stats.py`: `compute(nav, qc_result, thresholds, extent)` -> `NavStats` (navqa's statistics on
+  the pre-QC records, done soundly: completeness from interval slots, QC's acceleration) and the
+  core checks (`CheckResult`: pass/warn/info/n/a against `Thresholds`). In `NavQAResult.stats`.
 - `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...), and an empty
   `integrations/` package; `tests/test_boundaries.py` keeps core from importing it.
 - `qc.py`: `flag(nav, thresholds, start, end)` -> `QCResult` (per-record `Flag` bitmask, the
@@ -181,8 +184,8 @@ comes from R2R's own tooling.
 Nav QA reports are named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`. Find them through the
 `documents` field of `service.rvdata.us/api/qa_info/?fileset_id=…`. The product bag is in
 `api/product/?cruise_id=…`. First parity reference: SP2613 (raw GNSS fileset 169851, format
-nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G). Others: SP2424 (past navsogcog's buffer) and SP1925 (flagged
-fixes); see `tests/fixtures/README.md`.
+nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G). Others: SP2424 (past navsogcog's buffer), SP1925 (flagged
+fixes) and SP2503 (rated R: completeness, gap); see `tests/fixtures/README.md`.
 
 ## Porting rules
 

@@ -1,6 +1,6 @@
-"""Runs the core QA on a fileset: reads the primary GNSS feed, flags bad fixes, and makes the three
-products. `run_qa(fileset, config=None)` is the core pipeline; every writer consumes the
-`NavQAResult` it returns. The QA statistics and core checks join it with #24.
+"""Runs the core QA on a fileset: reads the primary GNSS feed, flags bad fixes, makes the three
+products, and computes the QA statistics and core checks. `run_qa(fileset, config=None)` is the
+core pipeline; every writer consumes the `NavQAResult` it returns.
 """
 
 import importlib.metadata
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from nav_qa_processing import __version__, formats, geocsv, products, qc, rawnav
+from nav_qa_processing import __version__, formats, geocsv, products, qc, rawnav, stats
 from nav_qa_processing.config import QAConfig, load_config
 from nav_qa_processing.fileset import Fileset, load_fileset, verify_manifest
 from nav_qa_processing.readable import Readable, plural, timestamp
@@ -29,6 +29,7 @@ class NavQAResult(Readable):
     bestres: pd.DataFrame
     one_minute: pd.DataFrame
     control: pd.DataFrame
+    stats: stats.NavStats
     errors: list[str]  # the fileset's and the reader's, as text
     started: datetime
     finished: datetime
@@ -67,6 +68,7 @@ class NavQAResult(Readable):
                 f"control {len(self.control)}"
             ),
             *(f"  error: {error}" for error in self.errors),
+            *(f"  {line}" for line in str(self.stats).splitlines()),
         ]
         return "\n".join(lines)
 
@@ -137,6 +139,7 @@ def run_qa(
         bestres=best,
         one_minute=one_minute,
         control=products.control(one_minute),
+        stats=stats.compute(nav, flags, config.thresholds, config.extent),
         errors=errors,
         started=started,
         finished=datetime.now(UTC),
