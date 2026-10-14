@@ -30,7 +30,17 @@ of Phase 2 of the plan in `docs/architecture.md`):
 - `r2rnav.py`: read/write legacy r2rnav.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
-- `config.py`: `Thresholds` (QC and QA limits; TOML overrides come with Phase 3).
+- `config.py`: `QAConfig` (every field optional; integration tables ignored), `Extent`,
+  `Thresholds` (QC and QA limits, TOML-friendly: dates and day counts), `load_config`,
+  `config_to_toml` (configs print as their TOML).
+- `fileset.py`: `load_fileset(path, files, manifest_path)` -> `Fileset` (a bag or a directory;
+  the nav files by glob; the bag's manifest with R2R's file ids, or an external one);
+  `verify_manifest` lists problems as text.
+- `qa.py`: `run_qa(fileset, config=None)` -> `NavQAResult` (the core pipeline: reader within
+  the cruise-date window, QC, products; `source` for GeoCSV; errors as text). `ConfigError`
+  when the config can't run the QA (no `[nav] format`).
+- `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...), and an empty
+  `integrations/` package; `tests/test_boundaries.py` keeps core from importing it.
 - `qc.py`: `flag(nav, thresholds, start, end)` -> `QCResult` (per-record `Flag` bitmask, the
   acceleration limit used, notes). No speed rule; acceleration over a time base with velocity
   vectors; excursions flagged, steps reported (decisions in its docstring).

@@ -5,7 +5,7 @@ bit set is flagged: written with a leading `#` in bestres and left out of the 1m
 products and of SOG/COG. The rules, in the order they run:
 
 1. Per record:
-   - `DATE_RANGE`: before `gps_start` or after `gps_end`, or more than `date_margin` outside the
+   - `DATE_RANGE`: before `gps_start` or after `gps_end`, or more than `date_margin_days` outside the
      cruise's [start, end];
    - `NULL_ISLAND`: position exactly 0, 0 (NavManager only when also at 00:00:00);
    - `POSITION`: longitude or latitude missing, or outside [-180, 180) and [-90, 90];
@@ -13,7 +13,8 @@ products and of SOG/COG. The rules, in the order they run:
      more than max_satellites, or HDOP of 0 or over max_hdop. Only checked when quality and
      satellite count are reported (RMC-only formats have neither); HDOP only when reported;
    - `ALTITUDE`: |altitude| ≥ max_altitude, when reported.
-2. `TIME_SEQUENCE`: a time not after the last in-sequence time, or more than `max_time_step`
+2. `TIME_SEQUENCE`: a time not after the last in-sequence time, or more than
+   `max_time_step_days`
    after it. Every record that passes advances the clock, whatever its other flags.
 3. Among the fixes not yet flagged, in time order:
    - `STALE_REPEAT`: the same position as the previous good fix while the median of the
@@ -158,12 +159,19 @@ def flag(
 
 def _outside_dates(times: pd.Series, th: Thresholds, start, end) -> np.ndarray:
     t = pd.DatetimeIndex(times)
-    outside = (t < th.gps_start) | (t > th.gps_end)
+    gps_start, gps_end = (pd.Timestamp(d, tz="UTC") for d in (th.gps_start, th.gps_end))
+    margin = pd.Timedelta(days=th.date_margin_days)
+    outside = (t < gps_start) | (t >= gps_end + pd.Timedelta(days=1))
     if start is not None:
-        outside |= t < pd.Timestamp(start) - th.date_margin
+        outside |= t < _utc(start) - margin
     if end is not None:
-        outside |= t > pd.Timestamp(end) + th.date_margin
+        outside |= t > _utc(end) + margin
     return np.asarray(outside)
+
+
+def _utc(value) -> pd.Timestamp:
+    stamp = pd.Timestamp(value)
+    return stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp
 
 
 def _bad_fix(f: pd.DataFrame, th: Thresholds) -> np.ndarray:
@@ -178,11 +186,11 @@ def _bad_fix(f: pd.DataFrame, th: Thresholds) -> np.ndarray:
 
 
 def _out_of_sequence(t: np.ndarray, th: Thresholds) -> np.ndarray:
-    """Times not after the last in-sequence time, or more than max_time_step after it"""
+    """Times not after the last in-sequence time, or more than max_time_step_days after it"""
     bad = np.zeros(len(t), dtype=bool)
     if not len(t):
         return bad
-    limit = th.max_time_step.total_seconds()
+    limit = th.max_time_step_days * 86_400.0  # [s]
     last = t[0]
     for i in range(1, len(t)):  # sequential by nature: what passes moves the reference
         if last < t[i] <= last + limit:

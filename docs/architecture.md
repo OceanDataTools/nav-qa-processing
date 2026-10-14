@@ -406,8 +406,8 @@ src/nav_qa_processing/
     site_setup.py   site-config prompts
 ```
 
-What exists today: `quantities`, `config` (Thresholds only), `formats/`, `rawnav`, `geodesy`,
-`qc`, `products`, `geocsv`, `r2rnav`. The rest is planned by phase below. Shared code (network,
+What exists today: `quantities`, `config`, `fileset`, `formats/`, `rawnav`, `geodesy`, `qc`,
+`products`, `geocsv`, `r2rnav`, `qa`, `network`, `readable`, and an empty `integrations/`. The rest is planned by phase below. Shared code (network,
 readable, CLI conventions, the OpenVDM hook mechanics, the R2R XML wrapper) could later move to a
 package common to both projects; that is not a prerequisite.
 
