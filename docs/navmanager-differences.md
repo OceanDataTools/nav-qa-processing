@@ -298,3 +298,6 @@ acceleration results differ (A5).
 - R2R files Healy's 2016–2025 GNSS logs under format 100010 ("raw NMEA: GGA + ZDA", nav1), though most have nav29's timestamped layouts.
 - NBP2410's receiver dates are 1024 weeks early (GPS week-number rollover): its ZDA and RMC say 2005-03-13 on 2024-10-27. A reader that dates fixes from RMC (NavManager's nav30/nav32 path) would put the cruise in 2005; not yet checked against R2R's products.
 - Point Sur's UDAS files drop the Ashtech differential column from 2011, shifting later columns.
+- R2R's catalog API (`api/cruise`) gives the cruise extent to 10 decimals, rounded, so the fixes on its edges can fall just outside it (SP2613: 3 fixes, by 3e-11°); its QA reports write it to 7. The core's "Within the expected area" check allows 1e-7° (about 1 cm, `stats.EXTENT_TOLERANCE`).
+- The catalog API has no port coordinates, country or state, no format alias (`starc_raw`) and no catalog dates (`date_issued`, `date_modified`, the fileset's `date_created`); R2R's QA reports do. `r2r config-from-catalog` takes them from the report (#28). R2R's 2024 reports (SP2424) have an empty `filesetinfo`, so for those cruises they stay empty.
+- `info/vessel/<ICES>` gives a vessel's `max_speed` (Sproul: 5.4 m/s); NavManager uses one `MAX_SPEED` (8.7 m/s) for every vessel.

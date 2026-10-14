@@ -9,7 +9,7 @@ from test_gga_zda import gga, zda
 from nav_qa_processing import r2rnav, rawnav
 
 SP2613 = DATA / "SP2613_169851_gnss"
-FETCH = "uv run scripts/fetch_r2r_fileset.py SP2613 169851"
+FETCH = "uv run nav-qa-processing r2r fetch-fileset SP2613 169851"
 
 
 def read_geocsv(path):
@@ -120,7 +120,7 @@ def test_sp2424_records_match_r2r_bestres_plus_the_final_fix():
     path = directory / "products" / "data" / "SP2424_bestres.geoCSV"
     if not path.exists():
         pytest.skip(
-            "SP2424 not downloaded; run: uv run scripts/fetch_r2r_fileset.py SP2424 161900"
+            "SP2424 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset SP2424 161900"
         )
     nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav29")
     r2r = read_geocsv(path)

@@ -47,8 +47,8 @@ of Phase 2 of the plan in `docs/architecture.md`):
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's
   IDs, catalog dates, `Port`s, `Device`, format ID/alias, provenance; `identifier`
   `<cruise>_<fileset>` or `<cruise>_gnss`), `load_cruise_config`, `config_to_toml`.
-  `configs/<CRUISE>_<FILESET>.toml` are hand-made from R2R's reports and catalog (SP2613,
-  SP2503, SP2424).
+  `configs/<CRUISE>_<FILESET>.toml` are written by `r2r config-from-catalog` (SP2613, SP2503,
+  SP2424).
 - `integrations/r2r/rules.py`: `run_r2r_tests(stats)` -> `R2RResult` (R2R's six tests, G/Y
   bounds stated once, results rated as written through `quantities.py`; infos TotalTests…).
 - `integrations/r2r/xml_report.py`: `build_qa_xml`/`write_qa_xml(result, r2r, path)` with the
@@ -65,9 +65,17 @@ of Phase 2 of the plan in `docs/architecture.md`):
   R2R's keyword structure and our quantities; source values (attribution, DOIs) are passed in as
   a `Source`, never defaulted to R2R's. Flagged bestres records are `#` + time through antenna
   height, as R2R writes them (SP1925).
-- `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
-  into `data/<CRUISE>_<FILESET>_gnss/`.
-- `cli.py`: only the `formats` subcommand so far.
+- `integrations/r2r/catalog.py`: `config_from_r2r_catalog(cruise, fileset)` (api/cruise,
+  api/fileset, info/vessel/…/device/…, filled from R2R's QA report where the API has nothing:
+  port coordinates, format alias, catalog dates), `config_from_qa_report`, `nav_format` (R2R
+  format ID -> ours via the definitions' `r2r_formats`), `R2RError`.
+- `integrations/r2r/download.py`: `download_fileset` -> `data/<CRUISE>_<FILESET>_gnss/` (raw
+  bag, `r2r_qa.2.0.xml` via api/qa_info, `products/` via api/product).
+- `integrations/r2r/reports.py`: `run_r2r(fileset, config)` -> `R2RRun`; `write_r2r_reports`
+  writes the three GeoCSV products (R2R's source values) and the XML, by R2R's names.
+- `cli.py`: `formats`, and the `r2r` group: `run`, `config-from-catalog`, `config-from-qa`,
+  `fetch-fileset` (`uv run nav-qa-processing r2r fetch-fileset SP2613 169851`). The core `run`
+  command and the rest of sbe's CLI conventions come with #25.
 
 SP2613's and SP2424's pre-QC records match R2R's full bestres by value (SP2424 has one more:
 the final fix, which NavManager drops) (`tests/test_rawnav.py`; R2R evidently ran it
@@ -95,8 +103,8 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
 - Install: `uv sync`. Tests: `uv run pytest`. One test: `uv run pytest tests/test_x.py::test_name`.
 - Lint and format: `uv run ruff check .` and `uv run ruff format --check .` (line length 99).
 - `data/` (downloaded R2R filesets) and `output/` (generated reports) are gitignored. `configs/`
-  holds cruise TOMLs plus `site.example.toml`. `scripts/` holds fetch helpers. Base them on
-  sbe-qa-processing's `fetch_r2r_fileset.py` and `fetch_r2r_config.py`.
+  holds cruise TOMLs plus `site.example.toml`. Downloads and catalog configs are `r2r`
+  commands, as in sbe-qa-processing.
 - Outputs follow the same set: an R2R QA 2.0 XML, a PDF report (ReportLab, with the SVGs
   embedded), every figure as an SVG, and a notebook that re-runs the assessment. It runs from the CLI
   (`run`, `config-from-r2r`) and as an OpenVDM post-transfer hook (`openvdm`).

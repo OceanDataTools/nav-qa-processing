@@ -25,7 +25,7 @@ attribution = "R/V Sproul"
 
 def needs(directory):
     if not (directory / "data").is_dir():
-        pytest.skip(f"{directory.name} not downloaded; run: uv run scripts/fetch_r2r_fileset.py "
+        pytest.skip(f"{directory.name} not downloaded; run: uv run nav-qa-processing r2r fetch-fileset "
                     + " ".join(directory.name.split("_")[:2]))  # fmt: skip
 
 

@@ -111,7 +111,7 @@ def test_sp2613_products_match_r2r(tmp_path):
     directory = DATA / "SP2613_169851_gnss"
     if not (directory / "data").is_dir():
         pytest.skip(
-            "SP2613 not downloaded; run: uv run scripts/fetch_r2r_fileset.py SP2613 169851"
+            "SP2613 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset SP2613 169851"
         )
     nav = rawnav.read_fileset(
         sorted((directory / "data").iterdir()), "nav29",
@@ -174,7 +174,7 @@ def test_sp1925_flags_compared_with_r2r(tmp_path):
     directory = DATA / "SP1925_134952_gnss"
     if not (directory / "data").is_dir():
         pytest.skip(
-            "SP1925 not downloaded; run: uv run scripts/fetch_r2r_fileset.py SP1925 134952"
+            "SP1925 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset SP1925 134952"
         )
     nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav29")
     result = qc.flag(nav)

@@ -1,9 +1,8 @@
-# R2R's GNSS fileset 167484 (Trimble BX992) of SP2503, from R2R's catalog and QA report
-# Fetch: uv run scripts/fetch_r2r_fileset.py SP2503 167484
-
+# From R2R's catalog, 2026-10-14
 [cruise]
 id = "SP2503"
 name = "Testing of Towed Phased Array Doppler Sonars"
+pi = "LeBoyer, Arnaud"
 vessel_id = "32QU"
 vessel_name = "Robert Gordon Sproul"
 operator_id = "edu.ucsd.sio"
