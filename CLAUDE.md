@@ -34,6 +34,9 @@ of Phase 2 of the plan in `docs/architecture.md`):
 - `qc.py`: `flag(nav, thresholds, start, end)` -> `QCResult` (per-record `Flag` bitmask, the
   acceleration limit used, notes). No speed rule; acceleration over a time base with velocity
   vectors; excursions flagged, steps reported (decisions in its docstring).
+- `products.py`: `bestres(nav, qc_result)`, `sample(bestres, interval)` (1min: the good record
+  nearest each whole minute, within half a minute) and `control(one_minute)` (Douglas–Peucker
+  at 0.01°, by shapely, on unwrapped longitudes).
 - `scripts/fetch_r2r_fileset.py CRUISE FILESET`: raw GNSS bag, QA report and r2rnav product bag
   into `data/<CRUISE>_<FILESET>_gnss/`.
 - `cli.py`: only the `formats` subcommand so far.
@@ -144,7 +147,8 @@ arithmetic:
   NavManager's arithmetic is wrong or fragile; say so in the test and in `docs/architecture.md`.
 
 R2R's control points are what NavManager's `navsimplifier.py` (recursive Douglas–Peucker)
-selects with a **0.01°** tolerance, not the committed 0.1°. NavManager has no GeoCSV writer: its
+selects with a **0.01°** tolerance, not the committed 0.1°; shapely's `simplify` selects the same
+points. NavManager has no GeoCSV writer: its
 `geocsv` branch only switches to comma delimiters and `#` headers, so R2R's GeoCSV header block
 comes from R2R's own tooling.
 
