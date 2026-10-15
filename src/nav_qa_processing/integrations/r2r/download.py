@@ -12,6 +12,7 @@ listing (NCEI); both are handled, as in sbe-qa-processing.
 
 import http.cookiejar
 import io
+import logging
 import re
 import tarfile
 import urllib.parse
@@ -22,6 +23,7 @@ from pathlib import Path
 from nav_qa_processing.integrations.r2r.catalog import R2RError, fetch_r2r_records, qa_report_url
 from nav_qa_processing.network import reaching
 
+logger = logging.getLogger(__name__)
 DOWNLOAD_TIMEOUT = 120  # [s]
 QA_REPORT = "r2r_qa.2.0.xml"
 PRODUCTS = "products"
@@ -45,6 +47,7 @@ def build_opener() -> urllib.request.OpenerDirector:
 
 def fetch(opener, url: str) -> tuple[str, bytes]:
     """The final URL after redirects, and the body"""
+    logger.debug("GET %s", url)
     with (
         reaching("R2R's fileset download", url),
         opener.open(url, timeout=DOWNLOAD_TIMEOUT) as response,

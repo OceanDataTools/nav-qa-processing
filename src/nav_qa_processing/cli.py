@@ -1,7 +1,24 @@
-"""Command line interface: nav-qa-processing"""
+"""Command line interface: ``nav-qa-processing <command>``.
+
+Conventions shared by every command:
+- ``-o/--output`` is a directory. Commands that write a cruise TOML write
+  ``<output>/<CRUISE_ID>_<FILESET_ID>.toml``, or to stdout for ``-o -``.
+- Existing outputs aren't overwritten without ``--force``; a command checks before it does any
+  work or asks any server.
+- Fileset IDs are integers. ``fileset`` alone never means an ID: the directory is FILESET_DIR.
+- Arguments that take a value have an uppercase metavar, and every default is in the help.
+- An integration's commands are a group named after it (``r2r ...``).
+- ``-v/--verbose``, before or after the command, logs more: ``-v`` is INFO and ``-vv`` DEBUG
+  (default WARNING), for the ``nav_qa_processing`` loggers. Expected errors (a server that can't
+  be reached, R2R not having what was asked for, a config that can't run the QA) are one line
+  on stderr and exit 1; ``-vv`` adds their traceback.
+"""
 
 import argparse
+import logging
 import sys
+import traceback
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,6 +26,7 @@ from nav_qa_processing import __version__
 from nav_qa_processing.network import NetworkError
 
 STDOUT = "-"
+LOG_LEVELS = (logging.WARNING, logging.INFO, logging.DEBUG)  # by the number of -v
 
 
 def _expected_errors() -> tuple[type[Exception], ...]:
@@ -40,6 +58,46 @@ def _write_cruise_toml(text: str, name: str, args: argparse.Namespace) -> int:
     return 0
 
 
+def _refuse_existing_reports(paths, force: bool) -> bool:
+    existing = [path for path in paths if path.exists()]
+    if existing and not force:
+        print(f"{existing[0]} exists; use --force to overwrite the reports", file=sys.stderr)
+        return True
+    return False
+
+
+def _print_written(written: list[Path]) -> None:
+    for path in written:
+        print(f"wrote {path}")
+
+
+# Commands ------------------------------------------------------------------------------------
+
+
+def _run(args: argparse.Namespace) -> int:
+    from nav_qa_processing import reports
+    from nav_qa_processing.qa import resolve_config, run_qa
+
+    config = resolve_config(args.config, args.fileset_dir)
+    if args.format:
+        config = replace(config, nav_format=args.format)
+    if not config.nav_format:
+        print(
+            "nav-qa-processing: no nav format: give -f FORMAT_ID or set [nav] format in a "
+            "config (`nav-qa-processing formats` lists them)",
+            file=sys.stderr,
+        )
+        return 1
+    paths = reports.report_paths(args.output, config.cruise_id)
+    if _refuse_existing_reports(paths.values(), args.force):
+        return 1
+    result = run_qa(args.fileset_dir, config)
+    result.config_path = args.config
+    print(result)
+    _print_written(reports.write_reports(result, args.output))
+    return 0
+
+
 def _formats(args: argparse.Namespace) -> int:
     from nav_qa_processing import formats
     from nav_qa_processing.formats import catalog
@@ -63,17 +121,18 @@ def _formats(args: argparse.Namespace) -> int:
 
 
 def _r2r_run(args: argparse.Namespace) -> int:
-    from nav_qa_processing.integrations.r2r.reports import report_paths, run_r2r, write_r2r_reports
+    from nav_qa_processing import reports
+    from nav_qa_processing.integrations.r2r.config import load_cruise_config
+    from nav_qa_processing.integrations.r2r.reports import run_r2r, write_r2r_reports
 
-    run = run_r2r(args.fileset_dir, args.cruise_toml)
-    paths = report_paths(run, args.output)
-    existing = [p for name, p in paths.items() if name != "xml" and p.exists()]
-    if existing and not args.force:
-        print(f"{existing[0]} exists; use --force to overwrite the reports", file=sys.stderr)
+    # The XML's name has the run's time, so only the products can already exist
+    cruise_id = load_cruise_config(args.cruise_toml).cruise_id
+    paths = reports.report_paths(args.output, cruise_id)
+    if _refuse_existing_reports(paths.values(), args.force):
         return 1
+    run = run_r2r(args.fileset_dir, args.cruise_toml)
     print(run)
-    for path in write_r2r_reports(run, args.output):
-        print(f"wrote {path}")
+    _print_written(write_r2r_reports(run, args.output))
     return 0
 
 
@@ -121,6 +180,23 @@ def _r2r_fetch_fileset(args: argparse.Namespace) -> int:
     else:
         print("R2R has no r2rnav product for this cruise", file=sys.stderr)
     return 0
+
+
+def _add_verbose(parser: argparse.ArgumentParser, default=0) -> None:
+    """-v/--verbose on parser and, so it also works after the command, on every subcommand.
+    The subcommands' default is SUPPRESS, so they don't reset a -v given before the command
+    """
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=default,
+        help="log more: -v for INFO, -vv for DEBUG and tracebacks of expected errors",
+    )
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for command in action.choices.values():
+                _add_verbose(command, argparse.SUPPRESS)
 
 
 def _fileset_id(text: str) -> int:
@@ -186,15 +262,7 @@ def _add_r2r_commands(commands) -> None:
         type=Path,
         help="BagIt bag or directory of GNSS files",
     )
-    run.add_argument(
-        "-o",
-        "--output",
-        metavar="OUTPUT_DIR",
-        type=Path,
-        default=Path("output"),
-        help="directory for the products and report (default %(default)s)",
-    )
-    run.add_argument("--force", action="store_true", help="overwrite existing products")
+    _add_report_output(run)
     run.set_defaults(handler=_r2r_run)
 
     from_catalog = commands.add_parser(
@@ -275,8 +343,52 @@ def build_parser() -> argparse.ArgumentParser:
         "id", metavar="ID", nargs="?", help="a format ID or sentence, e.g. nav29, GGA"
     )
     formats.set_defaults(handler=_formats)
+
+    run = commands.add_parser(
+        "run",
+        help="assess a GNSS fileset and write the products",
+        description=(
+            "Reads a fileset's primary GNSS feed, flags bad fixes, computes the QA statistics "
+            "and core checks, and writes <CRUISE_ID>_bestres|1min|control.geoCSV."
+        ),
+    )
+    run.add_argument(
+        "fileset_dir",
+        metavar="FILESET_DIR",
+        type=Path,
+        help="BagIt bag or directory of GNSS files",
+    )
+    run.add_argument(
+        "-c",
+        "--config",
+        metavar="CONFIG_TOML",
+        type=Path,
+        help="config TOML; without one, the products are named after FILESET_DIR",
+    )
+    run.add_argument(
+        "-f",
+        "--format",
+        metavar="FORMAT_ID",
+        help="the GNSS files' format (see `formats`), e.g. nav29; overrides the config's [nav]",
+    )
+    _add_report_output(run)
+    run.set_defaults(handler=_run)
+
     _add_r2r_commands(commands)
+    _add_verbose(parser)
     return parser
+
+
+def _add_report_output(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "-o",
+        "--output",
+        metavar="OUTPUT_DIR",
+        type=Path,
+        default=Path("output"),
+        help="directory for the products and reports (default %(default)s)",
+    )
+    parser.add_argument("--force", action="store_true", help="overwrite existing reports")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -285,9 +397,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command is None:
         parser.print_help(sys.stderr)
         return 1
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+    level = LOG_LEVELS[min(args.verbose, len(LOG_LEVELS) - 1)]
+    if args.verbose:
+        logging.getLogger("nav_qa_processing").setLevel(level)
     try:
         return args.handler(args)
     except _expected_errors() as error:
+        if level <= logging.DEBUG:
+            traceback.print_exc()
         print(f"nav-qa-processing: {error}", file=sys.stderr)
         return 1
 

@@ -15,6 +15,7 @@ lacks from that report when R2R has one, so the config reproduces the report's f
 """
 
 import json
+import logging
 import re
 import urllib.parse
 import urllib.request
@@ -38,11 +39,15 @@ R2R_INSTITUTION = ("Rolling Deck to Repository (R2R)", "us.rvdata", "info@rvdata
 NS = {"r2r": R2R_NAMESPACE}
 
 
+logger = logging.getLogger(__name__)
+
+
 class R2RError(LookupError):
     """R2R's catalog doesn't have what was asked for"""
 
 
 def _get(url: str, service: str = "R2R") -> bytes:
+    logger.debug("GET %s", url)
     with reaching(service, url), urllib.request.urlopen(url, timeout=R2R_API_TIMEOUT) as response:
         return response.read()
 
