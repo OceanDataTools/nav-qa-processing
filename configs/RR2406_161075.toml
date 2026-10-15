@@ -1,0 +1,62 @@
+# From R2R's catalog, 2026-10-15
+[cruise]
+id = "RR2406"
+name = "Tampa to Morehead City Transit"
+pi = "Delapp, Hannah"
+vessel_id = "33RR"
+vessel_name = "Roger Revelle"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+date_issued = "2024-07-15"
+date_modified = "2024-10-09T04:55:32Z"
+depart_date = 2024-06-01
+arrive_date = 2024-06-05
+doi = "doi:10.7284/910478"
+
+[cruise.extent]
+westernmost = -83.42034
+easternmost = -76.638808
+southernmost = 23.997623
+northernmost = 34.71573
+
+[cruise.depart_port]
+name = "Tampa"
+port_id = "101429"
+country_id = "us"
+state_id = "fl"
+longitude = -82.44444
+latitude = 27.94167
+
+[cruise.arrive_port]
+name = "Morehead City"
+port_id = "100940"
+country_id = "us"
+state_id = "nc"
+longitude = -76.67583
+latitude = 34.65278
+
+[fileset]
+id = "161075"
+doi = "doi:10.7284/161075"
+date_created = "2024-10-08"
+format_id = "100150"
+format_alias = "starc_raw"
+
+[fileset.device]
+id = "100821"
+make_id = "com.furuno"
+model_id = "100318"
+model_name = "GP-170"
+location_name = "Aft"
+
+[nav]
+format = "nav29"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

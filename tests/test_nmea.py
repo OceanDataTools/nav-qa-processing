@@ -1,6 +1,6 @@
 import pytest
 
-from nav_qa_processing.formats.nmea import GGA, ZDA, checksum, parse_sentence
+from nav_qa_processing.formats.nmea import GGA, ZDA, checksum, has_checksum, parse_sentence
 
 SP_GGA = "$INGGA,192045.68,4437.541871,N,12402.686139,W,2,07,1.3,-4.31,M,-22.07,M,2.0,0135*4B"
 
@@ -50,3 +50,23 @@ def test_zda():
     z = ZDA.from_fields(parse_sentence("$INZDA,192045.68,14,07,2018,,*7A").fields)
     assert (z.year, z.month, z.day) == (2018, 7, 14)
     assert z.time.decimals == 2
+
+
+def test_a_sentence_cut_short_without_a_checksum_is_rejected():
+    """RR2406's logger splits sentences across lines; the first part isn't a sentence"""
+    assert parse_sentence("$GPGGA,235959.00,2558.9137,N,08312.6472,W,1,08,0.8,11.8") is None
+    assert parse_sentence("$GPZDA,023928.00,31,05,2") is None
+    assert parse_sentence("$GPZDA,023928.00,31,05,2024,00,00") is not None  # complete
+    assert parse_sentence(SP_GGA.split("*")[0] + "*") is None  # cut inside the checksum
+
+
+def test_has_checksum():
+    assert has_checksum("$GPZDA,000000.00,04,11,2022,00,00*60")
+    assert not has_checksum("$GPZDA,000000.00,04,11,2022,00,00*6")
+    assert not has_checksum("$GPZDA,000000.00,04,11,2022,00,00")
+
+
+def test_coordinates_need_a_hemisphere():
+    """NavManager reads a missing hemisphere as N or E: RR2406's truncated fixes at 83°E"""
+    g = GGA.from_fields(["$GPGGA", "123519", "2558.9137", "", "08312.6472", "", "1", "08"])
+    assert g.lat is None and g.lon is None

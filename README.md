@@ -396,7 +396,8 @@ is in `src/nav_qa_processing/stats.py`, `src/nav_qa_processing/integrations/r2r/
 ### Validation against R2R
 
 The tests compare this tool with released R2R filesets: their pre-QC records, products, QA
-statistics and QA 2.0 reports. Fetch them with `r2r fetch-fileset` (into `data/`); the tests
+statistics and QA 2.0 reports. Where the ratings differ, the cause is in
+[docs/navmanager-differences.md](docs/navmanager-differences.md). Fetch them with `r2r fetch-fileset` (into `data/`); the tests
 that need one skip without it and name the command.
 
 | Fileset | R2R | This tool |
@@ -405,6 +406,9 @@ that need one skip without it and name the command.
 | SP2503 / 167484 (Sproul) | R: completeness 47.34 % (R), gap 48,625.5 s (Y) | R, the same ratings |
 | SP2424 / 161900 (Sproul, 150,925 fixes) | G | G; accelerations differ by definition |
 | SP1925 / 134952 (Sproul, flagged fixes) | no QA 2.0 report | QC's flags compared with R2R's |
+| RR2406 / 161075 (Revelle) | R on five tests, from sentences its logger split across lines | Y: the sentences rejoined, one 47-minute gap |
+| RR2212 / 151339 (Revelle) | R: out of sequence 50.08 %, files processed out of order | G |
+| SP2220 / 150139 (Sproul) | R: no fix for most of the cruise | R: bad quality 82.61 %, completeness, gap |
 
 ## Development
 

@@ -3,10 +3,14 @@
 Behavior ported from NavManager's nmeatools (observed, not copied):
 - A line can hold a partial sentence followed by a complete one after a stream interruption.
   Only the text from the last `$` is used.
-- A sentence without a checksum is accepted. A sentence with one is accepted only when it
-  matches, compared by value: `*0A`, `*0a` and a nonstandard one-digit `*A` are all 0x0A.
-  NavManager compares unpadded hex text, so it rejects every correct two-digit checksum below
-  0x10 (e.g. `*0A`); that isn't reproduced (#13).
+- A sentence without a checksum is accepted if it has every field of its kind (`FIELDS`), so a
+  sentence cut short (e.g. by a logger splitting it across lines) isn't read as a short one.
+  A sentence with a checksum is accepted only when it matches, compared by value: `*0A`, `*0a`
+  and a nonstandard one-digit `*A` are all 0x0A. NavManager compares unpadded hex text, so it
+  rejects every correct two-digit checksum below 0x10 (e.g. `*0A`); that isn't reproduced
+  (#13). NavManager also reads truncated sentences, whose missing fields become 0 (RR2406).
+- A coordinate needs its hemisphere letter (N/S, E/W): without one it's missing, not north or
+  east. NavManager reads it as positive, so RR2406's truncated GGAs put the ship at 83°E.
 - Positions keep the receiver's precision: a coordinate with n decimal minutes is reported
   with n + 2 decimal degrees (`lat_decimals`, `lon_decimals`). Times keep their decimals too.
 - Empty numeric GGA fields parse as missing here. NavManager turns them into 0, which QC
@@ -14,6 +18,10 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
 """
 
 from dataclasses import dataclass
+
+# The number of fields, address included, of a complete sentence: one without a checksum and
+# with fewer has been cut short
+FIELDS = {"GGA": 15, "ZDA": 7}
 
 
 @dataclass(frozen=True)
@@ -51,7 +59,16 @@ def parse_sentence(line: str) -> Sentence | None:
         if not _is_hex(supplied) or int(supplied, 16) != computed:
             return None
         return Sentence(data.split(","), supplied)
-    return Sentence(data.split(","), None)
+    sentence = Sentence(data.split(","), None)
+    if len(sentence.fields) < FIELDS.get(sentence.kind, 0):
+        return None
+    return sentence
+
+
+def has_checksum(text: str) -> bool:
+    """Whether a sentence's text ends in a complete checksum (`*` and two hex digits)"""
+    _, star, supplied = text.strip().rpartition("*")
+    return bool(star) and len(supplied) == 2 and _is_hex(supplied.lower())
 
 
 def _is_hex(text: str) -> bool:
@@ -99,9 +116,9 @@ class TimeOfDay:
         return cls((hh * 3600 + mm * 60 + ss) * 10**9 + ns, len(fraction))
 
 
-def _degrees(text: str, hemisphere: str, negative: str) -> float | None:
+def _degrees(text: str, hemisphere: str, negative: str, positive: str) -> float | None:
     value = _float(text)
-    if value is None:
+    if value is None or hemisphere not in (negative, positive):
         return None
     deg, minutes = divmod(value, 100)
     degrees = deg + minutes / 60
@@ -129,8 +146,8 @@ class GGA:
         f = f + [""] * (10 - len(f))
         return cls(
             time=TimeOfDay.parse(f[1]),
-            lat=_degrees(f[2], f[3], "S"),
-            lon=_degrees(f[4], f[5], "W"),
+            lat=_degrees(f[2], f[3], "S", "N"),
+            lon=_degrees(f[4], f[5], "W", "E"),
             lat_decimals=decimals(f[2]) + 2,
             lon_decimals=decimals(f[4]) + 2,
             quality=_int(f[6]),

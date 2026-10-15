@@ -27,6 +27,9 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R2 | reader | Last GGA after the final ZDA dropped | One record lost per cruise (SP2424) | Fixed (#14) |
 | R3 | reader | GGA repeating the last dated time, or at 00:00:00, dropped | Records lost (SP2503: its first fix, at 00:00:00) | Fixed (#14) |
 | R4 | reader | An equal time of day advances the date | A repeated fix dated 24 h later (none in the references) | Fixed (#15) |
+| R5 | reader | Sentences split across logger lines read as short sentences, missing fields as 0 | RR2406: 191,414 of 266,841 records flagged; R on five tests from absurd values | Rejoined; a truncated sentence is rejected (#26) |
+| R6 | reader | A coordinate without its hemisphere letter read as N or E | RR2406: 45,243 fixes at 83°E | Missing (#26) |
+| R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
 | G3 | navsogcog | Full-buffer speeds use the previous segment's distance | SOG lags one fix in the first 86,399 records of long cruises (SP2424) | Not reproduced (#12) |
@@ -85,6 +88,29 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Evidence:** none in the reference filesets; synthetic tests.
 - **Why (suspected):** an inconsistent comparison between two near-duplicate copies of the dating loop; the day-rollover test should have been "time decreased", not "time didn't increase".
 - **Effect:** a receiver repeating a fix would put the repeat 24 h later, where QC sees it as out of sequence.
+
+### R5. Sentences split across logger lines
+
+- **NavManager:** `parse_nav29` (`include/parsers/nav29.php`, ~line 73) accepts a sentence without a checksum (`is_null($nmea->suppliedCheckSum)`) and takes the text from the line's last `$`; the rest of a split sentence, on the next line, has no `$` and is skipped.
+- **Here:** a sentence without a complete checksum is joined with the following lines' text, after their logger timestamps, until it has one, and kept only if the checksum matches (`formats/gga_zda.py`). A sentence without a checksum must have every field of its kind (GGA 15, ZDA 7, `nmea.FIELDS`), so a truncated one is never read as a short sentence. A ZDA year outside 1980–2100 is skipped.
+- **Evidence:** RR2406 (raw GNSS fileset 161075, Furuno GP170 on Revelle, 2024): the logger split 40 % of GGAs and 46 % of ZDAs across two timestamped lines, anywhere up to the checksum's last digit; rejoining recovers 99.97 %. We read 385,320 fixes; R2R's bestres has 266,841 records, 191,414 flagged: 120,694 with quality 0 (the missing fields) and 45,243 at 83°E (R6). R2R rates it R on five tests with impossible values (out of sequence 653,911 %, speeds to 14,456,754 m s-1); here it is Y, on one 47-minute gap (`tests/test_r2r_references.py`). Revelle's 2022–2024 GP170 reports (RR2404, RR2405, RR2407) show the same impossible values. Before this, a ZDA cut to `…,31,05,2` dated fixes in year 2 and overflowed the reader.
+- **Why (confirmed):** the serial logger writes each read from the port as a line with its own timestamp, and a read can end mid-sentence. NavManager has no notion of a continuation line, and accepting checksum-less sentences, which some receivers send, lets the first half through.
+- **Effect:** on affected cruises, R2R's products lose or misplace most fixes and its ratings measure the parsing, not the navigation.
+
+### R6. A coordinate without its hemisphere letter
+
+- **NavManager:** `NMEA0183_GGA::init` (`include/nmeatools.inc.php`, ~line 465) negates latitude only for `S` and longitude only for `W`; anything else, including an empty field, is north or east.
+- **Here:** a coordinate needs `N`/`S` or `E`/`W`; without one it's missing, and QC flags the fix (`POSITION`).
+- **Evidence:** RR2406: 45,243 of R2R's flagged records are at 83°E, mirror images of the ship's 83°W, from truncated GGAs (R5). Jumps between them give R2R's speeds of millions of m s-1.
+- **Effect:** with R5, fixes on the wrong side of the globe.
+
+### R7. RR2212's files out of date order
+
+- **R2R:** R2R's bestres for RR2212 (fileset 151339) runs Nov 5, then Nov 4 and Nov 3, then Nov 6 and 7, so every Nov 3 and 4 record comes after Nov 5 and is flagged out of sequence: 121,321 records, rated R (50.08 %). R2R's catalog extent (32.6–33.8°N) leaves out those two days' transit from Moss Landing (36.4–37.8°N).
+- **Here:** files are read in time order (`rawnav.read_fileset`): G on every test.
+- **Why (suspected):** not NavManager master: `navdatalist` sorts the files by their first ZDA, and each RR2212 file's first ZDA is correct, which would give the right order. R2R's run must have used a file list made another way.
+- **Evidence:** `tests/test_r2r_references.py`.
+- **Effect:** R2R's out-of-sequence rating and its catalog extent are wrong for this cruise; the extent check here finds 100,828 fixes "outside" R2R's extent.
 
 ## Geodesy and speed/course (navtools, navsogcog)
 
@@ -249,14 +275,15 @@ acceleration results differ (A5).
 
 - **NavManager:** completeness = "countable epochs" / ⌊1 + duration / modal interval⌋. Countable epochs walk the steps, counting each step at least one interval long and accumulating shorter ones until they reach it. In the full-buffer loop the comparison is `intval($delt)/1e3 >= $epochInterval` (milliseconds over 1,000 against seconds); in the end-of-file loop it is `intval($delt[$inx]) >= $stats->epochInterval` (milliseconds against seconds), so there every step counts, however short.
 - **Here:** the share of interval slots, from the first in-sequence record to the last, that hold a record; at most 100 %.
-- **Evidence:** equal to R2R's on SP2613 (99.98 %), SP2424 (100.00 %) and SP2503 (47.34 %, rated R).
+- **Evidence:** equal to R2R's on SP2613 (99.98 %), SP2424 (100.00 %) and SP2503 (47.34 %, rated R). SP2220 (150139): 6.02 % here, 33.99 % in R2R's report, both R: its receiver logged quality-0 GGAs without a position for most of the cruise, and R2R's count includes them (338,581 records in 978,000 half-second epochs is 34.6 %); here only fixes count. R2R's reports with misparsed data (R5) give completeness above 100 % (RR2404 276 %, RR2212 149.93 %).
 - **Why (confirmed in code):** the two copies of the loop scale the step differently; the end-of-file copy is missing `/1e3`.
 - **Effect:** where the last buffer has records closer together than the interval, completeness counts too many epochs and can exceed 100 % (which the R2R cookbook says to discard, but the XML still rates).
 
 ### A4. Bad quality indicator
 
 - **NavManager:** a record is bad unless its quality is 1, 2, 4 or 5 (`navqa.inc.php`, ~line 700); a missing quality (`"NAN"`) also counts as bad.
-- **Here:** quality outside QC's valid range, 1 to 5, over the records that report one; no result when none does.
+- **Here:** quality outside QC's valid range, 1 to 5, over the records within the dates that report one, with or without a position (a receiver without a fix reports quality 0 and no position); no result when none does. (Until #26, records without a position were left out, which hid exactly these: SP2220 was 0.01 %.)
+- **Evidence:** SP2220: 82.61 % here (279,696 of 338,581), rated R; R2R also R, at an impossible 164,557.65 %.
 - **Why (suspected):** written separately from navqc's `valid_gga_fix`, which accepts 1–5; quality 3 (PPS, a valid fix) was left out.
 - **Missing indicators:** navqa counts a missing quality (`"NAN"`) as bad, but drops the count (reported as 0.00 %, G) when every bad record is a missing one (~line 1521). So a fileset without any quality indicator is G both here and in NavManager; one where some records lack it counts them as bad there, and leaves them out here.
 - **Effect:** PPS fixes, rare on research vessels, would count as bad (none in the references).
@@ -273,7 +300,7 @@ acceleration results differ (A5).
 
 - **NavManager:** out-of-sequence and bad-quality percentages are over "actual epochs" (the in-sequence steps, records − 1); unreasonable speeds over actual epochs − 1; accelerations over actual epochs − 2 (`xmltools2.inc.php`).
 - **Here:** out of sequence over the usable records; bad quality over the records reporting a quality; speeds over the speeds; accelerations over the accelerations.
-- **Effect:** negligible for real filesets.
+- **Effect:** negligible for clean filesets. With misparsed data (R5) R2R's percentages exceed 100 % by orders of magnitude (RR2406: out of sequence 653,911.11 %, speeds 117,790.57 %), so the counts and denominators must come from different record sets there.
 
 ### A7. Ratings (xmltools2)
 
@@ -298,6 +325,6 @@ acceleration results differ (A5).
 - R2R files Healy's 2016–2025 GNSS logs under format 100010 ("raw NMEA: GGA + ZDA", nav1), though most have nav29's timestamped layouts.
 - NBP2410's receiver dates are 1024 weeks early (GPS week-number rollover): its ZDA and RMC say 2005-03-13 on 2024-10-27. A reader that dates fixes from RMC (NavManager's nav30/nav32 path) would put the cruise in 2005; not yet checked against R2R's products.
 - Point Sur's UDAS files drop the Ashtech differential column from 2011, shifting later columns.
-- R2R's catalog API (`api/cruise`) gives the cruise extent to 10 decimals, rounded, so the fixes on its edges can fall just outside it (SP2613: 3 fixes, by 3e-11°); its QA reports write it to 7. The core's "Within the expected area" check allows 1e-7° (about 1 cm, `stats.EXTENT_TOLERANCE`).
+- R2R's catalog API (`api/cruise`) gives the cruise extent rounded, to 10 decimals (SP2613) or 6 (RR2406), so the fixes on its edges can fall just outside it (SP2613: 3 fixes, by 3e-11°; RR2406: 1, by 1.7e-7°); its QA reports write it to 7. The core's "Within the expected area" check allows 1e-6° (about 11 cm, `stats.EXTENT_TOLERANCE`).
 - The catalog API has no port coordinates, country or state, no format alias (`starc_raw`) and no catalog dates (`date_issued`, `date_modified`, the fileset's `date_created`); R2R's QA reports do. `r2r config-from-catalog` takes them from the report (#28). R2R's 2024 reports (SP2424) have an empty `filesetinfo`, so for those cruises they stay empty.
 - `info/vessel/<ICES>` gives a vessel's `max_speed` (Sproul: 5.4 m/s); NavManager uses one `MAX_SPEED` (8.7 m/s) for every vessel.

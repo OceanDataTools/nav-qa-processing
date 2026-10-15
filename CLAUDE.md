@@ -208,7 +208,9 @@ Nav QA reports are named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`. Find them 
 `documents` field of `service.rvdata.us/api/qa_info/?fileset_id=…`. The product bag is in
 `api/product/?cruise_id=…`. First parity reference: SP2613 (raw GNSS fileset 169851, format
 nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G). Others: SP2424 (past navsogcog's buffer), SP1925 (flagged
-fixes) and SP2503 (rated R: completeness, gap); see `tests/fixtures/README.md`.
+fixes), SP2503 (rated R: completeness, gap), and for the tests R2R rates Y or R (#26): RR2406
+(sentences split across logger lines), RR2212 (files out of order), SP2220 (no fix); see
+`tests/fixtures/README.md` and `tests/test_r2r_references.py`.
 
 ## Porting rules
 

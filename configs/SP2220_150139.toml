@@ -1,0 +1,60 @@
+# From R2R's catalog, 2026-10-15
+[cruise]
+id = "SP2220"
+name = "Transit"
+vessel_id = "32QU"
+vessel_name = "Robert Gordon Sproul"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+date_issued = "2022-09-29"
+date_modified = "2022-10-28T04:16:35Z"
+depart_date = 2022-09-20
+arrive_date = 2022-09-25
+doi = "doi:10.7284/909696"
+
+[cruise.extent]
+westernmost = -124.673508428
+easternmost = -117.23600085
+southernmost = 32.705997125
+northernmost = 44.296357397
+
+[cruise.depart_port]
+name = "Newport"
+port_id = "100041"
+country_id = "us"
+state_id = "or"
+longitude = -124.05222
+latitude = 44.63694
+
+[cruise.arrive_port]
+name = "San Diego"
+port_id = "100055"
+country_id = "us"
+state_id = "ca"
+longitude = -117.175
+latitude = 32.71667
+
+[fileset]
+id = "150139"
+doi = "doi:10.7284/150139"
+date_created = "2022-10-27"
+format_id = "100150"
+format_alias = "starc_raw"
+
+[fileset.device]
+id = "101098"
+make_id = "com.trimble"
+model_id = "100328"
+model_name = "ABX-Two"
+
+[nav]
+format = "nav29"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

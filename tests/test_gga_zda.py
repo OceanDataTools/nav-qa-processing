@@ -1,4 +1,7 @@
 from datetime import date
+from itertools import pairwise
+
+import pytest
 
 from nav_qa_processing.formats import gga_zda
 from nav_qa_processing.formats.nmea import checksum
@@ -89,3 +92,38 @@ def test_a_file_starting_after_a_long_gap_takes_its_own_zda():
     second = [gga("160333.50"), zda("160334.01", 13), gga("160334.00")]
     result = gga_zda.read([("a", first), ("b", second)])
     assert [f.day for f in result.fixes] == [date(2026, 7, 13)] * 3
+
+
+def logged(sentence: str, *cuts: int, stamp: str = "2024-06-02T00:00:00.105640Z ") -> list[str]:
+    """`sentence` as a logger splits it: in pieces at `cuts`, each on a timestamped line"""
+    bounds = [0, *cuts, len(sentence)]
+    return [stamp + sentence[a:b] for a, b in pairwise(bounds)]
+
+
+def test_split_sentences_are_joined():
+    """RR2406's logger: sentences split anywhere, inside the checksum too"""
+    fix = nmea("GPGGA,000000.00,2558.9102,N,08312.6475,W,1,08,0.8,11.8,M,-24.4,M,,")
+    lines = [*logged(zda("000000.00", 2, 6, 2024), 12), *logged(fix, 70, len(fix) - 1)]
+    result = gga_zda.read([("f", lines)])
+    assert len(result.fixes) == 1 and not result.rejected_checksums
+    assert result.fixes[0].day == date(2024, 6, 2)
+    assert result.fixes[0].gga.lon == pytest.approx(-(83 + 12.6475 / 60))
+
+
+def test_comma_layout_continuations():
+    body = "GPZDA,000000.00,02,06,2024,00,00"
+    lines = [
+        f"2024-06-02T00:00:00Z,${body[:12]}",
+        f"2024-06-02T00:00:00Z,{body[12:]}*{checksum(body):02X}",
+    ]
+    assert list(gga_zda.sentences(lines)) == [(1, f"${body}*{checksum(body):02X}")]
+
+
+def test_a_split_sentence_isnt_joined_with_the_next_sentence():
+    lines = ["1531596045.688 $GPZDA,00000", "1531596045.718 " + zda("000001.00", 9)]
+    assert [text for _, text in gga_zda.sentences(lines)] == ["$GPZDA,00000", zda("000001.00", 9)]
+
+
+def test_a_zda_outside_the_gps_era_is_skipped():
+    result = gga_zda.read([("f", [nmea("GPZDA,000000.00,31,05,0002,00,00"), gga("000001.00")])])
+    assert result.fixes == [] and "ZDA without a valid date" in result.errors[0]
