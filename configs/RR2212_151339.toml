@@ -1,0 +1,50 @@
+# From R2R's catalog, 2026-10-15
+[cruise]
+id = "RR2212"
+name = "R/V Roger Revelle Sonar Calibrations"
+pi = "Ellett, Ernest"
+vessel_id = "33RR"
+vessel_name = "Roger Revelle"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+depart_date = 2022-11-03
+arrive_date = 2022-11-07
+doi = "doi:10.7284/909801"
+
+[cruise.extent]
+westernmost = -119.499268
+easternmost = -117.225917
+southernmost = 32.61273
+northernmost = 33.830008
+
+[cruise.depart_port]
+name = "Alameda"
+port_id = "101696"
+
+[cruise.arrive_port]
+name = "San Diego"
+port_id = "100055"
+
+[fileset]
+id = "151339"
+doi = "doi:10.7284/151339"
+format_id = "100150"
+
+[fileset.device]
+id = "100821"
+make_id = "com.furuno"
+model_id = "100318"
+model_name = "GP-170"
+location_name = "Aft"
+
+[nav]
+format = "nav29"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

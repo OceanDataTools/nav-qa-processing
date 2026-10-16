@@ -11,7 +11,9 @@ filter); out-of-sequence records are QC's `TIME_SEQUENCE`. The statistics:
 - **Gaps:** the longest step between in-sequence records, and how many are `max_gap` or longer.
 - **Out of sequence:** the share of records QC flags `TIME_SEQUENCE`.
 - **Bad quality:** the share of records reporting a GGA quality outside QC's valid range
-  (`min_quality` to `max_quality`, 1 to 5); none when no record reports one.
+  (`min_quality` to `max_quality`, 1 to 5); none when no record reports one. Every record within
+  the dates counts, with or without a position: a receiver without a fix reports quality 0 and
+  no position (SP2220: 279,688 of 338,581 records).
 - **Speeds:** between successive in-sequence records; unreasonable above `max_speed`.
 - **Accelerations:** QC's acceleration at each fix (velocity vectors over `accel_time_base`);
   unreasonable above `max_accel`, so QA and QC agree. The range is the signed rate of change of
@@ -40,9 +42,10 @@ from nav_qa_processing.rawnav import RawNav
 from nav_qa_processing.readable import Readable, block, counts, status_line
 
 UNUSABLE = Flag.DATE_RANGE | Flag.POSITION | Flag.NULL_ISLAND
-# [degree] about 1 cm: R2R's catalog rounds its cruise extent (the track's own) to 10 decimals,
-# which can leave the fixes on its edges just outside it (SP2613: 3 by 3e-11°)
-EXTENT_TOLERANCE = 1e-7
+# [degree] about 11 cm: R2R's catalog rounds its cruise extent (the track's own) to 6 to 10
+# decimals, which can leave the fixes on its edges just outside it (SP2613: 3 by 3e-11°;
+# RR2406: 1 by 1.7e-7°)
+EXTENT_TOLERANCE = 1e-6
 
 
 @dataclass
@@ -141,7 +144,8 @@ def compute(
         possible = occupied = len(t)
 
     out_of_sequence = int((usable & ~in_sequence).sum())
-    quality = f["quality"].to_numpy(dtype=float, na_value=np.nan)[usable]
+    dated = (qc_result.flags & int(Flag.DATE_RANGE)) == 0
+    quality = f["quality"].to_numpy(dtype=float, na_value=np.nan)[dated]
     reported = ~np.isnan(quality)
     bad = int(((quality < th.min_quality) | (quality > th.max_quality))[reported].sum())
 

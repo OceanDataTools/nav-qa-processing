@@ -9,6 +9,11 @@ stream matters at a gap: the first GGA of a file that starts 13.5 h after the pr
 ended is next to the previous file's last ZDA, but belongs with the ZDA right after it (SP2503).
 
 - Any line prefix (a logger timestamp) is ignored. The text from the last `$` is the sentence.
+- A logger can split a sentence across lines, each with its own timestamp (RR2406: 40 % of its
+  GGAs, cut anywhere up to the checksum's last digit). A sentence without a complete checksum
+  is joined with the text of the following lines (after their timestamps, up to any `$`) until
+  it has one, and kept only if the checksum matches. NavManager reads the first part as a
+  sentence of its own, with the missing fields as 0, and drops the rest.
 - Every GGA with a parseable time is kept, including repeated or out-of-order times: QC decides
   what is a duplicate or out of sequence.
 
@@ -20,20 +25,30 @@ reproduced (`CLAUDE.md`, "What parity with R2R means"):
   00:00:00 before anything is dated (#14);
 - after the GGAs a ZDA dates, an equal time of day advances the date by a day (#15).
 
-Recorded in `errors`, not raised:
-- a GGA without a parseable time and a ZDA without a valid date are skipped;
+Recorded in `errors`, not raised, counted per file:
+- a GGA without a parseable time and a ZDA without a valid date are skipped (SP2220's receiver
+  logged 695,387 empty GGAs while it had no fix);
 - with no valid ZDA at all, no GGA can be dated, and none is returned.
 """
 
+import re
 from bisect import bisect_left
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from nav_qa_processing.formats.nmea import GGA, ZDA, parse_sentence
+from nav_qa_processing.formats.nmea import GGA, ZDA, has_checksum, parse_sentence
+from nav_qa_processing.readable import plural
 
 _DAY = 86_400 * 10**9  # [ns]
 _HALF_DAY = _DAY // 2
 _EPOCH = date(1970, 1, 1)
+# A logger timestamp starting a line: Unix seconds or ISO 8601, then a space or a comma
+_TIMESTAMP = re.compile(r"\s*(\d+(\.\d*)?|\d{4}-\d\d-\d\dT[\d:.]+Z?)[ ,]")
+# A split sentence is joined with at most this many following lines
+MAX_CONTINUATIONS = 3
+# ZDA years taken as dates: the GPS era. Others are corrupt (e.g. a truncated year)
+YEARS = range(1980, 2101)
 
 
 @dataclass
@@ -57,6 +72,8 @@ class Result:
 
 
 def _zda_day(zda: ZDA) -> date | None:
+    if zda.year not in YEARS:
+        return None
     try:
         return date(zda.year, zda.month, zda.day)
     except (TypeError, ValueError):
@@ -79,6 +96,39 @@ def date_from(zda_day: date, zda_ns: int, gga_ns: int) -> date:
     return zda_day
 
 
+def _continuation(line: str) -> str | None:
+    """A line's text after its logger timestamp, up to any `$`, or None if a sentence starts it"""
+    match = _TIMESTAMP.match(line)
+    text = line[match.end() :] if match else line
+    text = text.split("$", 1)[0] if "$" in text else text
+    return None if not text.strip() and "$" in line else text.rstrip("\r\n")
+
+
+def sentences(lines: list[str]) -> Iterator[tuple[int, str]]:
+    """(line number, sentence text) for each line with a `$`; a sentence split across lines is
+    joined with its continuations until it has a checksum
+    """
+    for index, line in enumerate(lines):
+        start = line.rfind("$")
+        if start < 0:
+            continue
+        text = line[start:].rstrip("\r\n")
+        following = index + 1
+        while (
+            not has_checksum(text)
+            and following < len(lines)
+            and following - index <= MAX_CONTINUATIONS
+        ):
+            continuation = _continuation(lines[following])
+            if continuation is None:
+                break
+            text += continuation
+            if "$" in lines[following]:
+                break  # a new sentence follows on that line
+            following += 1
+        yield index + 1, text
+
+
 def read(files: list[tuple[str, list[str]]]) -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given"""
     fixes: list[DatedFix] = []
@@ -89,9 +139,8 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
     rejected: dict[str, int] = {}
     position = 0  # sentence count across files
     for name, lines in files:
-        for number, line in enumerate(lines, start=1):
-            if "$" not in line:
-                continue
+        timeless = undated = 0
+        for number, line in sentences(lines):
             sentence = parse_sentence(line)
             if sentence is None:
                 if "GGA" in line or "ZDA" in line:  # only the sentences this reader uses
@@ -102,7 +151,7 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
                 case "GGA":
                     gga = GGA.from_fields(sentence.fields)
                     if gga.time is None:
-                        errors.append(f"{name}:{number}: GGA without a time, skipped")
+                        timeless += 1
                         continue
                     fixes.append(DatedFix(gga, name, number))
                     fix_positions.append(position)
@@ -110,10 +159,14 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
                     zda = ZDA.from_fields(sentence.fields)
                     day = _zda_day(zda)
                     if day is None or zda.time is None:
-                        errors.append(f"{name}:{number}: ZDA without a valid date, skipped")
+                        undated += 1
                         continue
                     zdas.append((day, zda.time.ns))
                     zda_positions.append(position)
+        if timeless:
+            errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")
+        if undated:
+            errors.append(f"{name}: {plural(undated, 'ZDA')} without a valid date, skipped")
 
     if not zdas:
         if fixes:

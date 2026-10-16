@@ -189,6 +189,12 @@ reason, is kept in `docs/navmanager-differences.md`.
   and a hard-wired `$debug = true` block obscure which logic is actually live.
 
 **Correctness**
+- The NMEA reader accepts a sentence without a checksum, and a coordinate without its
+  hemisphere letter is north or east. A logger that splits sentences across lines (Revelle's
+  GP170, 2022–2024) therefore yields truncated fixes with missing fields as 0, some at the
+  mirror-image longitude: R2R's RR2406 bestres flags 191,414 of 266,841 records and its report
+  gives impossible values (653,911 % out of sequence, speeds of 14 million m s-1). The port
+  rejoins split sentences and rejects truncated ones (register R5, R6, #26).
 - `calcSpeedHori` checks `$lonTo == "NAN"` twice and never checks `$latTo`
   (`navtools.inc.php:176`).
 - The `navqa.php` CLI takes the "ports" from the first and last records of the file it is

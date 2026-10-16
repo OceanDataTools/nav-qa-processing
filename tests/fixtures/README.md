@@ -23,3 +23,9 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | SP1925 | 134952 (product 609448) | 45,723 records, 303 flagged by R2R (stale repeats while barely moving): the first released cruise with flagged fixes found; 1 Hz, 6-decimal positions; no QA 2.0 report |
 | SP2503 | 167484 (product 619357) | QA rated R: completeness 47.34 %, longest gap 48,625.5 s (Y); 87,431 fixes over three files, the first of them the previous cruise's; its first fix is at exactly 00:00:00, which R2R's bestres lacks (register R3) |
 | SP2424 | 161900 (product 615579) | 150,924 R2R records (we read 150,925: NavManager drops the final fix), past navsogcog's 86,400-record buffer: R2R's first-buffer speeds carry its bug; nav29 with an ISO timestamp and a space; rated G, no flagged fixes |
+| RR2406 | 161075 (product 615546) | Revelle's GP170, 2024: the logger split 40 % of GGAs across lines (register R5, R6). R2R: R on five tests with impossible values; here Y (one 47-minute gap). Fails completeness (Y), gap, out of sequence, speeds and accelerations in R2R's report |
+| RR2212 | 151339 (product 613418) | R2R processed its files out of date order (R7): R on out of sequence (50.08 %); here G. R2R's report has no fileset info |
+| SP2220 | 150139 (product 613340) | Ashtech ABX-Two without a fix for most of the cruise (empty and quality-0 GGAs): R on bad quality (82.61 % here), completeness and gap, as R2R rates it |
+
+Between them, every one of R2R's six tests has a reference that R2R rates Y or R
+(`tests/test_r2r_references.py`, #26).

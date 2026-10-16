@@ -11,6 +11,7 @@ description = "Each line is the logger's timestamp and one NMEA sentence. Two la
 notes = [
   "R2R lists the comma layout as \"STARC serial_logger/*.raw format from 2016\" (R2R format 100150).",
   "The reader takes the text from the last $ on a line, so either prefix works.",
+  "The logger writes each read from the serial port as a line, so a sentence can be split across two lines, each with its own timestamp (Revelle's GP170, 2022-2024: 40 % of GGAs in RR2406). The reader joins the pieces until the checksum is complete.",
   "Examples: the Unix-time lines are NavManager's sample (2018); the ISO lines are SP2613, fileset 169851, file SP2613_mru_trimble_bx992-2026-07-09.txt (Trimble BX992).",
 ]
 references = ["www.nmea.org"]
