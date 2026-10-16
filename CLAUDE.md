@@ -20,12 +20,15 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   vessels, examples) plus `sentences.toml`, written in this project's words (see its README).
   `formats/catalog.py` loads them and `nav-qa-processing formats [ID]` prints them. Add or fix a
   format's description there, not in code.
-- `formats/__init__.py`: the registry. `READERS` maps format IDs to readers (so far only
-  `nav29`); `get(id)` refuses formats without one. `nmea.py` (sentences, checksum, GGA, ZDA) and
-  `gga_zda.py` (each GGA dated by the nearest ZDA; every valid GGA kept; NavManager's
-  differences in its docstring).
+- `formats/__init__.py`: the registry. `READERS` maps format IDs to a `Reader` (`read`, and
+  `span`: a file's first and last time, to select and order files by): so far `nav29`
+  (`GGA_ZDA`) and `nav33` (`TIMESTAMPED_GGA`); `get(id)` refuses formats without one.
+  `nmea.py` (sentences, checksum, GGA, ZDA); `gga_zda.py` (each GGA dated by the nearest ZDA);
+  `timestamped_gga.py` (each GGA dated by its line's ISO logger timestamp: OpenRVDAS, Falkor
+  (too)). Both keep every valid GGA; NavManager's differences are in their docstrings.
 - `rawnav.py`: `read_fileset(paths, format_id, start, end)` -> `RawNav` (DataFrame, receiver
-  decimals, files read/skipped, errors). It selects files by their ZDA span, as navdatalist does.
+  decimals, files read/skipped, errors). It selects files by the reader's span (first to last
+  ZDA, or logger timestamp), as navdatalist does.
 - `r2rnav.py`: read/write legacy r2rnav.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
@@ -235,7 +238,9 @@ Nav QA reports are named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`. Find them 
 `api/product/?cruise_id=…`. First parity reference: SP2613 (raw GNSS fileset 169851, format
 nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G). Others: SP2424 (past navsogcog's buffer), SP1925 (flagged
 fixes), SP2503 (rated R: completeness, gap), and for the tests R2R rates Y or R (#26): RR2406
-(sentences split across logger lines), RR2212 (files out of order), SP2220 (no fix); see
+(sentences split across logger lines), RR2212 (files out of order), SP2220 (no fix); FKt230417
+(fileset 157454, Falkor (too)'s POS/MV, an INS fileset: nav33, rated G; R2R lacks its 0A–0F
+checksums, R1); see
 `tests/fixtures/README.md` and `tests/test_r2r_references.py`.
 
 ## Porting rules

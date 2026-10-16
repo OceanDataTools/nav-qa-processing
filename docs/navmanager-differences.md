@@ -17,18 +17,20 @@ document each difference instead. Each entry gives:
 - **Effect:** on R2R's published products or ratings.
 
 Reference filesets (see `tests/fixtures/README.md`): SP2613 (raw GNSS 169851, one day, rated G),
-SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness), SP1925 (134952, 303 flagged fixes, rated R).
+SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness), SP1925 (134952, 303 flagged fixes, rated R), RR2406, RR2212 and SP2220 (#26), and FKt230417 (157454, Falkor (too)'s POS/MV, nav33, rated G).
 
 ## Summary
 
 | ID | Stage | Difference | Effect on R2R's products | Status here |
 |---|---|---|---|---|
-| R1 | reader | Correct checksums below 0x10 rejected | Sentences dropped (39 % of VTG, 29 % of RMC in SP2613) | Fixed (#13) |
+| R1 | reader | Correct checksums 0x0A–0x0F rejected | Sentences dropped (14 % of VTG, 11 % of RMC in SP2613; 48,427 GGAs, 2.9 %, in FKt230417) | Fixed (#13) |
 | R2 | reader | Last GGA after the final ZDA dropped | One record lost per cruise (SP2424) | Fixed (#14) |
 | R3 | reader | GGA repeating the last dated time, or at 00:00:00, dropped | Records lost (SP2503: its first fix, at 00:00:00) | Fixed (#14) |
 | R4 | reader | An equal time of day advances the date | A repeated fix dated 24 h later (none in the references) | Fixed (#15) |
 | R5 | reader | Sentences split across logger lines read as short sentences, missing fields as 0 | RR2406: 191,414 of 266,841 records flagged; R on five tests from absurd values | Rejoined; a truncated sentence is rejected (#26) |
 | R6 | reader | A coordinate without its hemisphere letter read as N or E | RR2406: 45,243 fixes at 83°E | Missing (#26) |
+| R8 | navcopy nav33 | The 86,400th fix of each buffer dropped | FKt230417: 18 fixes | Every fix kept (#48) |
+| R9 | navcopy nav33 | The last fix of the cruise dropped | FKt230417: its final fix | Every fix kept (#48) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -58,13 +60,13 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 
 ## Reader (navdatalist, navcopy, nmeatools)
 
-### R1. Correct NMEA checksums below 0x10 are rejected
+### R1. Correct NMEA checksums 0x0A–0x0F are rejected
 
-- **NavManager:** `NMEA0183Message::init` (`include/nmeatools.inc.php`, ~line 33) computes the checksum with `dechex()` and compares it with the supplied one, lowercased, as text.
+- **NavManager:** `NMEA0183Message::init` (`include/nmeatools.inc.php`, ~line 54) computes the checksum with `dechex()` and compares it with the supplied one, lowercased, with PHP's loose `==`.
 - **Here:** checksums are compared by value, so `*0A`, `*0a` and a nonstandard one-digit `*A` are all 0x0A (`formats/nmea.py`).
-- **Evidence:** SP2613: 39 % of VTG and 29 % of RMC sentences are rejected, all with correct checksums; no GGA or ZDA is affected in SP2613 or SP2424 (`tests/test_nmea.py`).
-- **Why (confirmed):** PHP's `dechex()` returns unpadded hex (`a`, not `0a`), while receivers write two digits. Every correct checksum below 0x10 fails the text comparison.
-- **Effect:** about 1 in 16 sentences of any type is dropped. In SP2613 none was a GGA or ZDA, so no published fix was lost; on another cruise, fixes or the ZDAs that date them could be.
+- **Evidence:** FKt230417 (Falkor (too) POS/MV, fileset 157454, nav33): R2R's bestres lacks every GGA with checksum `0A`–`0F`, 48,427 of 1,652,627 fixes (2.9 %), and keeps every one with `00`–`09` (80,371); its completeness is 96.94 %, ours 99.86 % (`tests/test_r2r_references.py`). SP2613: 14.4 % of VTG and 11.0 % of RMC sentences are rejected, all with correct checksums; no GGA or ZDA there, or in SP2424, has a checksum below 0x10 (`tests/test_nmea.py`). This entry first said every checksum below 0x10 was rejected (39 % of VTG and 29 % of RMC); FKt230417 showed `00`–`09` pass.
+- **Why (confirmed):** PHP's `dechex()` returns unpadded hex (`a`, not `0a`), while receivers write two digits. `==` compares two numeric strings as numbers, so `"5" == "05"` holds and `00`–`09` pass; `"a" == "0a"` is a text comparison and fails.
+- **Effect:** 6 checksum values in 256, about 1 in 43 sentences of any type, are dropped. In SP2613 none was a GGA or ZDA; in FKt230417, 2.9 % of the fixes are missing from R2R's products, with its completeness rated on what's left.
 
 ### R2. The last GGA after the final ZDA is dropped
 
@@ -112,6 +114,22 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Why (suspected):** not NavManager master: `navdatalist` sorts the files by their first ZDA, and each RR2212 file's first ZDA is correct, which would give the right order. R2R's run must have used a file list made another way.
 - **Evidence:** `tests/test_r2r_references.py`.
 - **Effect:** R2R's out-of-sequence rating and its catalog extent are wrong for this cruise; the extent check here finds 100,828 fixes "outside" R2R's extent.
+
+### R8. nav33: the 86,400th fix of each buffer is dropped
+
+- **NavManager:** `parse_nav33()` (`include/parsers/nav33.php`, ~line 231) collects valid GGAs in a buffer of `$maxBuffer = 86400`. When it's full, it dates and prints entries 1 to `$maxBuffer - 1` and discards the buffer, so the last entry is never written.
+- **Here:** the reader keeps every valid GGA (`formats/timestamped_gga.py`).
+- **Evidence:** FKt230417: one fix missing after every 86,399 that R2R kept, 18 in all (`tests/test_r2r_references.py`).
+- **Why (confirmed in code):** an off-by-one in the buffer's print loop; the other parsers of `navcopy.inc.php` with the same buffer may share it.
+- **Effect:** one fix a day at 1 Hz; too few to change a rating.
+
+### R9. nav33: the cruise's last fix is dropped
+
+- **NavManager:** the flush after the last file (`include/parsers/nav33.php`, ~line 312) loops `for ($inx=1; $inx < $binx - 1; ...)`, which stops one short of the buffer's last entry.
+- **Here:** every fix is kept.
+- **Evidence:** FKt230417: R2R's bestres ends at 13:51:28.29Z; the raw files' last fix is 13:51:29.29Z.
+- **Why (confirmed in code):** as R2 for the GGA + ZDA reader: the final loop stops one short.
+- **Effect:** one record per cruise.
 
 ## Geodesy and speed/course (navtools, navsogcog)
 

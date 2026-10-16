@@ -747,7 +747,7 @@ Comparisons with R2R parse the numbers and map the units.
 | 3 | core: `config.py` (QAConfig, TOML), `fileset.py`, `stats.py`, `qa.py`, `network.py`, `readable.py`, `cli.py run`; `integrations/r2r/`: `config.py`, `rules.py`, `xml_report.py`, `catalog.py`, `download.py`, `reports.py`, the `r2r` commands | core runs without R2R; the QA 2.0 report has R2R's structure; statistics, results and ratings compared with R2R's on released filesets, differences documented |
 | 4 | `reports.py`, `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py`; `integrations/r2r/certificate.py` | report and notebook generated for every validation cruise, with and without R2R's certificate. **Done (#36–#40):** `r2r run --execute-notebook` writes them for SP2613 (G), SP2503 (R), RR2406 (Y), RR2212 (G) and SP2220 (R); the certificate says what the XML says (`tests/test_r2r_certificate.py`) |
 | 5 | `integrations/openvdm/` (`hook.py`, `site_setup.py`), `openvdm`, `config-from-openvdm`, `site-config`, site TOML | hook runs on an OpenVDM test instance |
-| 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture. **Definitions done** for all 35 IDs (`formats/definitions/`); readers and fixtures remain |
+| 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture. **Definitions done** for all 35 IDs (`formats/definitions/`). **Readers:** nav29, and nav33 (#48, for OpenVDM's OpenRVDAS logs); the rest remain |
 
 ### Open questions
 
@@ -765,9 +765,10 @@ Resolved:
   nav23 doc labeled nav14, UNIXD/PYRTM "decimal year" (it is a day of year), wrong checksums in
   the generic GLL and ZDA examples, a shell prompt inside the nav10 sample, and nav29 described
   only in its Unix-time layout. NavManager has no nav28.
-- **NavManager's checksum test** compares unpadded lowercase hex, so it rejects every correct
-  checksum below `0x10`. In SP2613 that discards 39 % of VTG and 29 % of RMC sentences but no
-  GGA or ZDA. It isn't reproduced: `nmea.parse_sentence` checks two-digit hex (#13).
+- **NavManager's checksum test** compares unpadded lowercase hex with PHP's loose `==`, so it
+  rejects every correct checksum from `0x0A` to `0x0F` (`00`–`09` compare as numbers and pass).
+  In SP2613 that discards 14 % of VTG and 11 % of RMC sentences but no GGA or ZDA; in FKt230417,
+  2.9 % of the fixes. It isn't reproduced: `nmea.parse_sentence` compares by value (#13, R1).
 - **SP2613's time window** is the cruise day (depart and arrive 2026-07-09). Files are selected
   by their first to last ZDA, so the 2026-07-07 file is left out, as in R2R's bestres.
 - **How does R2R write a flagged bestres record in GeoCSV?** As `#` followed by the record's

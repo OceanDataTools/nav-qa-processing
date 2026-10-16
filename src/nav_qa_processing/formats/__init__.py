@@ -7,19 +7,37 @@ share a reader (most are "some line prefix plus NMEA GGA + ZDA") differ only in 
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
-from nav_qa_processing.formats import catalog, gga_zda
+from nav_qa_processing.formats import catalog, gga_zda, timestamped_gga
+
+
+@dataclass(frozen=True)
+class Reader:
+    """How a format's files are read: `read` dates their fixes; `span` is a file's first and
+    last time, by which files are selected and ordered (None: the file can't be dated)
+    """
+
+    read: Callable[[list[tuple[str, list[str]]]], gga_zda.Result]
+    span: Callable[[list[str]], tuple[datetime, datetime] | None]
+    dated_by: str  # what dates a file, for "no …, skipped"
+    sentences: str  # the sentences read, for checksum failures
+
+
+GGA_ZDA = Reader(gga_zda.read, gga_zda.span, "ZDA sentence", "GGA/ZDA")
+TIMESTAMPED_GGA = Reader(timestamped_gga.read, timestamped_gga.span, "logger timestamp", "GGA")
 
 # Format ID -> reader, for the formats implemented so far
-READERS: dict[str, Callable[..., gga_zda.Result]] = {
-    "nav29": gga_zda.read,
+READERS: dict[str, Reader] = {
+    "nav29": GGA_ZDA,
+    "nav33": TIMESTAMPED_GGA,
 }
 
 
 @dataclass(frozen=True)
 class FormatSpec:
     definition: catalog.FormatDefinition
-    reader: Callable[..., gga_zda.Result] | None
+    reader: Reader | None
 
     @property
     def id(self) -> str:

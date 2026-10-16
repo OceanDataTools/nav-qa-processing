@@ -4,12 +4,20 @@ system = "Schmidt Ocean Institute logger"
 file_type = "ASCII text: ISO 8601 timestamp, comma, NMEA sentence"
 vessels = ["Falkor (too)"]
 sentences = ["GGA"]
+r2r_formats = [100199]
 position = "GGA"
 time = "GGA time of day, dated by the logger's ISO timestamp"
 description = "Each line is an ISO 8601 UTC timestamp with microseconds, a comma and a GGA sentence. The date comes from the timestamp."
+notes = [
+  "OpenRVDAS writes the same layout: OpenVDM's sample cruise (openvdm_sample_data, OpenRVDAS/raw/POSMV_GGA-*.txt) is read as nav33.",
+  "Falkor (too)'s files start with a CSV header line (Timestamp,Header,GPSTime,…), which has no sentence and is skipped.",
+  "R2R format 100199 (\"Applanix POSMV Raw Format FKt\") is this layout. Examples: FKt230417, fileset 157454, file FKt230417_posmv_gga-2023-04-28.txt.",
+]
 references = ["www.nmea.org"]
 examples = [
   "2023-04-04T00:00:00.916471Z,$GPGGA,000000.839,2030.86487,N,04538.19146,W,5,32,0.6,0.54,M,,,4,1015*19",
+  "2023-04-28T00:00:00.145798Z,$GPGGA,000000.016,1750.75553,N,06542.08544,W,5,35,0.8,-0.17,M,,,4,1015*30",
+  "2012-04-28T00:00:01.109000Z,$GPGGA,000000.987,2635.03241,N,09331.21859,W,2,09,1.1,1.89,M,,,9,0025*16",
 ]
 
 [[fields]]

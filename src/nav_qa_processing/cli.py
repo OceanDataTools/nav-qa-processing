@@ -290,7 +290,7 @@ def _add_r2r_commands(commands) -> None:
         "config-from-catalog",
         help="make a cruise TOML from R2R's catalog",
         description=(
-            "Writes a cruise TOML from R2R's catalog API for one of a cruise's GNSS filesets: "
+            "Writes a cruise TOML from R2R's catalog API for one of a cruise's navigation (GNSS or INS) filesets: "
             "the cruise's name, vessel, operator, dates, ports, DOIs and bounding box, the "
             "receiver and the nav format. The API has no port coordinates, format alias or "
             "catalog dates; those come from R2R's QA report for the fileset, when it has one."

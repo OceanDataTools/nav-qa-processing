@@ -86,6 +86,7 @@ def r2r(monkeypatch):
 
 def test_nav_format_from_r2rs_format_id():
     assert catalog.nav_format(100150) == "nav29"
+    assert catalog.nav_format(100199) == "nav33"  # Falkor (too)'s POS/MV
     assert catalog.nav_format("100010") == "nav1"
     assert catalog.nav_format(1) == ""
 
@@ -135,6 +136,23 @@ def test_catalog_errors_name_the_gnss_filesets(r2r):
         catalog.config_from_r2r_catalog("XX0000", 1)
     with pytest.raises(catalog.R2RError, match=r"169847 is SP2613 ctd.*169851 \(SP2613 gnss"):
         catalog.config_from_r2r_catalog("SP2613", 169847)
+
+
+def test_an_ins_fileset_is_a_navigation_fileset(r2r, monkeypatch):
+    """R2R runs its nav QA on INS filesets too (FKt230417's POS/MV, 157454)"""
+    ins = dict(FILESETS[1], device_type="ins", label="SP2613 ins (Applanix POS/MV-320 V5)")
+    monkeypatch.setattr(catalog, "fetch_r2r_records", _records_with(ins))
+    config = catalog.config_from_r2r_catalog("SP2613", 169851, use_qa_report=False)
+    assert config.fileset_id == "169851"
+
+
+def _records_with(fileset):
+    real = catalog.fetch_r2r_records
+
+    def fetch(kind, **query):
+        return [fileset] if kind == "fileset" else real(kind, **query)
+
+    return fetch
 
 
 def test_fill_missing_keeps_what_is_set():
