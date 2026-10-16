@@ -1,9 +1,10 @@
 """Reads a raw nav fileset into one table: RawNav.
 
-Files are selected and ordered as NavManager's navdatalist does: a file takes part if its first
-to last ZDA overlaps the [start, end] window, and files are read in order of their first ZDA.
-Records are not clipped to the window (NavManager doesn't either). Files without a ZDA are
-listed in `errors` and skipped.
+Files are selected and ordered as NavManager's navdatalist does: a file takes part if its span
+overlaps the [start, end] window, and files are read in order of their span's start. The span
+is the format's (`formats.Reader.span`): first to last ZDA for GGA + ZDA formats, first to last
+logger timestamp for nav33. Records are not clipped to the window (NavManager doesn't either).
+Files without a span are listed in `errors` and skipped.
 """
 
 import bz2
@@ -18,7 +19,6 @@ import pandas as pd
 
 from nav_qa_processing import formats
 from nav_qa_processing import quantities as q
-from nav_qa_processing.formats.nmea import ZDA, parse_sentence
 
 GPS_START = datetime(1994, 3, 1, tzinfo=UTC)
 GPS_END = datetime(2034, 12, 31, tzinfo=UTC)
@@ -57,25 +57,6 @@ def read_lines(path: Path) -> list[str]:
         return f.read().splitlines()
 
 
-def _zda_span(lines: list[str]) -> tuple[datetime, datetime] | None:
-    """The first and last valid ZDA times in a file"""
-    times = []
-    for line in lines:
-        if "ZDA" not in line:
-            continue
-        sentence = parse_sentence(line)
-        if sentence is None or sentence.kind != "ZDA":
-            continue
-        zda = ZDA.from_fields(sentence.fields)
-        try:
-            day = datetime(zda.year, zda.month, zda.day, tzinfo=UTC)
-        except (TypeError, ValueError):
-            continue
-        if zda.time is not None:
-            times.append(day + pd.Timedelta(zda.time.ns, "ns").to_pytimedelta())
-    return (times[0], times[-1]) if times else None
-
-
 def _natural_key(name: str) -> list:
     return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
 
@@ -97,19 +78,19 @@ def read_fileset(
         except OSError as error:
             errors.append(f"{path.name}: {error}")
             continue
-        span = _zda_span(lines)
+        span = spec.reader.span(lines)
         if span is None:
-            errors.append(f"{path.name}: no ZDA sentence, skipped")
+            errors.append(f"{path.name}: no {spec.reader.dated_by}, skipped")
         elif span[1] < start or span[0] > end:
             skipped.append(path.name)
         else:
             selected.append((span[0], path.name, lines))
     selected.sort(key=lambda s: s[0])
 
-    result = spec.reader([(name, lines) for _, name, lines in selected])
+    result = spec.reader.read([(name, lines) for _, name, lines in selected])
     errors += result.errors
     errors += [
-        f"{name}: {count} GGA/ZDA sentences failed their checksum"
+        f"{name}: {count} {spec.reader.sentences} sentences failed their checksum"
         for name, count in result.rejected_checksums.items()
     ]
 

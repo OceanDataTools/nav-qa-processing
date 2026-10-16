@@ -26,6 +26,7 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | RR2406 | 161075 (product 615546) | Revelle's GP170, 2024: the logger split 40 % of GGAs across lines (register R5, R6). R2R: R on five tests with impossible values; here Y (one 47-minute gap). Fails completeness (Y), gap, out of sequence, speeds and accelerations in R2R's report |
 | RR2212 | 151339 (product 613418) | R2R processed its files out of date order (R7): R on out of sequence (50.08 %); here G. R2R's report has no fileset info |
 | SP2220 | 150139 (product 613340) | Ashtech ABX-Two without a fix for most of the cruise (empty and quality-0 GGAs): R on bad quality (82.61 % here), completeness and gap, as R2R rates it |
+| FKt230417 | 157454 (product 614737) | Falkor (too)'s Applanix POS/MV, nav33 (ISO timestamp + GGA), an INS fileset: G for both. R2R lacks the GGAs with checksum 0A–0F (2.9 %, R1), every 86,400th fix (R8) and the last (R9); QC flags 283 fixes 650 m off for 4.7 min (Q8) |
 
 Between them, every one of R2R's six tests has a reference that R2R rates Y or R
 (`tests/test_r2r_references.py`, #26).

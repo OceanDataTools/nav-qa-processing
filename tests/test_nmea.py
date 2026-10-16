@@ -21,9 +21,9 @@ def test_no_checksum_accepted():
     assert parse_sentence(SP_GGA.split("*")[0]).checksum is None
 
 
-def test_checksum_below_0x10_is_accepted():
-    """NavManager compares unpadded hex and rejects these; they're correct (#13)"""
-    body = next(b for c in range(10_000) if checksum(b := f"GPTXT,{c},A") < 0x10)
+def test_checksum_0a_to_0f_is_accepted():
+    """NavManager compares unpadded hex loosely and rejects these; they're correct (#13, R1)"""
+    body = next(b for c in range(10_000) if 0x0A <= checksum(b := f"GPTXT,{c},A") < 0x10)
     assert parse_sentence(f"${body}*{checksum(body):02X}") is not None
     assert parse_sentence(f"${body}*{checksum(body):02x}") is not None  # lowercase too
     assert parse_sentence(f"${body}*{checksum(body):X}") is not None  # one digit, nonstandard

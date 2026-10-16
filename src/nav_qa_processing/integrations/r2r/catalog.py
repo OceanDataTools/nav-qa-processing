@@ -30,6 +30,9 @@ from nav_qa_processing.integrations.r2r.xml_report import R2R_NAMESPACE
 from nav_qa_processing.network import reaching
 
 R2R = "https://service.rvdata.us"
+# R2R's device types whose filesets get its navigation QA: GNSS receivers, and INSs logging
+# GGA (FKt230417's Applanix POS/MV, fileset 157454)
+NAV_DEVICE_TYPES = ("gnss", "ins")
 R2R_API = f"{R2R}/api"
 R2R_API_TIMEOUT = 60  # [s]
 # GeoCSV attribution and repository of R2R's products
@@ -235,14 +238,14 @@ def fill_missing(config: CruiseConfig, other: CruiseConfig) -> CruiseConfig:
 def config_from_r2r_catalog(
     cruise_id: str, fileset_id: int | str, use_qa_report: bool = True
 ) -> CruiseConfig:
-    """Cruise config from R2R's catalog for one of the cruise's GNSS filesets; what the API
+    """Cruise config from R2R's catalog for one of the cruise's navigation filesets; what the API
     lacks (port coordinates, format alias, catalog dates) comes from R2R's QA report, if any
     """
     cruises = fetch_r2r_records("cruise", cruise_id=cruise_id)
     if not cruises:
         raise R2RError(f"R2R has no cruise {cruise_id}")
     filesets = fetch_r2r_records("fileset", cruise_id=cruise_id)
-    gnss = [f for f in filesets if f.get("device_type") == "gnss"]
+    gnss = [f for f in filesets if f.get("device_type") in NAV_DEVICE_TYPES]
     matches = [f for f in gnss if str(f.get("fileset_id")) == str(fileset_id)]
     if not matches:
         others = [f for f in filesets if str(f.get("fileset_id")) == str(fileset_id)]
@@ -252,7 +255,7 @@ def config_from_r2r_catalog(
             else f"has no fileset {fileset_id}"
         )
         listed = ", ".join(f"{f['fileset_id']} ({f.get('label')})" for f in gnss) or "none"
-        raise R2RError(f"{cruise_id} {problem}; its GNSS filesets: {listed}")
+        raise R2RError(f"{cruise_id} {problem}; its navigation (GNSS or INS) filesets: {listed}")
     cruise, fileset = cruises[0], matches[0]
     vessel = str(cruise.get("vessel_ices_code") or "")
     device = fetch_device(vessel, str(fileset["device_id"])) if fileset.get("device_id") else {}

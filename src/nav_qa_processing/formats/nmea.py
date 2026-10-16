@@ -6,9 +6,9 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
 - A sentence without a checksum is accepted if it has every field of its kind (`FIELDS`), so a
   sentence cut short (e.g. by a logger splitting it across lines) isn't read as a short one.
   A sentence with a checksum is accepted only when it matches, compared by value: `*0A`, `*0a`
-  and a nonstandard one-digit `*A` are all 0x0A. NavManager compares unpadded hex text, so it
-  rejects every correct two-digit checksum below 0x10 (e.g. `*0A`); that isn't reproduced
-  (#13). NavManager also reads truncated sentences, whose missing fields become 0 (RR2406).
+  and a nonstandard one-digit `*A` are all 0x0A. NavManager compares unpadded hex with PHP's
+  loose `==`, so it rejects every correct checksum from `*0A` to `*0F` (`*00`–`*09` compare as
+  numbers and pass); that isn't reproduced (#13, register R1). NavManager also reads truncated sentences, whose missing fields become 0 (RR2406).
 - A coordinate needs its hemisphere letter (N/S, E/W): without one it's missing, not north or
   east. NavManager reads it as positive, so RR2406's truncated GGAs put the ship at 83°E.
 - Positions keep the receiver's precision: a coordinate with n decimal minutes is reported

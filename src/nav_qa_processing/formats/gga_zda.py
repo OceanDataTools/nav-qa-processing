@@ -35,7 +35,9 @@ import re
 from bisect import bisect_left
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+
+import pandas as pd
 
 from nav_qa_processing.formats.nmea import GGA, ZDA, has_checksum, parse_sentence
 from nav_qa_processing.readable import plural
@@ -127,6 +129,25 @@ def sentences(lines: list[str]) -> Iterator[tuple[int, str]]:
                 break  # a new sentence follows on that line
             following += 1
         yield index + 1, text
+
+
+def span(lines: list[str]) -> tuple[datetime, datetime] | None:
+    """The first and last valid ZDA times in a file, to select and order files by"""
+    times = []
+    for line in lines:
+        if "ZDA" not in line:
+            continue
+        sentence = parse_sentence(line)
+        if sentence is None or sentence.kind != "ZDA":
+            continue
+        zda = ZDA.from_fields(sentence.fields)
+        try:
+            day = datetime(zda.year, zda.month, zda.day, tzinfo=UTC)
+        except (TypeError, ValueError):
+            continue
+        if zda.time is not None:
+            times.append(day + pd.Timedelta(zda.time.ns, "ns").to_pytimedelta())
+    return (times[0], times[-1]) if times else None
 
 
 def read(files: list[tuple[str, list[str]]]) -> Result:

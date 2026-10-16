@@ -6,6 +6,9 @@ with each difference explained in docs/navmanager-differences.md (R5, R6, R7, A3
 | RR2406 / 161075 | R: C Y, gap R, S R, V R, A R | Y: gap Y. R2R's failures come from sentences its logger split across lines (R5) |
 | RR2212 / 151339 | R: S R (50.08 %) | G. R2R read the files out of order (R7) |
 | SP2220 / 150139 | R: C R, gap Y, S R, Q R, V R, A R | R: C R, gap R, Q R. The receiver had no fix most of the cruise |
+
+And FKt230417 / 157454 (Falkor (too) POS/MV, nav33), rated G by both: the first nav33
+reference, whose missing fixes in R2R's products are each explained (R1, R8, R9, Q8).
 """
 
 import functools
@@ -125,3 +128,47 @@ def test_sp2220_no_fix():
     assert r2r_rating == "R"
     assert r2r_tests["PercentRecordsWithBadQualityIndicator"][0] == "R"
     assert r2r_tests["PercentCompleteness"] == ("R", 33.99)
+
+
+def test_fkt230417_nav33():
+    """Falkor (too)'s Applanix POS/MV, logged as ISO timestamp + GGA (nav33). Both rate G. R2R's
+    bestres has every fix but the GGAs with checksum 0A-0F (R1: 48,427), every 86,400th (R8:
+    18) and the last (R9), so its completeness is 96.94 %, ours 99.86 %. QC flags the 4.7 min
+    the POS/MV spent 650 m off the track (Q8: 283 fixes); R2R flags none of them
+    """
+    from nav_qa_processing import rawnav
+    from nav_qa_processing.qc import Flag
+
+    run = ours("FKt230417_157454")
+    rating, tests = ratings(run)
+    assert rating == "G" and {r for r, _ in tests.values()} == {"G"}
+    assert tests["PercentCompleteness"][1] == 99.86
+    r2r_rating, r2r_tests = r2rs("FKt230417_157454")
+    assert r2r_rating == "G" and r2r_tests["PercentCompleteness"] == ("G", 96.94)
+    assert tests["LongestGapEpoch"][1] == r2r_tests["LongestGapEpoch"][1] == 760.021
+
+    nav = run.result.nav.frame
+    best = geocsv.read(directory("FKt230417_157454") / "products/data/FKt230417_bestres.geoCSV")
+    theirs = best.records["iso_time"].dt.as_unit("ns").astype("int64").to_numpy()
+    times = nav["time"].dt.as_unit("ns").astype("int64").to_numpy()
+    assert np.isin(theirs, times).all()  # every record of R2R's is ours
+    missing = ~np.isin(times, theirs)
+    files = {p.name: p for p in (directory("FKt230417_157454") / "data").iterdir()}
+    lines = {name: rawnav.read_lines(path) for name, path in files.items()}
+    given = np.array(
+        [
+            lines[f][n - 1].rsplit("*", 1)[1][:2].upper()
+            for f, n in zip(nav["source_file"], nav["line"])
+        ]
+    )
+    hex_letters = np.isin(given, ["0A", "0B", "0C", "0D", "0E", "0F"])
+    assert int(hex_letters.sum()) == int((hex_letters & missing).sum()) == 48_427  # R1
+    others = np.flatnonzero(missing & ~hex_letters)
+    assert others[-1] == len(nav) - 1  # R9: the last fix
+    kept_before = np.cumsum(~missing)[others[:-1]]
+    assert len(others) - 1 == 18 and (kept_before % 86_399 == 0).all()  # R8
+    unreachable = run.result.qc.flags & int(Flag.UNREACHABLE) != 0
+    assert int(unreachable.sum()) == 283  # Q8: R2R has those it read, none flagged
+    assert not (missing & unreachable & ~hex_letters).any()
+    off = np.isin(theirs, times[unreachable])
+    assert off.sum() == (unreachable & ~missing).sum() and not best.records["flagged"][off].any()

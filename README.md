@@ -363,7 +363,8 @@ nav-qa-processing r2r config-from-catalog [-o OUTPUT_DIR] [--force] [--no-qa-rep
 
 Writes an R2R cruise TOML from R2R's catalog: the cruise's name, chief scientist, vessel,
 operator and scheduler, dates, ports, DOIs and navigation bounding box, and the GNSS receiver,
-R2R format and nav format. It checks that `FILESET_ID` is one of the cruise's GNSS filesets, and
+R2R format and nav format. It checks that `FILESET_ID` is one of the cruise's navigation filesets (GNSS, or an INS such as
+Falkor (too)'s POS/MV), and
 lists them if it isn't. R2R's API has no port coordinates, country or state, format alias or
 catalog dates; those come from R2R's QA report for the fileset, when it has one with fileset
 info (R2R's reports from 2024 and earlier don't).

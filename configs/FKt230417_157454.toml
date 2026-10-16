@@ -1,0 +1,57 @@
+# From R2R's catalog, 2026-10-16
+[cruise]
+id = "FKt230417"
+name = "Health Diagnostics of Deep-Sea Coral"
+pi = "Hansel, Colleen"
+vessel_id = "CIRF"
+vessel_name = "Falkor (too)"
+operator_id = "org.schmidtocean"
+scheduler_id = "org.unols"
+date_issued = "2023-10-31"
+date_modified = "2024-01-14T05:09:36Z"
+depart_date = 2023-04-17
+arrive_date = 2023-05-06
+doi = "doi:10.7284/910099"
+
+[cruise.extent]
+westernmost = -67.5197358
+easternmost = -65.1233413
+southernmost = 17.6574363
+northernmost = 18.6661478
+
+[cruise.depart_port]
+name = "San Juan"
+port_id = "100057"
+country_id = "pr"
+longitude = -66.11111
+latitude = 18.46389
+
+[cruise.arrive_port]
+name = "San Juan"
+port_id = "100057"
+country_id = "pr"
+longitude = -66.11111
+latitude = 18.46389
+
+[fileset]
+id = "157454"
+doi = "doi:10.7284/157454"
+format_id = "100199"
+
+[fileset.device]
+id = "101223"
+make_id = "com.applanix"
+model_id = "100182"
+model_name = "POS/MV-320 V5"
+
+[nav]
+format = "nav33"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"
