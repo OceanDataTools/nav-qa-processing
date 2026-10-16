@@ -101,6 +101,14 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _fetch_map_data(args: argparse.Namespace) -> int:
+    from nav_qa_processing import maps
+
+    for layer in maps.prefetch():
+        print(f"cached Natural Earth {layer}")
+    return 0
+
+
 def _formats(args: argparse.Namespace) -> int:
     from nav_qa_processing import formats
     from nav_qa_processing.formats import catalog
@@ -379,6 +387,17 @@ def build_parser() -> argparse.ArgumentParser:
     _add_report_output(run)
     run.set_defaults(handler=_run)
 
+    maps = commands.add_parser(
+        "fetch-map-data",
+        help="download the Natural Earth map layers, for working offline",
+        description=(
+            "Caches the Natural Earth layers the trackline map uses (1:10m land, lakes and "
+            "coastlines, and the 1:110m world for the inset, about 27 MB) in cartopy's data "
+            "directory, e.g. before going to sea."
+        ),
+    )
+    maps.set_defaults(handler=_fetch_map_data)
+
     _add_r2r_commands(commands)
     _add_verbose(parser)
     return parser
@@ -412,6 +431,10 @@ def main(argv: list[str] | None = None) -> int:
     level = LOG_LEVELS[min(args.verbose, len(LOG_LEVELS) - 1)]
     if args.verbose:
         logging.getLogger("nav_qa_processing").setLevel(level)
+    # Render figures off screen; the notebook uses its own inline backend
+    import matplotlib
+
+    matplotlib.use("Agg")
     try:
         return args.handler(args)
     except _expected_errors() as error:

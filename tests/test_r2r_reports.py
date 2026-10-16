@@ -26,7 +26,12 @@ def written(tmp_path_factory):
 
 def test_r2r_names(written):
     names = {p.name for p in written.iterdir()}
-    products = {"SP2613_1min.geoCSV", "SP2613_bestres.geoCSV", "SP2613_control.geoCSV"}
+    products = {
+        "SP2613_1min.geoCSV",
+        "SP2613_bestres.geoCSV",
+        "SP2613_control.geoCSV",
+        "SP2613_plots",
+    }
     assert products < names
     (xml,) = names - products
     assert xml.startswith("SP2613_169851_qa.2.0.") and xml.endswith("Z.xml")

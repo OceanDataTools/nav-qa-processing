@@ -76,9 +76,15 @@ of Phase 3, of the plan in `docs/architecture.md`):
 - `theme.py`: `Theme` (page, fonts, logo, footer, `Colors` incl. status and G/Y/R rating colors,
   `colorblind` palette), `load_theme`, `resolve_theme(theme_file, config)` (the config's
   `[theme]` over a `--theme` file), `ThemeError`; ported from sbe-qa-processing.
-- `reports.py` (core): `report_paths`, `write_reports(result, output, source=None)`: the three
-  GeoCSV products for now (PDF, figures and notebook in Phase 4).
-- `cli.py`: `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]`, and the `r2r` group (`run`,
+- `maps.py`: Natural Earth layers via cartopy, clipped to the view; `prefetch` for
+  `fetch-map-data`; a missing layer is drawn without (ported from sbe-qa-processing).
+- `plots.py`: `track_map`, `speed_and_acceleration`, `timeline`, `histograms` (`FIGURES`), each
+  `(result, theme) -> Figure`; labels from `quantities.py`; long series reduced for drawing.
+  `QCResult.steps` gives the position steps' times for the map.
+- `reports.py` (core): `report_paths`, `write_reports(result, output, source=None, theme=…)`:
+  the three GeoCSV products and the figures as SVGs in `<CRUISE>_plots/` (PDF and notebook in
+  #38, #39).
+- `cli.py`: `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]`, `fetch-map-data`, and the `r2r` group (`run`,
   `config-from-catalog`, `config-from-qa`, `fetch-fileset`). Conventions in its docstring
   (`-o`/`--force`, integer fileset IDs, uppercase metavars, `-v`/`-vv` on every parser, expected
   errors one line), checked for every command by `tests/test_cli.py`. Document every command,

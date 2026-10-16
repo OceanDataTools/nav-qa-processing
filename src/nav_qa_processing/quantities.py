@@ -64,8 +64,10 @@ class Quantity:
 
     @property
     def label(self) -> str:
-        """Description and unit for table headers and figure axes, e.g. "Speed over ground [m s-1]" """
-        if self.unit is None:
+        """Description and unit for table headers and figure axes, e.g. "Speed over ground [m s-1]".
+        A dimensionless quantity (unit `1`) shows no unit
+        """
+        if self.unit in (None, "1"):
             return self.description
         return f"{self.description} [{self.unit}]"
 
@@ -197,6 +199,10 @@ HORIZONTAL_ACCELERATION = Quantity(
     "m s-2",
     decimals=3,
 )
+SAMPLING_INTERVAL = Quantity(
+    "sampling_interval", "Time between successive fixes", Datatype.FLOAT, "s", decimals=3
+)
+FIXES = Quantity("fixes", "Number of fixes", Datatype.INTEGER, "1")
 PERCENTAGE = Quantity("percentage", "Percentage", Datatype.FLOAT, "percent", decimals=2)
 DURATION = Quantity("duration", "Duration", Datatype.FLOAT, "s", decimals=3)
 COUNT = Quantity("count", "Count", Datatype.INTEGER, "1")
@@ -214,6 +220,8 @@ QUANTITIES: dict[str, Quantity] = {
         SPEED_MADE_GOOD,
         COURSE_MADE_GOOD,
         HORIZONTAL_ACCELERATION,
+        SAMPLING_INTERVAL,
+        FIXES,
         PERCENTAGE,
         DURATION,
         COUNT,

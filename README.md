@@ -55,8 +55,8 @@ area, the GNSS files and their format, and the thresholds; every field is option
 ### Command line
 
 `nav-qa-processing --help` lists the commands, and `nav-qa-processing COMMAND --help` (or
-`nav-qa-processing r2r COMMAND --help`) documents each one. The core commands are `formats` and
-`run`; the [R2R commands](#r2r-commands) are a group under `r2r`.
+`nav-qa-processing r2r COMMAND --help`) documents each one. The core commands are `formats`,
+`run` and `fetch-map-data`; the [R2R commands](#r2r-commands) are a group under `r2r`.
 
 Every command follows these conventions:
 - `-o/--output` is a directory. Commands that make a cruise TOML write
@@ -105,8 +105,30 @@ and writes the three products.
 | `--theme THEME_TOML` | none | A [theme](#themes) file for the PDF, figures and notebook; the config's `[theme]` applies on top |
 
 It writes `<CRUISE>_bestres.geoCSV`, `<CRUISE>_1min.geoCSV` and `<CRUISE>_control.geoCSV`,
-where `<CRUISE>` is the config's `[cruise] id`, or the fileset directory's name. It prints a
+and the figures as SVGs in `<CRUISE>_plots/`, where `<CRUISE>` is the config's `[cruise] id`, or
+the fileset directory's name:
+
+| Figure | Shows |
+|---|---|
+| `track_map.svg` | The good track over coastlines (broken at gaps), flagged fixes by QC flag, the 1min control points, the start and end, QC's position steps and the expected area, with a world inset. Polar stereographic beyond 70°, and whole across the antimeridian |
+| `speed_acceleration.svg` | Speed over ground and the acceleration QC tests, at the good fixes, against time, with `max_speed` and QC's acceleration limit |
+| `timeline.svg` | When there are fixes, the gaps of `max_gap` or longer, and the flagged fixes by flag |
+| `histograms.svg` | The time between fixes, satellites, HDOP and GGA quality (invalid qualities in the secondary color) |
+
+Long cruises are reduced for drawing (a simplified track line, min/max bands per time bin, at
+most 3,000 markers per flag); counts in the legends are the full ones. It prints a
 summary: the fixes read, QC's flags, the products' sizes, and every check with its status.
+
+#### `fetch-map-data`
+
+```text
+nav-qa-processing fetch-map-data
+```
+
+Downloads the Natural Earth layers the trackline map uses (1:10m land, lakes and coastlines,
+and the 1:110m world for the inset, about 27 MB) into cartopy's data directory, so the map has
+coastlines offline, e.g. at sea. Without them, the map is drawn without coastlines and says so.
+It takes no arguments.
 
 ### Config TOML
 
@@ -232,8 +254,9 @@ water = "#e6f0f7"
 | `[colors]` | the palette's | `#rrggbb` colors: `primary` (the good track), `secondary` (flagged fixes, limits, the expected area), `status_pass`, `status_warn`, `status_fail`, `status_info`, `status_na`, `table_header`, `table_grid`, `muted_text`, `footer_text`, `land`, `water`, `coast`, `rating_green`, `rating_yellow`, `rating_red` |
 
 A bad setting (an unknown key, a color that isn't `#rrggbb`, a missing font or logo) stops the
-run before it reads anything, with a one-line message. The PDF, figures and notebook that use
-the theme are still to come (#37–#39).
+run before it reads anything, with a one-line message. QC flags are drawn in the palette's
+distinct colors (matplotlib's tab10, or Okabe–Ito with `colorblind`). The PDF and notebook that
+use the theme are still to come (#38, #39).
 
 ## R2R
 
