@@ -17,16 +17,20 @@ products and of SOG/COG. The rules, in the order they run:
    `max_time_step_days`
    after it. Every record that passes advances the clock, whatever its other flags.
 3. `UNREACHABLE`, among the fixes not yet flagged: a fix the ship couldn't have reached from the
-   track, i.e. farther from the last trusted fix than `max_reach_speed` times the time between
-   them, plus `reach_tolerance`. The good fixes are split into segments wherever one fix can't
-   be reached from the one before; the segment with the most fixes is trusted, and each segment
-   after (before) it is trusted only if it can be reached from (can reach) the trusted track's
-   end. A rejected segment is flagged whole, and the next is tested against the same trusted
-   fix. This catches what the acceleration rule reports as two steps and leaves: a receiver
-   holding a wrong position for minutes, a jump to near 0, 0, a bad first fix. A gap the ship
-   really crossed is reachable. `max_reach_speed` (25 m s-1) is far above any ship's speed: it
-   flags impossible positions, it isn't a speed limit. The tolerance leaves jumps of a few
-   hundred metres to the acceleration rule (SP2220's degraded fixes jump up to 77 m in 0.5 s).
+   track. The good fixes are split into segments wherever a fix is farther from the one before
+   than `max_reach_speed` times the time between them, plus `reach_tolerance`. The track is the
+   chain of segments, each reachable in the same way from the end of the one before it, with
+   the most fixes (a longest path, by dynamic programming over up to `MAX_REACH_LOOKBACK`
+   segments back); the segments off it are flagged whole. This catches what the acceleration
+   rule reports as two steps and leaves: a receiver holding a wrong position for minutes, a jump
+   to near 0, 0, a bad first fix. A gap the ship really crossed is reachable. Choosing the
+   chain with the most fixes, rather than walking from a trusted segment, means one bad fix
+   that happens to be within reach can't take the track with it: FKt230417's POS/MV jumps 650 m
+   for 4.7 min, and comes back through a fix that is within reach of the track before; walked
+   from there, the rest of the cruise, 794,663 fixes, was rejected. `max_reach_speed`
+   (25 m s-1) is far above any ship's speed: it flags impossible positions, it isn't a speed
+   limit. The tolerance leaves jumps of a few hundred metres to the acceleration rule
+   (SP2220's degraded fixes jump up to 77 m in 0.5 s).
 4. Among the fixes not yet flagged, in time order:
    - `STALE_REPEAT`: the same position as the previous good fix while the median of the
      `stale_window` preceding speeds exceeds `stale_speed`: a logger repeating a stale position
@@ -77,6 +81,8 @@ from nav_qa_processing.config import Thresholds
 from nav_qa_processing.rawnav import RawNav
 
 MAX_ITERATIONS = 50
+# Segments back from each that the reachability rule tries to connect it to
+MAX_REACH_LOOKBACK = 1000
 _METRES_PER_DEGREE = 111_320.0  # [m], of latitude, near enough for a resolution estimate
 
 
@@ -230,12 +236,6 @@ def _unreachable(t, lon, lat, good, th: Thresholds) -> tuple[np.ndarray, int]:
     index = np.flatnonzero(good)
     if len(index) < 2:
         return bad, 0
-
-    def reachable(i: int, j: int) -> bool:
-        """Whether fix j (later) can be reached from fix i"""
-        distance, _ = geodesy.inverse(lon[i], lat[i], lon[j], lat[j])
-        return bool(distance <= th.max_reach_speed * (t[j] - t[i]) + th.reach_tolerance)
-
     a, b = index[:-1], index[1:]
     distance, _ = geodesy.inverse(lon[a], lat[a], lon[b], lat[b])
     breaks = np.flatnonzero(distance > th.max_reach_speed * (t[b] - t[a]) + th.reach_tolerance)
@@ -243,23 +243,29 @@ def _unreachable(t, lon, lat, good, th: Thresholds) -> tuple[np.ndarray, int]:
         return bad, 0
     starts = np.concatenate([[0], breaks + 1])
     ends = np.concatenate([breaks + 1, [len(index)]])  # positions in index, exclusive
-    seed = int(np.argmax(ends - starts))
-    rejected = 0
-    last = index[ends[seed] - 1]
-    for s, e in zip(starts[seed + 1 :], ends[seed + 1 :], strict=True):
-        if reachable(last, index[s]):
-            last = index[e - 1]
-        else:
-            bad[index[s:e]] = True
-            rejected += 1
-    first = index[starts[seed]]
-    for s, e in zip(starts[:seed][::-1], ends[:seed][::-1], strict=True):
-        if reachable(index[e - 1], first):
-            first = index[s]
-        else:
-            bad[index[s:e]] = True
-            rejected += 1
-    return bad, _stretches(bad) if rejected else 0
+    first, last = index[starts], index[ends - 1]  # each segment's first and last fix
+    sizes = ends - starts
+    # The track: the chain of segments, each reachable from the one before, with the most
+    # fixes (the longest path through them, by dynamic programming)
+    best = sizes.astype(np.int64)
+    previous = np.full(len(sizes), -1)
+    for k in range(1, len(sizes)):
+        j = np.arange(max(0, k - MAX_REACH_LOOKBACK), k)
+        gap, _ = geodesy.inverse(lon[last[j]], lat[last[j]], lon[first[k]], lat[first[k]])
+        reachable = gap <= th.max_reach_speed * (t[first[k]] - t[last[j]]) + th.reach_tolerance
+        if reachable.any():
+            candidates = j[reachable]
+            chosen = candidates[np.argmax(best[candidates])]
+            best[k] += best[chosen]
+            previous[k] = chosen
+    kept = np.zeros(len(sizes), dtype=bool)
+    k = int(np.argmax(best))
+    while k >= 0:
+        kept[k] = True
+        k = previous[k]
+    for s, e in zip(starts[~kept], ends[~kept], strict=True):
+        bad[index[s:e]] = True
+    return bad, _stretches(bad)
 
 
 def _stretches(bad: np.ndarray) -> int:

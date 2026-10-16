@@ -208,6 +208,18 @@ def test_a_bad_first_fix_is_flagged_not_the_track():
     assert set(flags) == unreachable(flags) == {0, 1, 2}
 
 
+def test_a_bad_fix_within_reach_doesnt_take_the_track_with_it():
+    """FKt230417's pattern: the track jumps 650 m and drifts there, then comes back through a
+    fix that is within reach of the track before the jump but not of the track after it. The
+    chain with the most fixes skips it
+    """
+    nav = track(600, step=1.0)
+    nav.frame.loc[200:479, "lon"] += 0.65 * KM_EAST  # 280 s off
+    nav.frame.loc[480, "lon"] += 2.0 * KM_EAST  # within reach of fix 199 (281 s earlier)...
+    flags, _ = flagged(nav)  # ...not of fix 481, 1 s later
+    assert unreachable(flags) == set(range(200, 481)) == set(flags)
+
+
 def test_a_gap_the_ship_crossed_is_reachable():
     """2 h without fixes at 5 m s-1: 36 km on, as far as the ship could go"""
     nav = track(120, step=1.0, speed=5.0)
