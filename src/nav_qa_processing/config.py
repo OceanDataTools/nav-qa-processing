@@ -102,6 +102,10 @@ class Thresholds(Readable):
     max_unreasonable_accelerations: float = 5.0  # [percent] of accelerations
     # -- QC --
     max_accel: float = 1.0  # [m s-2]
+    # A fix farther from the trusted track than this speed allows, plus the tolerance, can't
+    # have been reached (qc.py, UNREACHABLE): far above any ship's speed, not a speed limit
+    max_reach_speed: float = 25.0  # [m s-1]
+    reach_tolerance: float = 250.0  # [m]
     # Acceleration at a fix uses velocities over at least this long before and after it (not in
     # NavManager): a fix displaced by d metres shows as ~2 d / time_base² m s-2, so 2 s ignores
     # GNSS noise at high sample rates but still catches jumps of 2 m or more
@@ -141,6 +145,8 @@ THRESHOLD_UNITS = {
     "max_unreasonable_speeds": "%",
     "max_unreasonable_accelerations": "%",
     "max_accel": "m s-2",
+    "max_reach_speed": "m s-1",
+    "reach_tolerance": "m",
     "accel_time_base": "s",
     "date_margin_days": "days",
     "max_time_step_days": "days",

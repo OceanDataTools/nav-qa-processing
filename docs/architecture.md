@@ -532,7 +532,7 @@ and `line` for traceability. Missing values are real NaN/`<NA>`. Two things are 
   `CastData.errors` in sbe-qa-processing.
 
 **QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
-`POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `STALE_REPEAT`, `ACCELERATION`. A record with
+`POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `UNREACHABLE`, `STALE_REPEAT`, `ACCELERATION`. A record with
 any bit set is written with `#` in BestRes, and the plots, PDF and notebook can say *why*. The
 rules work on the whole series, not in 3,600-record buffers. Decided 2026-10-13/14:
 - **No speed rule.** A vessel's top speed varies and currents change speed over ground;
@@ -545,6 +545,13 @@ rules work on the whole series, not in 3,600-record buffers. Decided 2026-10-13/
   across it is compared with the track on either side: if the track comes back, the fixes more
   than `max_accel · time_base² / 4` (1 m) off the chord are flagged; if it shifts and stays (a
   DGPS correction), no fix is wrong, nothing is flagged, and the step is reported.
+- **Unreachable fixes are flagged (2026-10-16, #47).** A fix the ship couldn't have reached
+  from the trusted track at `max_reach_speed` (25 m s-1, far above any ship) plus
+  `reach_tolerance` (250 m) is flagged, whole stretches at a time: a receiver holding a wrong
+  position for minutes, a jump to near 0, 0, a bad first fix. The acceleration rule reports
+  such a stretch's ends as steps and flags nothing, and the OpenVDM hook sets OpenVDM's cruise
+  extent from the fixes that pass QC (#1). This is not a speed rule: it catches only
+  impossible positions (register Q8).
 - **Resolution allowance in the open.** The limit is raised only when coordinate quantization
   alone would exceed it over the time base, and the QC notes say so.
 

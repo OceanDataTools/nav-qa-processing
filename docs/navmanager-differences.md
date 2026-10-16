@@ -41,6 +41,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | Q5 | navqc | Acceleration limit set to 3× position resolution [m], from one record | Silent, dimensionally odd limit | Derived from resolution, reported (#7) |
 | Q6 | navqc | Null island only at 00:00:00 | 0,0 fixes at other times kept | Any time (#7) |
 | Q7 | navqc | Stale-repeat decisions near the 0.25 m/s threshold | SP1925: 94 flags R2R-only, 10 ours-only | Documented (#10) |
+| Q8 | navqc | No rule for fixes the ship couldn't reach (only an exact 0,0 at midnight, Q6) | A long stretch at a wrong position stays in the products (none in the references) | Reachability rule at 25 m s-1 (#47) |
 | P1 | navsample | Nearest record to each whole minute, with a skewed window and ring-buffer gaps | 1min misses nodes at buffer wraps and after the last fix | Nearest within half an interval (#8) |
 | P2 | NavControl | Committed tolerance 0.1°, R2R uses 0.01° | None (R2R runs 0.01°) | shapely at 0.01° (#8) |
 | F1 | R2R GeoCSV | Inconsistent units and long names, trimmed numbers | Header text and number formats | Standardized text (#9) |
@@ -199,6 +200,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Evidence:** SP1925 (45,723 fixes, 1 Hz, 6-decimal positions): R2R flags 303, this package 219, 209 the same. Every difference is a repeated position while the ship barely moves (median of the preceding speeds 0.16–0.32 m s-1). NavManager's median skips the latest speed (`array_slice($speedHori, $vnx-11, 10)`) and restarts per buffer; neither changes the count (`tests/test_geocsv.py`).
 - **Why (suspected):** NavManager's inverted acceleration loop (Q2) computes speeds from the flagged repeats and flags further repeats next to them.
 - **Effect:** R2R flags more repeated positions at low speed.
+
+### Q8. Nothing catches a fix the ship couldn't have reached
+
+- **NavManager:** apart from 0,0 at midnight (Q6), only the speed rule (commented out, Q1) and the acceleration check (inverted, Q2) look at where a fix is relative to the others. A receiver that holds a wrong position for a while, or jumps to near 0,0, passes navqc.
+- **Here:** `UNREACHABLE` (`qc.py`): the good fixes are split into segments wherever a fix can't be reached from the one before at `max_reach_speed` (25 m s-1) plus `reach_tolerance` (250 m). The segment with the most fixes is trusted, and a segment before or after it is trusted only if it connects to the trusted track at that speed. Rejected segments are flagged whole. The acceleration rule alone would call the start and end of such a stretch two steps, flag nothing and report them.
+- **Evidence:** none of the seven references has such a fix. The largest speed between successive good fixes is 4.8–8.1 m s-1, except in SP2220, whose degraded fixes jump 12–77 m in 0.5 s (up to 154 m s-1); the tolerance leaves those to the acceleration rule. So the references flag nothing new (`tests/test_qc.py`). Synthetic tracks show the rule: a 3-minute stretch 50 km off, a jump near 0,0, a bad first fix.
+- **Why (suspected):** NavManager produced post-cruise products, where an analyst could review the track; the OpenVDM hook sets OpenVDM's cruise extent from the fixes that pass QC, unattended at sea (#1).
+- **Effect:** such fixes would be in R2R's bestres, 1min and control as good, and stretch any extent computed from them.
 
 ## Products (navsample, NavControl)
 

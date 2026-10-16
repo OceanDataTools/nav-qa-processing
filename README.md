@@ -248,6 +248,8 @@ max_accel = 1.0
 | `max_unreasonable_accelerations` | `5.0` [%] | Check: unreasonable accelerations |
 | `max_accel` | `1.0` [m s-2] | QC and QA: the horizontal acceleration limit |
 | `accel_time_base` | `2.0` [s] | QC and QA: acceleration at a fix uses velocities over at least this long before and after it, so GNSS noise at high sample rates isn't flagged |
+| `max_reach_speed` | `25.0` [m s-1] | QC: a fix the ship couldn't have reached from the track at this speed (plus `reach_tolerance`) is flagged unreachable, e.g. a jump to near 0, 0 or minutes at a wrong position. Far above any ship's speed: not a speed limit |
+| `reach_tolerance` | `250.0` [m] | QC: slack for the reachability rule; closer jumps are left to the acceleration rule |
 | `gps_start`, `gps_end` | `1994-03-01`, `2034-12-31` | QC: valid GPS dates |
 | `date_margin_days` | `30.0` [days] | QC: allowed outside the cruise dates |
 | `max_time_step_days` | `30.0` [days] | QC: the largest step forward in time |

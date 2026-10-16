@@ -176,6 +176,63 @@ def test_coarse_coordinates_raise_the_limit_and_say_so():
     assert flags == {}
 
 
+KM_EAST = 1000 * METRE / np.cos(np.radians(32.0))  # [degree] of longitude at 32°N
+
+
+def unreachable(flags) -> set[int]:
+    return {i for i, f in flags.items() if f & Flag.UNREACHABLE}
+
+
+def test_minutes_at_a_wrong_position_are_unreachable():
+    """3 min 50 km off: the acceleration rule alone would call its ends two steps and flag
+    nothing
+    """
+    nav = track(600, step=1.0)
+    nav.frame.loc[200:379, "lon"] += 50 * KM_EAST
+    flags, result = flagged(nav)
+    assert unreachable(flags) == set(range(200, 380)) == set(flags)
+    assert "180 fix(es) in 1 stretch(es) couldn't be reached" in result.notes[0]
+
+
+def test_a_jump_to_near_null_island_is_unreachable():
+    nav = track(60)
+    nav.frame.loc[30, ["lon", "lat"]] = [0.0001, 0.0002]
+    flags, _ = flagged(nav)
+    assert set(flags) == {30} and flags[30] == Flag.UNREACHABLE
+
+
+def test_a_bad_first_fix_is_flagged_not_the_track():
+    nav = track(60)
+    nav.frame.loc[0:2, "lon"] += 10 * KM_EAST
+    flags, _ = flagged(nav)
+    assert set(flags) == unreachable(flags) == {0, 1, 2}
+
+
+def test_a_gap_the_ship_crossed_is_reachable():
+    """2 h without fixes at 5 m s-1: 36 km on, as far as the ship could go"""
+    nav = track(120, step=1.0, speed=5.0)
+    frame = nav.frame
+    later = frame.index >= 60
+    frame.loc[later, "time"] += pd.Timedelta(hours=2)
+    frame.loc[later, "lat"] += 5.0 * 7200 * METRE
+    assert flagged(nav)[0] == {}
+
+
+def test_a_track_across_the_antimeridian_is_reachable():
+    nav = track(120, step=1.0)
+    lon = 179.999 + np.arange(120) * 3.0 / 111_320 / np.cos(np.radians(32.0))  # 3 m s-1 east
+    nav.frame["lon"] = (lon + 180) % 360 - 180
+    nav.frame["lat"] = 32.0
+    assert (nav.frame["lon"] < 0).any() and flagged(nav)[0] == {}
+
+
+def test_a_jump_within_the_tolerance_is_left_to_the_acceleration_rule():
+    nav = track(60)
+    nav.frame.loc[30, "lat"] += 100 * METRE
+    flags, _ = flagged(nav)
+    assert set(flags) == {30} and flags[30] == Flag.ACCELERATION
+
+
 # -- Comparison with R2R --
 
 
@@ -217,3 +274,19 @@ def test_sp2424_flags_short_excursions_that_r2r_misses():
     assert dock_jump not in nav.frame["time"].iloc[flagged].tolist()
     assert len(result.notes) == 1
     assert result.notes[0].startswith("3 position step(s) of up to 3.5 m")
+
+
+@pytest.mark.parametrize(
+    "name", ["SP2503_167484", "RR2406_161075", "RR2212_151339", "SP2220_150139"]
+)
+def test_the_references_have_no_unreachable_fixes(name):
+    """SP2220's degraded fixes jump up to 77 m in 0.5 s: within reach_tolerance. SP2613's and
+    SP2424's flags are checked above, SP1925's below
+    """
+    from test_r2r_references import ours
+
+    assert ours(name).result.qc.count(Flag.UNREACHABLE) == 0
+
+
+def test_sp1925_has_no_unreachable_fixes():
+    assert not qc.flag(_read("SP1925", 134952)).count(Flag.UNREACHABLE)
