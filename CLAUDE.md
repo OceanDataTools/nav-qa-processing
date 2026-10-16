@@ -55,7 +55,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `qa_xml_name`. `tests/test_r2r_xml.py` compares it with R2R's SP2613, SP2503 and SP2424
   reports: same element paths, ratings, infos and values but for accelerations (A5).
 - `qc.py`: `flag(nav, thresholds, start, end)` -> `QCResult` (per-record `Flag` bitmask, the
-  acceleration limit used, notes). No speed rule; acceleration over a time base with velocity
+  acceleration limit used, notes). No speed rule; unreachable fixes (`max_reach_speed`, far
+  above any ship) flagged whole stretches at a time; acceleration over a time base with velocity
   vectors; excursions flagged, steps reported (decisions in its docstring).
 - `products.py`: `bestres(nav, qc_result)`, `sample(bestres, interval)` (1min: the good record
   nearest each whole minute, within half a minute) and `control(one_minute)` (Douglas–Peucker

@@ -16,7 +16,18 @@ products and of SOG/COG. The rules, in the order they run:
 2. `TIME_SEQUENCE`: a time not after the last in-sequence time, or more than
    `max_time_step_days`
    after it. Every record that passes advances the clock, whatever its other flags.
-3. Among the fixes not yet flagged, in time order:
+3. `UNREACHABLE`, among the fixes not yet flagged: a fix the ship couldn't have reached from the
+   track, i.e. farther from the last trusted fix than `max_reach_speed` times the time between
+   them, plus `reach_tolerance`. The good fixes are split into segments wherever one fix can't
+   be reached from the one before; the segment with the most fixes is trusted, and each segment
+   after (before) it is trusted only if it can be reached from (can reach) the trusted track's
+   end. A rejected segment is flagged whole, and the next is tested against the same trusted
+   fix. This catches what the acceleration rule reports as two steps and leaves: a receiver
+   holding a wrong position for minutes, a jump to near 0, 0, a bad first fix. A gap the ship
+   really crossed is reachable. `max_reach_speed` (25 m s-1) is far above any ship's speed: it
+   flags impossible positions, it isn't a speed limit. The tolerance leaves jumps of a few
+   hundred metres to the acceleration rule (SP2220's degraded fixes jump up to 77 m in 0.5 s).
+4. Among the fixes not yet flagged, in time order:
    - `STALE_REPEAT`: the same position as the previous good fix while the median of the
      `stale_window` preceding speeds exceeds `stale_speed`: a logger repeating a stale position
      while the ship moves;
@@ -78,6 +89,7 @@ class Flag(IntFlag):
     TIME_SEQUENCE = 32
     STALE_REPEAT = 64
     ACCELERATION = 128
+    UNREACHABLE = 256
 
 
 DESCRIPTIONS = {
@@ -89,6 +101,7 @@ DESCRIPTIONS = {
     Flag.TIME_SEQUENCE: "Time not after the previous fix, or too far after it",
     Flag.STALE_REPEAT: "Repeated position while under way",
     Flag.ACCELERATION: "Unreasonable horizontal acceleration",
+    Flag.UNREACHABLE: "Too far from the track to reach at max_reach_speed",
 }
 
 
@@ -132,6 +145,13 @@ def flag(
     alt = f["alt"].to_numpy(dtype=float)
     flags[np.abs(alt) >= th.max_altitude] |= np.uint16(Flag.ALTITUDE)  # NaN compares False
     flags[_out_of_sequence(t, th)] |= np.uint16(Flag.TIME_SEQUENCE)
+    unreachable, stretches = _unreachable(t, lon, lat, flags == 0, th)
+    flags[unreachable] |= np.uint16(Flag.UNREACHABLE)
+    if stretches:
+        notes.append(
+            f"{int(unreachable.sum())} fix(es) in {stretches} stretch(es) couldn't be reached "
+            f"from the track at {th.max_reach_speed:g} m s-1"
+        )
 
     good = flags == 0
     flags[_stale_repeats(t, lon, lat, good, th)] |= np.uint16(Flag.STALE_REPEAT)
@@ -200,6 +220,51 @@ def _out_of_sequence(t: np.ndarray, th: Thresholds) -> np.ndarray:
         else:
             bad[i] = True
     return bad
+
+
+def _unreachable(t, lon, lat, good, th: Thresholds) -> tuple[np.ndarray, int]:
+    """Good fixes the ship couldn't have reached from the trusted track, and how many
+    stretches they're in
+    """
+    bad = np.zeros(len(t), dtype=bool)
+    index = np.flatnonzero(good)
+    if len(index) < 2:
+        return bad, 0
+
+    def reachable(i: int, j: int) -> bool:
+        """Whether fix j (later) can be reached from fix i"""
+        distance, _ = geodesy.inverse(lon[i], lat[i], lon[j], lat[j])
+        return bool(distance <= th.max_reach_speed * (t[j] - t[i]) + th.reach_tolerance)
+
+    a, b = index[:-1], index[1:]
+    distance, _ = geodesy.inverse(lon[a], lat[a], lon[b], lat[b])
+    breaks = np.flatnonzero(distance > th.max_reach_speed * (t[b] - t[a]) + th.reach_tolerance)
+    if not len(breaks):
+        return bad, 0
+    starts = np.concatenate([[0], breaks + 1])
+    ends = np.concatenate([breaks + 1, [len(index)]])  # positions in index, exclusive
+    seed = int(np.argmax(ends - starts))
+    rejected = 0
+    last = index[ends[seed] - 1]
+    for s, e in zip(starts[seed + 1 :], ends[seed + 1 :], strict=True):
+        if reachable(last, index[s]):
+            last = index[e - 1]
+        else:
+            bad[index[s:e]] = True
+            rejected += 1
+    first = index[starts[seed]]
+    for s, e in zip(starts[:seed][::-1], ends[:seed][::-1], strict=True):
+        if reachable(index[e - 1], first):
+            first = index[s]
+        else:
+            bad[index[s:e]] = True
+            rejected += 1
+    return bad, _stretches(bad) if rejected else 0
+
+
+def _stretches(bad: np.ndarray) -> int:
+    """Runs of flagged records"""
+    return int(np.count_nonzero(np.diff(np.concatenate([[0], bad.astype(int)])) == 1))
 
 
 def _stale_repeats(t, lon, lat, good, th: Thresholds) -> np.ndarray:
