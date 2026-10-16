@@ -81,9 +81,13 @@ of Phase 3, of the plan in `docs/architecture.md`):
 - `plots.py`: `track_map`, `speed_and_acceleration`, `timeline`, `histograms` (`FIGURES`), each
   `(result, theme) -> Figure`; labels from `quantities.py`; long series reduced for drawing.
   `QCResult.steps` gives the position steps' times for the map.
-- `reports.py` (core): `report_paths`, `write_reports(result, output, source=None, theme=…)`:
-  the three GeoCSV products and the figures as SVGs in `<CRUISE>_plots/` (PDF and notebook in
-  #38, #39).
+- `pdf_report.py`: `write_pdf(result, path, svgs, front=None, subject, theme)` (ReportLab +
+  svglib): title block, checks, statistics, products; QC with the timeline; map, series,
+  histograms. `Layout` (theme made concrete) and `FrontPages`, through which integrations add
+  pages after the title; `table`, `drawing`, `checks_table` for them to reuse.
+- `reports.py` (core): `report_paths`, `write_figures`, `write_reports(result, output,
+  source=None, theme=…, pdf_front=None, pdf_subject=…)`: the three GeoCSV products, the figures
+  as SVGs in `<CRUISE>_plots/` and `<CRUISE>_qa_report.pdf` (the notebook in #39).
 - `cli.py`: `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]`, `fetch-map-data`, and the `r2r` group (`run`,
   `config-from-catalog`, `config-from-qa`, `fetch-fileset`). Conventions in its docstring
   (`-o`/`--force`, integer fileset IDs, uppercase metavars, `-v`/`-vv` on every parser, expected

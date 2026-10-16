@@ -12,7 +12,9 @@ dependencies = [
   "numpy >= 2.0",
   "pandas >= 2.2.2",
   "pyproj >= 3.6",
+  "reportlab>=4.2",
   "shapely >= 2.0",
+  "svglib>=1.5",
 ]
 
 [project.scripts]
@@ -20,6 +22,7 @@ nav-qa-processing = "nav_qa_processing.cli:main"
 
 [dependency-groups]
 dev = [
+  "pypdf>=5.0",
   "pytest >= 8.3",
   "ruff >= 0.8",
 ]

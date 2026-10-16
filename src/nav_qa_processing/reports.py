@@ -1,6 +1,6 @@
 """The core reports of a QA run: the three GeoCSV products,
-`<CRUISE>_bestres|1min|control.geoCSV`, and every figure as an SVG in `<CRUISE>_plots/`. The
-PDF and notebook join them in Phase 4 (#38, #39).
+`<CRUISE>_bestres|1min|control.geoCSV`, every figure as an SVG in `<CRUISE>_plots/`, and the
+PDF report, `<CRUISE>_qa_report.pdf`, which embeds them. The notebook joins them in #39.
 """
 
 from pathlib import Path
@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from nav_qa_processing import geocsv, plots
+from nav_qa_processing.pdf_report import FrontPages, write_pdf
 from nav_qa_processing.qa import NavQAResult
 from nav_qa_processing.theme import DEFAULT_THEME, Theme
 
@@ -21,6 +22,7 @@ def report_paths(output: Path, cruise_id: str) -> dict[str, Path]:
         for name, product in geocsv.PRODUCTS.items()
     }
     paths["plots"] = Path(output) / f"{cruise_id}_plots"
+    paths["pdf"] = Path(output) / f"{cruise_id}_qa_report.pdf"
     return paths
 
 
@@ -51,10 +53,12 @@ def write_reports(
     output: Path,
     source: geocsv.Source | None = None,
     theme: Theme = DEFAULT_THEME,
+    pdf_front: FrontPages | None = None,
+    pdf_subject: str = "Navigation quality assessment",
 ) -> list[Path]:
-    """The three GeoCSV products, created at the run's end, and the figures as SVGs. `source`
-    replaces the config's GeoCSV source values (e.g. R2R's); `theme` is the reports' look
-    (`theme.resolve_theme`)
+    """The three GeoCSV products, created at the run's end, the figures as SVGs and the PDF.
+    `source` replaces the config's GeoCSV source values (e.g. R2R's); `theme` is the reports'
+    look (`theme.resolve_theme`); `pdf_front` makes the pages an integration puts first
     """
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -74,6 +78,8 @@ def write_reports(
         )
         for name, frame in frames.items()
     ]
-    plots_dir = report_paths(output, result.config.cruise_id)["plots"]
-    written += write_figures(result, plots_dir, theme).values()
+    paths = report_paths(output, result.config.cruise_id)
+    svgs = write_figures(result, paths["plots"], theme)
+    written += svgs.values()
+    written.append(write_pdf(result, paths["pdf"], svgs, pdf_front, pdf_subject, theme))
     return written

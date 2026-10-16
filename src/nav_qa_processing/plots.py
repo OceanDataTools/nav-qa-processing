@@ -228,6 +228,25 @@ def _world_inset(axis, corner: str, latitude: float, longitude: float, theme: Th
     inset.spines["geo"].set_edgecolor("0.5")
 
 
+MAP_HEIGHTS = (4.0, 9.0)  # [in] the map figure's height follows the view's shape, within these
+
+
+def _map_height(view, projection) -> float:
+    """The figure height [in] that fits the view's projected shape at FIGURE_WIDTH"""
+    west, east, south, north = view
+    corners = projection.transform_points(
+        ccrs.PlateCarree(),
+        np.array([west, east, west, east, (west + east) / 2]),
+        np.array([south, south, north, north, (south + north) / 2]),
+    )
+    width = np.ptp(corners[:, 0])
+    height = np.ptp(corners[:, 1])
+    if not (np.isfinite(width) and np.isfinite(height)) or width <= 0:
+        return MAP_HEIGHTS[0]
+    # the axes' share of the figure, leaving room for the title and labels
+    return float(np.clip(FIGURE_WIDTH * 0.9 * height / width + 0.8, *MAP_HEIGHTS))
+
+
 def _track_line(x: np.ndarray, lat: np.ndarray, times: np.ndarray, max_gap: float, view):
     """The track as lines (lists of x, lat) broken at gaps and simplified for drawing"""
     if len(x) < 2:
@@ -294,7 +313,9 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
     else:
         projection = ccrs.Mercator(central_longitude=central)
 
-    figure = plt.figure(figsize=(FIGURE_WIDTH, 5.6), layout="constrained")
+    figure = plt.figure(
+        figsize=(FIGURE_WIDTH, _map_height(view, projection)), layout="constrained"
+    )
     axis = figure.add_subplot(projection=projection)
     axis.set_extent(relative, crs=frame)
     axis.set_facecolor(colors.water)
