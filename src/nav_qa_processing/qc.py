@@ -97,6 +97,8 @@ class QCResult:
     flags: np.ndarray  # uint16 bitmask per record
     accel_limit: float  # [m s-2] the limit used, after any allowance for resolution
     notes: list[str] = field(default_factory=list)
+    # Steps in the track QC resolved without flagging: (time [s since 1970], size [m])
+    steps: list[tuple[float, float]] = field(default_factory=list)
 
     @property
     def good(self) -> np.ndarray:
@@ -151,10 +153,10 @@ def flag(
         notes.append(f"Acceleration check stopped after {MAX_ITERATIONS} iterations")
     if steps:
         notes.append(
-            f"{len(steps)} position step(s) of up to {max(steps):.1f} m: the track shifts and "
-            "doesn't come back, so no fix is flagged"
+            f"{len(steps)} position step(s) of up to {max(s for _, s in steps):.1f} m: the track "
+            "shifts and doesn't come back, so no fix is flagged"
         )
-    return QCResult(flags, accel_limit, notes)
+    return QCResult(flags, accel_limit, notes, sorted(steps))
 
 
 def _outside_dates(times: pd.Series, th: Thresholds, start, end) -> np.ndarray:
@@ -234,14 +236,16 @@ def _resolution(nav: RawNav, lat: np.ndarray) -> float:
     return float(max(lat_m, lon_m))
 
 
-def _acceleration(t, lon, lat, good, time_base, limit) -> tuple[np.ndarray, int, list[float]]:
-    """Fixes flagged for acceleration, the iterations it took, and the size [m] of each step in
-    the track that exceeds the limit
+def _acceleration(
+    t, lon, lat, good, time_base, limit
+) -> tuple[np.ndarray, int, list[tuple[float, float]]]:
+    """Fixes flagged for acceleration, the iterations it took, and each step in the track that
+    exceeds the limit: (time [s since 1970], size [m])
     """
     flagged = np.zeros(len(t), dtype=bool)
     good = good.copy()
     settled: list[tuple[float, float]] = []  # stretches resolved without flagging
-    steps: list[float] = []
+    steps: list[tuple[float, float]] = []
     for iteration in range(1, MAX_ITERATIONS + 1):
         index = np.flatnonzero(good)
         tg = t[index]
@@ -262,7 +266,7 @@ def _acceleration(t, lon, lat, good, time_base, limit) -> tuple[np.ndarray, int,
             else:
                 settled.append(_stretch(tg, acceleration > limit, peak, time_base))
                 if step is not None:
-                    steps.append(step)
+                    steps.append((float(tg[peak]), step))
     return flagged, MAX_ITERATIONS, steps
 
 

@@ -90,6 +90,17 @@ COLORBLIND = Colors(
     rating_red="#d55e00",
 )
 PALETTES = {"default": Colors(), "colorblind": COLORBLIND}
+# Distinct colors for categories (QC flags), by palette: matplotlib's tab10, and Okabe and Ito's
+CYCLES = {
+    "default": (
+        "#d62728", "#ff7f0e", "#9467bd", "#8c564b",
+        "#e377c2", "#bcbd22", "#17becf", "#7f7f7f",
+    ),
+    "colorblind": (
+        "#d55e00", "#e69f00", "#cc79a7", "#56b4e9",
+        "#009e73", "#f0e442", "#0072b2", "#000000",
+    ),
+}  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -105,6 +116,11 @@ class Theme:
     footer: str = ""  # default: the report title
     palette: str = "default"
     colors: Colors = field(default_factory=Colors)
+
+    @property
+    def cycle(self) -> tuple[str, ...]:
+        """The palette's distinct colors, for categories such as QC flags"""
+        return CYCLES[self.palette]
 
 
 DEFAULT_THEME = Theme()

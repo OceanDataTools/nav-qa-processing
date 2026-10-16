@@ -40,6 +40,7 @@ def test_every_argument_is_documented():
     assert set(commands) == {
         "formats",
         "run",
+        "fetch-map-data",
         "r2r",
         "r2r run",
         "r2r config-from-catalog",
@@ -156,8 +157,12 @@ def test_run_and_r2r_run_end_to_end(tmp_path, capsys):
         "SP2613_1min.geoCSV",
         "SP2613_bestres.geoCSV",
         "SP2613_control.geoCSV",
+        "SP2613_plots",
     ]
+    assert len(list((tmp_path / "core" / "SP2613_plots").glob("*.svg"))) == 4
     assert main(["r2r", "run", config, str(SP2613), "-o", str(tmp_path / "r2r")]) == 0
     out = capsys.readouterr().out
-    assert "R2R rating G" in out and out.count("wrote ") == 7
+    assert (
+        "R2R rating G" in out and out.count("wrote ") == 15
+    )  # 3 products + 4 SVGs each, and the XML
     assert len(list((tmp_path / "r2r").glob("SP2613_169851_qa.2.0.*Z.xml"))) == 1
