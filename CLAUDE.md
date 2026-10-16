@@ -14,8 +14,7 @@ question, do what `sbe-qa-processing` does: read its `CLAUDE.md`, `pyproject.tom
 `src/sbe_qa_processing/` (especially `qa.py`, `r2r.py`, `xml_report.py`, `config.py`,
 `openvdm.py`, `cli.py`).
 
-GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far (Phases 1 and 2, and most
-of Phase 3, of the plan in `docs/architecture.md`):
+GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far (Phases 1 to 4 of the plan in `docs/architecture.md`):
 - `quantities.py`: the project-wide quantity table (see below).
 - `formats/definitions/*.toml`: a definition of every R2R raw nav format ID (layout, sentences,
   vessels, examples) plus `sentences.toml`, written in this project's words (see its README).
@@ -71,8 +70,14 @@ of Phase 3, of the plan in `docs/architecture.md`):
   format ID -> ours via the definitions' `r2r_formats`), `R2RError`.
 - `integrations/r2r/download.py`: `download_fileset` -> `data/<CRUISE>_<FILESET>_gnss/` (raw
   bag, `r2r_qa.2.0.xml` via api/qa_info, `products/` via api/product).
+- `integrations/r2r/certificate.py`: `certificate(result, r2r)` (a `FrontPages`: R2R's facts,
+  the G/Y/R banner from the theme, the tests with results and bounds as the XML writes them,
+  the infos), `NOTEBOOK_CELLS`, `pdf_subject`. `tests/test_r2r_certificate.py` checks it
+  against the XML on the five reference filesets.
 - `integrations/r2r/reports.py`: `run_r2r(fileset, config)` -> `R2RRun`; `write_r2r_reports`
-  writes the three GeoCSV products (R2R's source values) and the XML, by R2R's names.
+  writes the core reports with R2R's source values and certificate (`notebook_extras`), then
+  the XML, by R2R's names. `config.loads_cruise_config` reads a cruise TOML's text (for a
+  notebook whose config had no file).
 - `theme.py`: `Theme` (page, fonts, logo, footer, `Colors` incl. status and G/Y/R rating colors,
   `colorblind` palette), `load_theme`, `resolve_theme(theme_file, config)` (the config's
   `[theme]` over a `--theme` file), `ThemeError`; ported from sbe-qa-processing.
@@ -87,8 +92,10 @@ of Phase 3, of the plan in `docs/architecture.md`):
   pages after the title; `table`, `drawing`, `checks_table` for them to reuse.
 - `notebook.py`: `build_notebook`/`write_notebook(result, path, output_dir, execute, extras,
   theme_file)`: re-runs the QA step by step; a config without a file goes in as TOML
-  (`config.loads_config`); `NotebookExtras` for integrations. Its code is text: renaming a
-  public function changes it (`tests/test_notebook.py` executes it).
+  (`config.loads_config`, or the integration's `config_toml`/`loads_config`); `NotebookExtras`
+  for integrations. `execute` runs every cell but the last, which rewrites the reports. Its
+  code is text: renaming a public function changes it (`tests/test_notebook.py` and
+  `tests/test_r2r_certificate.py` execute it).
 - `reports.py` (core): `report_paths`, `write_figures`, `write_reports(result, output,
   source=None, theme=None, pdf_front, pdf_subject, theme_file, notebook=True, execute_notebook,
   notebook_extras)`: the GeoCSV products, the SVGs in `<CRUISE>_plots/`,

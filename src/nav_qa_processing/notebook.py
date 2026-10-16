@@ -25,29 +25,32 @@ class NotebookExtras:
     checks: str = ""  # what else is run, e.g. ", then R2R's six tests"
     imports: str = ""  # import lines for the setup cell
     load_config: str = ""  # the function that loads CONFIG, e.g. load_cruise_config
+    # Without a config file: the config as the integration's TOML, and what reads it
+    config_toml: str = ""
+    loads_config: str = ""  # e.g. loads_cruise_config
     after_run: str = ""  # setup cell code after run_qa
     cells: list = field(default_factory=list)  # after the setup cell
     write: str = ""  # report-writing code after the core reports'
     report_arguments: str = ""  # more write_reports arguments, e.g. ", source=..."
 
 
-def _config_code(result: NavQAResult, load: str) -> tuple[str, str, str]:
+def _config_code(result: NavQAResult, extras: NotebookExtras) -> tuple[str, str, str]:
     """The paths cell's CONFIG line, the setup cell's config lines, and the imports they need.
     Without a config file (e.g. `run -f nav29`, or a config built in Python), the config's own
     TOML is written into the notebook
     """
     config = result.config
     if result.config_path is None:
-        lines = config_to_toml(config).splitlines(keepends=True)
-        text = "".join(f"    {line!r}\n" for line in lines)
+        toml = extras.config_toml or config_to_toml(config)
+        text = "".join(f"    {line!r}\n" for line in toml.splitlines(keepends=True))
         return (
             f"# The run had no config file: its config as TOML\nCONFIG = (\n{text})\n",
-            "config = loads_config(CONFIG)\n",
-            "from nav_qa_processing.config import loads_config\n",
+            f"config = {extras.loads_config or 'loads_config'}(CONFIG)\n",
+            "" if extras.loads_config else "from nav_qa_processing.config import loads_config\n",
         )
     path = Path(result.config_path).resolve()
-    lines = f"config = {load or 'load_config'}(CONFIG)\n"
-    imports = "" if load else "from nav_qa_processing.config import load_config\n"
+    lines = f"config = {extras.load_config or 'load_config'}(CONFIG)\n"
+    imports = "" if extras.load_config else "from nav_qa_processing.config import load_config\n"
     if load_config(path).nav_format != config.nav_format:  # run -f overrode the config's
         lines += f"config = replace(config, nav_format={config.nav_format!r})\n"
         imports += "from dataclasses import replace\n"
@@ -63,7 +66,7 @@ def build_notebook(
     """theme_file is the --theme file the reports were written with, if any"""
     config = result.config
     extras = extras or NotebookExtras()
-    config_line, config_lines, config_imports = _config_code(result, extras.load_config)
+    config_line, config_lines, config_imports = _config_code(result, extras)
     versions = ", ".join(f"{name} {version}" for name, version in result.versions.items())
     cells = [
         new_markdown_cell(
@@ -196,7 +199,9 @@ def write_notebook(
     theme_file: Path | None = None,
 ) -> Path:
     """Writes the notebook; with `execute`, runs it first and saves its outputs (needs nbclient
-    and ipykernel, in the dev group)
+    and ipykernel, in the dev group). The last cell, which writes the reports, isn't run: they
+    were just written, and running it would rewrite them (and an integration's timestamped
+    reports, such as R2R's XML, again under a new name)
     """
     path = Path(path)
     notebook = build_notebook(result, Path(output_dir), extras, theme_file)
@@ -205,8 +210,10 @@ def write_notebook(
             from nbclient import NotebookClient
         except ImportError as error:
             raise RuntimeError("executing the notebook needs nbclient and ipykernel") from error
+        write = notebook.cells.pop()
         NotebookClient(
             notebook, timeout=1800, resources={"metadata": {"path": str(path.parent)}}
         ).execute()
+        notebook.cells.append(write)
     nbformat.write(notebook, path)
     return path

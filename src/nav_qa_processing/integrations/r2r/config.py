@@ -49,6 +49,7 @@ from nav_qa_processing.config import (
     QAConfig,
     fields_of,
     load_config,
+    loads_config,
     thresholds_toml,
     toml_value,
 )
@@ -118,11 +119,21 @@ def load_cruise_config(path: Path | str) -> CruiseConfig:
     """A cruise TOML, with the cruise ID and dates R2R needs"""
     with open(path, "rb") as file:
         data = tomllib.load(file)
+    return _cruise_config(data, load_config(path), str(path))
+
+
+def loads_cruise_config(text: str) -> CruiseConfig:
+    """A cruise TOML's text, e.g. `config_to_toml`'s; relative paths are relative to the
+    working directory
+    """
+    return _cruise_config(tomllib.loads(text), loads_config(text), "config")
+
+
+def _cruise_config(data: dict, core: QAConfig, where: str) -> CruiseConfig:
     cruise = data.get("cruise", {})
     missing = [key for key in REQUIRED if key not in cruise]
     if missing:
-        raise ValueError(f"{path}: R2R needs [cruise] {', '.join(missing)}")
-    core = load_config(path)
+        raise ValueError(f"{where}: R2R needs [cruise] {', '.join(missing)}")
     fileset = data.get("fileset", {})
     provenance = data.get("provenance", {})
     return CruiseConfig(

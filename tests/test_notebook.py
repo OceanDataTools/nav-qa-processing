@@ -26,19 +26,22 @@ def outputs(cell, kind="stream") -> str:
     return "".join(o.get("text", "") for o in cell.outputs if o.output_type == kind)
 
 
-def test_the_notebook_reruns_the_assessment(tmp_path):
-    """A config built in Python goes into the notebook as TOML, extent and all"""
-    result = cruise(tmp_path / "in", extent=Extent(-117.4, -117.2, 32.5, 32.8))
-    reports.write_reports(result, tmp_path / "out", execute_notebook=True)
-    notebook = nbformat.read(tmp_path / "out" / "TEST_qa.ipynb", as_version=4)
-    errors = [
+def errors(notebook) -> list:
+    return [
         o
         for c in notebook.cells
         if c.cell_type == "code"
         for o in c.outputs
         if o.output_type == "error"
     ]
-    assert not errors, errors
+
+
+def test_the_notebook_reruns_the_assessment(tmp_path):
+    """A config built in Python goes into the notebook as TOML, extent and all"""
+    result = cruise(tmp_path / "in", extent=Extent(-117.4, -117.2, 32.5, 32.8))
+    reports.write_reports(result, tmp_path / "out", execute_notebook=True)
+    notebook = nbformat.read(tmp_path / "out" / "TEST_qa.ipynb", as_version=4)
+    assert not errors(notebook), errors(notebook)
     assert "config = loads_config(CONFIG)" in source(notebook)
     code = [c for c in notebook.cells if c.cell_type == "code"]
     setup = outputs(code[1])
@@ -49,9 +52,19 @@ def test_the_notebook_reruns_the_assessment(tmp_path):
     expected = next(c for c in result.stats.checks if c.name == "Within the expected area")
     assert expected.status == "pass" and "Within the expected area" in checks  # the extent
     assert "no extent configured" not in checks
-    written = outputs(code[-1]).splitlines()
+    assert "write_reports(" in code[-1].source and not code[-1].outputs  # left for the reader
+
+
+def test_the_last_cell_rewrites_the_reports_but_not_the_notebook(tmp_path):
+    from nbclient import NotebookClient
+
+    result = cruise(tmp_path / "in")
+    notebook = build_notebook(result, tmp_path / "out")
+    NotebookClient(notebook, timeout=600).execute()
+    assert not errors(notebook), errors(notebook)
+    written = outputs(notebook.cells[-1]).splitlines()
     assert any(line.endswith("TEST_qa_report.pdf") for line in written)
-    assert not any(line.endswith(".ipynb") for line in written)  # it doesn't replace itself
+    assert not any(line.endswith(".ipynb") for line in written)
 
 
 def test_a_config_file_is_loaded_and_a_format_override_kept(tmp_path):
