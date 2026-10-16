@@ -202,6 +202,12 @@ HORIZONTAL_ACCELERATION = Quantity(
 SAMPLING_INTERVAL = Quantity(
     "sampling_interval", "Time between successive fixes", Datatype.FLOAT, "s", decimals=3
 )
+MODAL_INTERVAL = Quantity(
+    "modal_interval", "Most common time between fixes", Datatype.FLOAT, "s", decimals=3
+)
+LONGEST_GAP = Quantity(
+    "longest_gap", "Longest time between successive fixes", Datatype.FLOAT, "s", decimals=3
+)
 FIXES = Quantity("fixes", "Number of fixes", Datatype.INTEGER, "1")
 PERCENTAGE = Quantity("percentage", "Percentage", Datatype.FLOAT, "percent", decimals=2)
 DURATION = Quantity("duration", "Duration", Datatype.FLOAT, "s", decimals=3)
@@ -221,6 +227,8 @@ QUANTITIES: dict[str, Quantity] = {
         COURSE_MADE_GOOD,
         HORIZONTAL_ACCELERATION,
         SAMPLING_INTERVAL,
+        MODAL_INTERVAL,
+        LONGEST_GAP,
         FIXES,
         PERCENTAGE,
         DURATION,

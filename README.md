@@ -93,7 +93,7 @@ nav-qa-processing run [-c CONFIG_TOML] [-f FORMAT_ID] [-o OUTPUT_DIR] [--force]
 ```
 
 Reads the fileset's primary GNSS feed, flags bad fixes, computes the QA statistics and checks,
-and writes the three products.
+and writes the three products, the figures and the PDF report.
 
 | Argument | Default | Description |
 |---|---|---|
@@ -101,7 +101,7 @@ and writes the three products.
 | `-c`, `--config CONFIG_TOML` | none | A [config TOML](#config-toml). Without one, the products are named after `FILESET_DIR` |
 | `-f`, `--format FORMAT_ID` | the config's `[nav] format` | The GNSS files' format (see `formats`). Needed when the config doesn't set it |
 | `-o`, `--output OUTPUT_DIR` | `output` | Directory for the products, created if needed |
-| `--force` | off | Replace existing products; without it, `run` stops if any of them exists |
+| `--force` | off | Replace existing products and reports; without it, `run` stops if any of them exists |
 | `--theme THEME_TOML` | none | A [theme](#themes) file for the PDF, figures and notebook; the config's `[theme]` applies on top |
 
 It writes `<CRUISE>_bestres.geoCSV`, `<CRUISE>_1min.geoCSV` and `<CRUISE>_control.geoCSV`,
@@ -116,7 +116,17 @@ the fileset directory's name:
 | `histograms.svg` | The time between fixes, satellites, HDOP and GGA quality (invalid qualities in the secondary color) |
 
 Long cruises are reduced for drawing (a simplified track line, min/max bands per time bin, at
-most 3,000 markers per flag); counts in the legends are the full ones. It prints a
+most 3,000 markers per flag); counts in the legends are the full ones.
+
+It also writes `<CRUISE>_qa_report.pdf`, which embeds the SVGs as vector drawings:
+
+| Page | Contents |
+|---|---|
+| 1 | The title block (cruise, vessel, dates, expected area, contact, the fileset, its nav files and format, versions), every check with its status, the statistics (first and last fix, intervals, satellite, HDOP, altitude, speed and acceleration ranges) and the products |
+| 2 | Quality control: records flagged by flag, QC's notes (raised limits, position steps), reader and manifest errors (the first 12, then a count), and the coverage timeline |
+| 3–5 | The trackline map; speed and acceleration; sampling and fix quality |
+
+Integrations put their pages after the title block: `r2r run` adds R2R's certificate (#40). It prints a
 summary: the fixes read, QC's flags, the products' sizes, and every check with its status.
 
 #### `fetch-map-data`
@@ -255,8 +265,8 @@ water = "#e6f0f7"
 
 A bad setting (an unknown key, a color that isn't `#rrggbb`, a missing font or logo) stops the
 run before it reads anything, with a one-line message. QC flags are drawn in the palette's
-distinct colors (matplotlib's tab10, or Okabe–Ito with `colorblind`). The PDF and notebook that
-use the theme are still to come (#38, #39).
+distinct colors (matplotlib's tab10, or Okabe–Ito with `colorblind`). Fonts must be TrueType
+(`.ttf`). The notebook that uses the theme is still to come (#39).
 
 ## R2R
 
