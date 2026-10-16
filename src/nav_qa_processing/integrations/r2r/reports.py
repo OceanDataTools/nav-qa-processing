@@ -14,7 +14,7 @@ from nav_qa_processing.integrations.r2r.rules import R2RResult, run_r2r_tests
 from nav_qa_processing.integrations.r2r.xml_report import qa_xml_name, write_qa_xml
 from nav_qa_processing.qa import NavQAResult, run_qa
 from nav_qa_processing.readable import Readable
-from nav_qa_processing.theme import DEFAULT_THEME, Theme
+from nav_qa_processing.theme import Theme
 
 
 @dataclass
@@ -50,8 +50,21 @@ def report_paths(run: R2RRun, output: Path) -> dict[str, Path]:
     }
 
 
-def write_r2r_reports(run: R2RRun, output: Path, theme: Theme = DEFAULT_THEME) -> list[Path]:
+def write_r2r_reports(
+    run: R2RRun,
+    output: Path,
+    theme: Theme | None = None,
+    theme_file: Path | None = None,
+    execute_notebook: bool = False,
+) -> list[Path]:
     """The core reports with R2R's source values, then the QA 2.0 XML"""
-    written = reports.write_reports(run.result, output, run.source, theme)
+    written = reports.write_reports(
+        run.result,
+        output,
+        run.source,
+        theme,
+        theme_file=theme_file,
+        execute_notebook=execute_notebook,
+    )
     written.append(write_qa_xml(run.result, run.r2r, report_paths(run, output)["xml"]))
     return written

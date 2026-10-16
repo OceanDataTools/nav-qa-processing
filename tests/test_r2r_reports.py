@@ -32,6 +32,7 @@ def test_r2r_names(written):
         "SP2613_control.geoCSV",
         "SP2613_plots",
         "SP2613_qa_report.pdf",
+        "SP2613_qa.ipynb",
     }
     assert products < names
     (xml,) = names - products

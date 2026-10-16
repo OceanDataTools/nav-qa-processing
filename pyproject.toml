@@ -9,6 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
   "cartopy>=0.24",
   "matplotlib>=3.9",
+  "nbformat>=5.10",
   "numpy >= 2.0",
   "pandas >= 2.2.2",
   "pyproj >= 3.6",
@@ -22,6 +23,8 @@ nav-qa-processing = "nav_qa_processing.cli:main"
 
 [dependency-groups]
 dev = [
+  "ipykernel>=6.29",
+  "nbclient>=0.10",
   "pypdf>=5.0",
   "pytest >= 8.3",
   "ruff >= 0.8",

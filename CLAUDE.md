@@ -85,9 +85,14 @@ of Phase 3, of the plan in `docs/architecture.md`):
   svglib): title block, checks, statistics, products; QC with the timeline; map, series,
   histograms. `Layout` (theme made concrete) and `FrontPages`, through which integrations add
   pages after the title; `table`, `drawing`, `checks_table` for them to reuse.
+- `notebook.py`: `build_notebook`/`write_notebook(result, path, output_dir, execute, extras,
+  theme_file)`: re-runs the QA step by step; a config without a file goes in as TOML
+  (`config.loads_config`); `NotebookExtras` for integrations. Its code is text: renaming a
+  public function changes it (`tests/test_notebook.py` executes it).
 - `reports.py` (core): `report_paths`, `write_figures`, `write_reports(result, output,
-  source=None, theme=…, pdf_front=None, pdf_subject=…)`: the three GeoCSV products, the figures
-  as SVGs in `<CRUISE>_plots/` and `<CRUISE>_qa_report.pdf` (the notebook in #39).
+  source=None, theme=None, pdf_front, pdf_subject, theme_file, notebook=True, execute_notebook,
+  notebook_extras)`: the GeoCSV products, the SVGs in `<CRUISE>_plots/`,
+  `<CRUISE>_qa_report.pdf` and `<CRUISE>_qa.ipynb` (the notebook itself passes `notebook=False`).
 - `cli.py`: `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]`, `fetch-map-data`, and the `r2r` group (`run`,
   `config-from-catalog`, `config-from-qa`, `fetch-fileset`). Conventions in its docstring
   (`-o`/`--force`, integer fileset IDs, uppercase metavars, `-v`/`-vv` on every parser, expected

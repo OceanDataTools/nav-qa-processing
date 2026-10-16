@@ -97,7 +97,15 @@ def _run(args: argparse.Namespace) -> int:
     result = run_qa(args.fileset_dir, config)
     result.config_path = args.config
     print(result)
-    _print_written(reports.write_reports(result, args.output, theme=theme))
+    _print_written(
+        reports.write_reports(
+            result,
+            args.output,
+            theme=theme,
+            theme_file=args.theme,
+            execute_notebook=args.execute_notebook,
+        )
+    )
     return 0
 
 
@@ -145,7 +153,7 @@ def _r2r_run(args: argparse.Namespace) -> int:
         return 1
     run = run_r2r(args.fileset_dir, args.cruise_toml)
     print(run)
-    _print_written(write_r2r_reports(run, args.output, theme))
+    _print_written(write_r2r_reports(run, args.output, theme, args.theme, args.execute_notebook))
     return 0
 
 
@@ -418,6 +426,11 @@ def _add_report_output(parser: argparse.ArgumentParser) -> None:
         metavar="THEME_TOML",
         type=Path,
         help="theme file for the PDF, figures and notebook; the config's [theme] applies on top",
+    )
+    parser.add_argument(
+        "--execute-notebook",
+        action="store_true",
+        help="run the notebook and save its outputs (needs nbclient and ipykernel)",
     )
 
 

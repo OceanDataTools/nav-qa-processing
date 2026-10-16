@@ -158,11 +158,12 @@ def test_run_and_r2r_run_end_to_end(tmp_path, capsys):
         "SP2613_bestres.geoCSV",
         "SP2613_control.geoCSV",
         "SP2613_plots",
+        "SP2613_qa.ipynb",
         "SP2613_qa_report.pdf",
     ]
     assert len(list((tmp_path / "core" / "SP2613_plots").glob("*.svg"))) == 4
     assert main(["r2r", "run", config, str(SP2613), "-o", str(tmp_path / "r2r")]) == 0
     out = capsys.readouterr().out
-    # each run: 3 products, 4 SVGs and the PDF; then R2R's XML
-    assert "R2R rating G" in out and out.count("wrote ") == 17
+    # each run: 3 products, 4 SVGs, the PDF and the notebook; then R2R's XML
+    assert "R2R rating G" in out and out.count("wrote ") == 19
     assert len(list((tmp_path / "r2r").glob("SP2613_169851_qa.2.0.*Z.xml"))) == 1
