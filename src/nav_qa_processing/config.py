@@ -212,10 +212,21 @@ def thresholds_from_table(table: dict) -> Thresholds:
 
 def load_config(path: Path | str) -> QAConfig:
     """A config TOML. Tables and keys only the integrations use are ignored"""
-    from nav_qa_processing.theme import theme_table  # theme.py imports this module
-
     with open(path, "rb") as file:
         data = tomllib.load(file)
+    return _config(data, Path(path).parent, str(path))
+
+
+def loads_config(text: str) -> QAConfig:
+    """A config TOML's text, e.g. `config_to_toml`'s; relative paths are relative to the
+    working directory
+    """
+    return _config(tomllib.loads(text), Path.cwd(), "config")
+
+
+def _config(data: dict, base: Path, where: str) -> QAConfig:
+    from nav_qa_processing.theme import theme_table  # theme.py imports this module
+
     cruise = data.get("cruise", {})
     fileset = data.get("fileset", {})
     nav = data.get("nav", {})
@@ -237,9 +248,9 @@ def load_config(path: Path | str) -> QAConfig:
         attribution=data.get("geocsv", {}).get("attribution", ""),
         nav_format=nav.get("format", ""),
         nav_files=nav.get("files", ""),
-        manifest_path=(Path(path).parent / manifest).resolve() if manifest else None,
+        manifest_path=(base / manifest).resolve() if manifest else None,
         thresholds=thresholds_from_table(data.get("thresholds", {})),
-        theme=theme_table(data.get("theme", {}), Path(path).parent, str(path)),
+        theme=theme_table(data.get("theme", {}), base, where),
     )
 
 

@@ -27,7 +27,7 @@ def test_the_report(tmp_path):
     result = cruise(tmp_path / "in")
     written = reports.write_reports(result, tmp_path / "out")
     pdf = tmp_path / "out" / "TEST_qa_report.pdf"
-    assert written[-1] == pdf
+    assert pdf in written
     text = pages(pdf)
     assert len(text) == 5
     first = text[0]

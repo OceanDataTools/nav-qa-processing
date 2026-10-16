@@ -1,6 +1,7 @@
 """The core reports of a QA run: the three GeoCSV products,
-`<CRUISE>_bestres|1min|control.geoCSV`, every figure as an SVG in `<CRUISE>_plots/`, and the
-PDF report, `<CRUISE>_qa_report.pdf`, which embeds them. The notebook joins them in #39.
+`<CRUISE>_bestres|1min|control.geoCSV`, every figure as an SVG in `<CRUISE>_plots/`, the PDF
+report, `<CRUISE>_qa_report.pdf`, which embeds them, and `<CRUISE>_qa.ipynb`, a notebook that
+re-runs the assessment.
 """
 
 from pathlib import Path
@@ -10,9 +11,10 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from nav_qa_processing import geocsv, plots
+from nav_qa_processing.notebook import NotebookExtras, write_notebook
 from nav_qa_processing.pdf_report import FrontPages, write_pdf
 from nav_qa_processing.qa import NavQAResult
-from nav_qa_processing.theme import DEFAULT_THEME, Theme
+from nav_qa_processing.theme import DEFAULT_THEME, Theme, resolve_theme
 
 
 def report_paths(output: Path, cruise_id: str) -> dict[str, Path]:
@@ -23,6 +25,7 @@ def report_paths(output: Path, cruise_id: str) -> dict[str, Path]:
     }
     paths["plots"] = Path(output) / f"{cruise_id}_plots"
     paths["pdf"] = Path(output) / f"{cruise_id}_qa_report.pdf"
+    paths["notebook"] = Path(output) / f"{cruise_id}_qa.ipynb"
     return paths
 
 
@@ -52,14 +55,22 @@ def write_reports(
     result: NavQAResult,
     output: Path,
     source: geocsv.Source | None = None,
-    theme: Theme = DEFAULT_THEME,
+    theme: Theme | None = None,
     pdf_front: FrontPages | None = None,
     pdf_subject: str = "Navigation quality assessment",
+    theme_file: Path | None = None,
+    notebook: bool = True,
+    execute_notebook: bool = False,
+    notebook_extras: NotebookExtras | None = None,
 ) -> list[Path]:
-    """The three GeoCSV products, created at the run's end, the figures as SVGs and the PDF.
-    `source` replaces the config's GeoCSV source values (e.g. R2R's); `theme` is the reports'
-    look (`theme.resolve_theme`); `pdf_front` makes the pages an integration puts first
+    """The three GeoCSV products, created at the run's end, the figures as SVGs, the PDF and
+    the notebook. `source` replaces the config's GeoCSV source values (e.g. R2R's); the look is
+    `theme`, or the `theme_file` (a --theme file) with the config's [theme] on top; `pdf_front`
+    and `notebook_extras` are what an integration adds. The notebook itself writes the reports
+    with `notebook=False`, so it doesn't replace itself
     """
+    if theme is None:
+        theme = resolve_theme(theme_file, result.config)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     frames = {
@@ -82,4 +93,15 @@ def write_reports(
     svgs = write_figures(result, paths["plots"], theme)
     written += svgs.values()
     written.append(write_pdf(result, paths["pdf"], svgs, pdf_front, pdf_subject, theme))
+    if notebook:
+        written.append(
+            write_notebook(
+                result,
+                paths["notebook"],
+                output,
+                execute=execute_notebook,
+                extras=notebook_extras,
+                theme_file=theme_file,
+            )
+        )
     return written

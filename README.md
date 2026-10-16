@@ -89,7 +89,7 @@ Without `ID`, lists R2R's raw navigation format IDs (`nav1` … `nav33`, `uhdas`
 
 ```text
 nav-qa-processing run [-c CONFIG_TOML] [-f FORMAT_ID] [-o OUTPUT_DIR] [--force]
-                      [--theme THEME_TOML] FILESET_DIR
+                      [--theme THEME_TOML] [--execute-notebook] FILESET_DIR
 ```
 
 Reads the fileset's primary GNSS feed, flags bad fixes, computes the QA statistics and checks,
@@ -103,6 +103,7 @@ and writes the three products, the figures and the PDF report.
 | `-o`, `--output OUTPUT_DIR` | `output` | Directory for the products, created if needed |
 | `--force` | off | Replace existing products and reports; without it, `run` stops if any of them exists |
 | `--theme THEME_TOML` | none | A [theme](#themes) file for the PDF, figures and notebook; the config's `[theme]` applies on top |
+| `--execute-notebook` | off | Run the notebook (needs `nbclient` and `ipykernel`, in the dev group) and save it with its outputs |
 
 It writes `<CRUISE>_bestres.geoCSV`, `<CRUISE>_1min.geoCSV` and `<CRUISE>_control.geoCSV`,
 and the figures as SVGs in `<CRUISE>_plots/`, where `<CRUISE>` is the config's `[cruise] id`, or
@@ -126,7 +127,13 @@ It also writes `<CRUISE>_qa_report.pdf`, which embeds the SVGs as vector drawing
 | 2 | Quality control: records flagged by flag, QC's notes (raised limits, position steps), reader and manifest errors (the first 12, then a count), and the coverage timeline |
 | 3–5 | The trackline map; speed and acceleration; sampling and fix quality |
 
-Integrations put their pages after the title block: `r2r run` adds R2R's certificate (#40). It prints a
+Integrations put their pages after the title block: `r2r run` adds R2R's certificate (#40).
+
+And it writes `<CRUISE>_qa.ipynb`, a notebook that re-runs the assessment step by step: the
+config (the config file, or the run's config written into it as TOML), `run_qa`, the checks,
+statistics, QC flags and errors, every figure, the products, and writing the reports again
+(all but the notebook itself). Edit its paths or the config's `[thresholds]` and re-run it to
+change the assessment; see [Opening the notebook](#opening-the-notebook). It prints a
 summary: the fixes read, QC's flags, the products' sizes, and every check with its status.
 
 #### `fetch-map-data`
@@ -139,6 +146,36 @@ Downloads the Natural Earth layers the trackline map uses (1:10m land, lakes and
 and the 1:110m world for the inset, about 27 MB) into cartopy's data directory, so the map has
 coastlines offline, e.g. at sea. Without them, the map is drawn without coastlines and says so.
 It takes no arguments.
+
+### Opening the notebook
+
+The notebook imports this package, so it has to run on the project's Python (`.venv`), not on
+the Python of whichever Jupyter opens it. A Jupyter installed with Homebrew, Anaconda or pip
+starts its own Python by default, which doesn't have this project's packages, so the first cell
+fails with `ModuleNotFoundError: No module named 'nav_qa_processing'`. Either:
+
+**Run JupyterLab from the project.** Nothing to set up, and nothing is added to `.venv` or
+`uv.lock`:
+
+```bash
+uv run --with jupyterlab jupyter lab output/SP2613/SP2613_qa.ipynb
+```
+
+**Or use the Jupyter you already have.** Register the project's Python as a kernel, once per
+checkout:
+
+```bash
+uv run python -m ipykernel install --user --name nav-qa-processing --display-name "Python (nav-qa-processing)"
+```
+
+Then, in each notebook, choose **Kernel → Change Kernel… → Python (nav-qa-processing)**. The
+generated notebooks ask for the default `python3` kernel, so do this for each new one. It needs
+`ipykernel` from the dev group; if you move the checkout or delete `.venv`, register it again;
+`jupyter kernelspec uninstall nav-qa-processing` removes it.
+
+The notebook's paths to the fileset, the config, the theme and the output directory are
+absolute, so it doesn't matter where Jupyter starts. `--execute-notebook` runs the notebook
+with the project's Python and needs neither setup.
 
 ### Config TOML
 
@@ -266,7 +303,7 @@ water = "#e6f0f7"
 A bad setting (an unknown key, a color that isn't `#rrggbb`, a missing font or logo) stops the
 run before it reads anything, with a one-line message. QC flags are drawn in the palette's
 distinct colors (matplotlib's tab10, or Okabe–Ito with `colorblind`). Fonts must be TrueType
-(`.ttf`). The notebook that uses the theme is still to come (#39).
+(`.ttf`). The notebook re-creates the same theme, so figures re-run there match the PDF.
 
 ## R2R
 
@@ -294,7 +331,8 @@ uv run nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_g
 #### `r2r run`
 
 ```text
-nav-qa-processing r2r run [-o OUTPUT_DIR] [--force] [--theme THEME_TOML] CRUISE_TOML FILESET_DIR
+nav-qa-processing r2r run [-o OUTPUT_DIR] [--force] [--theme THEME_TOML] [--execute-notebook]
+                          CRUISE_TOML FILESET_DIR
 ```
 
 Runs the QA as `run` does, then R2R's six tests, and writes the products and the QA 2.0 XML.
@@ -306,6 +344,7 @@ Runs the QA as `run` does, then R2R's six tests, and writes the products and the
 | `-o`, `--output OUTPUT_DIR` | `output` | Directory for the products and report |
 | `--force` | off | Replace existing products |
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the cruise TOML's `[theme]` applies on top |
+| `--execute-notebook` | off | Run the notebook and save its outputs |
 
 It prints the R2R rating and each test's rating and result, then the core summary.
 
