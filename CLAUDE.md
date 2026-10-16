@@ -73,6 +73,9 @@ of Phase 3, of the plan in `docs/architecture.md`):
   bag, `r2r_qa.2.0.xml` via api/qa_info, `products/` via api/product).
 - `integrations/r2r/reports.py`: `run_r2r(fileset, config)` -> `R2RRun`; `write_r2r_reports`
   writes the three GeoCSV products (R2R's source values) and the XML, by R2R's names.
+- `theme.py`: `Theme` (page, fonts, logo, footer, `Colors` incl. status and G/Y/R rating colors,
+  `colorblind` palette), `load_theme`, `resolve_theme(theme_file, config)` (the config's
+  `[theme]` over a `--theme` file), `ThemeError`; ported from sbe-qa-processing.
 - `reports.py` (core): `report_paths`, `write_reports(result, output, source=None)`: the three
   GeoCSV products for now (PDF, figures and notebook in Phase 4).
 - `cli.py`: `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]`, and the `r2r` group (`run`,

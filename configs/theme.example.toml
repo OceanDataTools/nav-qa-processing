@@ -1,0 +1,30 @@
+# A theme for the PDF report, its figures and the notebook:
+#   nav-qa-processing run FILESET_DIR -c CONFIG_TOML --theme configs/theme.example.toml
+# A config TOML's [theme] table takes the same settings, and applies over the file's.
+# Every setting is optional; the defaults are the reports' standard look. Relative paths are
+# relative to this file.
+
+page_size = "A4"              # "letter" (default) or "A4"
+margin = 0.6                  # [in] page margins
+# font = "fonts/Inter-Regular.ttf"    # TTF for the PDF and figures; default DejaVu Sans
+# bold_font = "fonts/Inter-Bold.ttf"  # default: font, or DejaVu Sans Bold
+font_scale = 1.0              # PDF text sizes
+figure_font_scale = 1.0       # figure text sizes
+# logo = "logo.png"           # PNG or JPEG beside the report title
+# organization = "Example Oceanographic Institution"   # at the start of the footer
+# footer = ""                 # footer text; default the report title
+palette = "colorblind"        # "default" or "colorblind" (Okabe-Ito); [colors] changes single colors
+
+[colors]                      # #rrggbb; [theme.colors] in a config TOML
+# primary = "#1f5f8b"         # the good track and its values
+# secondary = "#d1495b"       # flagged fixes, limits, the expected area
+# status_pass = "#d8f0df"     # check status backgrounds: status_pass, status_warn,
+# status_warn = "#fff1bf"     #   status_fail, status_info, status_na
+# table_header = "#e3e8ef"
+# table_grid = "#9aa4b2"
+# muted_text = "#555555"      # small print
+# footer_text = "#666666"
+# land = "#ece6d6"            # maps: land, water, coast
+# water = "#dbe9f4"
+# coast = "#7a7a7a"
+# rating_green = "#2e8b57"    # R2R's rating banner: rating_green, rating_yellow, rating_red
