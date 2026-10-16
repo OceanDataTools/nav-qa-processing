@@ -414,9 +414,8 @@ src/nav_qa_processing/
     site_setup.py   site-config prompts
 ```
 
-What exists today: `quantities`, `config`, `fileset`, `formats/`, `rawnav`, `geodesy`, `qc`,
-`products`, `geocsv`, `r2rnav`, `qa`, `stats`, `network`, `readable`, and an empty
-`integrations/`. The rest is planned by phase below. Shared code (network,
+What exists today: everything above but `site_setup.py` (#50); `CLAUDE.md` lists the modules.
+The rest is planned by phase below. Shared code (network,
 readable, CLI conventions, the OpenVDM hook mechanics, the R2R XML wrapper) could later move to a
 package common to both projects; that is not a prerequisite.
 
@@ -474,11 +473,10 @@ name = "Roger Revelle"
 
 [openvdm]
 output_extra_directory = "NAV_QA"
-collection_system = "GNSS"       # where the primary GPS feed lands
 
-[nav]
-format = "nav29"
-files = "*.raw"
+[nav]                            # the GPS feed within the collection system the hook runs for
+format = "nav33"
+files = "raw/POSMV_GGA-*.txt"
 
 [provenance]
 contact_institution = "Scripps Institution of Oceanography"
@@ -704,10 +702,12 @@ Comparisons with R2R parse the numbers and map the units.
 - **PDF:** the title block, an integration's pages (R2R's certificate), the checks, statistics
   and products, QC, then the figures.
 - **Notebook:** re-runs `run_qa` step by step.
-- **OpenVDM hook** (`integrations/openvdm`): runs after the GNSS collection-system transfer and
-  writes the core reports (never R2R's) into an extra directory. Its behavior matches
-  sbe-qa-processing's hook: skip, chown and pending-checksum handling, with pyyaml as the
-  `openvdm` extra.
+- **OpenVDM hook** (`integrations/openvdm`, #49): runs after the transfer of the collection
+  system that logs the GNSS (named by the hook's `TRANSFER`; the site TOML's `[nav]` picks the
+  feed's files and format within it) and writes the core products and reports (never R2R's)
+  into an extra directory, with a `<CRUISE>_config.toml` snapshot. Its behavior matches
+  sbe-qa-processing's hook: skip, chown, MD5 summary and pending-checksum handling, with pyyaml
+  as the `openvdm` extra; the commands are named as there (`openvdm`, `config-from-openvdm`).
 - **R2R certificate** (`integrations/r2r/certificate.py`): the certificate's PDF page (R2R's
   catalog facts, the rating banner in the theme's G/Y/R color, the six tests with results and
   bounds as the XML writes them, the infos) and notebook cells (`run_r2r_tests`, the tables,

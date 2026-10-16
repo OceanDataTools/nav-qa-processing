@@ -18,6 +18,10 @@ dependencies = [
   "svglib>=1.5",
 ]
 
+[project.optional-dependencies]
+# The OpenVDM hook reads openvdm.yaml
+openvdm = ["pyyaml>=6.0"]
+
 [project.scripts]
 nav-qa-processing = "nav_qa_processing.cli:main"
 
@@ -27,6 +31,7 @@ dev = [
   "nbclient>=0.10",
   "pypdf>=5.0",
   "pytest >= 8.3",
+  "pyyaml >= 6.0",  # the openvdm extra, for its tests
   "ruff >= 0.8",
 ]
 
