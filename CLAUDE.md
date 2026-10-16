@@ -78,6 +78,14 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   the G/Y/R banner from the theme, the tests with results and bounds as the XML writes them,
   the infos), `NOTEBOOK_CELLS`, `pdf_subject`. `tests/test_r2r_certificate.py` checks it
   against the XML on the five reference filesets.
+- `integrations/openvdm/hook.py` (#49, ported from sbe-qa-processing): `SiteConfig` (the site
+  TOML: `[vessel]`, `[nav] format`/`files`, `[extent]`, `[openvdm] output_extra_directory`
+  (`NAV_QA`), `[provenance]`, `[geocsv] attribution`, `[thresholds]`, `[theme]`),
+  `load_site_config`, `site_config_to_toml`, `resolve(getCruiseConfig, site, transfer, vessel)`
+  -> `HookRun` (the `QAConfig`, directories, owner, extent and vessel sources, notes),
+  `cruise_toml`, `has_nav_changes` (`--changed-files` against `[nav] files`),
+  `queue_md5_update`, `chown_tree`; pyyaml only in `load_openvdm_yaml`. The `openvdm` and
+  `config-from-openvdm` commands (`tests/test_openvdm.py`, a stand-in API).
 - `integrations/r2r/reports.py`: `run_r2r(fileset, config)` -> `R2RRun`; `write_r2r_reports`
   writes the core reports with R2R's source values and certificate (`notebook_extras`), then
   the XML, by R2R's names. `config.loads_cruise_config` reads a cruise TOML's text (for a

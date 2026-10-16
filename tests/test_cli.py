@@ -41,6 +41,8 @@ def test_every_argument_is_documented():
         "formats",
         "run",
         "fetch-map-data",
+        "openvdm",
+        "config-from-openvdm",
         "r2r",
         "r2r run",
         "r2r config-from-catalog",

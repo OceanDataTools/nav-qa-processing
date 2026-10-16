@@ -7,7 +7,12 @@ Conventions shared by every command:
   work or asks any server.
 - Fileset IDs are integers. ``fileset`` alone never means an ID: the directory is FILESET_DIR.
 - Arguments that take a value have an uppercase metavar, and every default is in the help.
-- An integration's commands are a group named after it (``r2r ...``).
+- An integration's commands are a group named after it (``r2r ...``), except OpenVDM's
+  (``openvdm``, ``config-from-openvdm``), which are named as in sbe-qa-processing so a ship's
+  ``openvdm.yaml`` calls both tools alike. The hook's arguments are called from installed
+  ``openvdm.yaml`` files, so they keep their names. In ``openvdm`` mode every error, expected or
+  not, is one line on stderr, because OpenVDM displays it; the hook replaces earlier reports
+  without ``--force``.
 - ``-v/--verbose``, before or after the command, logs more: ``-v`` is INFO and ``-vv`` DEBUG
   (default WARNING), for the ``nav_qa_processing`` loggers. Expected errors (a server that can't
   be reached, R2R not having what was asked for, a config that can't run the QA, a bad theme)
@@ -23,9 +28,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nav_qa_processing import __version__
+from nav_qa_processing.integrations.openvdm.hook import DEFAULT_OPENVDM_CONFIG, OpenVDMError
 from nav_qa_processing.network import NetworkError
 
 STDOUT = "-"
+logger = logging.getLogger(__name__)
 LOG_LEVELS = (logging.WARNING, logging.INFO, logging.DEBUG)  # by the number of -v
 
 
@@ -35,7 +42,7 @@ def _expected_errors() -> tuple[type[Exception], ...]:
     from nav_qa_processing.qa import ConfigError
     from nav_qa_processing.theme import ThemeError
 
-    return (NetworkError, R2RError, ConfigError, ThemeError)
+    return (NetworkError, R2RError, OpenVDMError, ConfigError, ThemeError)
 
 
 def _refuse_overwrite(path: Path, force: bool) -> bool:
@@ -137,6 +144,99 @@ def _formats(args: argparse.Namespace) -> int:
         return 1
     print(catalog.describe(definition), end="")
     return 0
+
+
+def _resolve_openvdm(args: argparse.Namespace, site=None):
+    """The current cruise's HookRun from OpenVDM and the site config, and OpenVDM's web root"""
+    from nav_qa_processing.integrations.openvdm import hook as openvdm
+
+    if args.site_root:
+        # No openvdm.yaml: resolve reads the vessel block from the cruise's ovdmConfig.json
+        site_root, vessel = args.site_root, None
+    else:
+        settings = openvdm.load_openvdm_yaml(args.openvdm_config)
+        site_root = openvdm.site_root_from_config(settings)
+        vessel = openvdm.vessel_settings(settings.get("vessel"), "openvdm.yaml")
+    cruise_config = openvdm.fetch_cruise_config(site_root)
+    site = site or openvdm.load_site_config(args.site_config)
+    return openvdm.resolve(cruise_config, site, args.transfer, vessel), site_root
+
+
+def _sources(run) -> str:
+    return f"cruise extent from {run.extent_source}, vessel settings from {run.vessel_source}"
+
+
+def _openvdm(args: argparse.Namespace) -> int:
+    from nav_qa_processing import reports
+    from nav_qa_processing.integrations.openvdm import hook as openvdm
+    from nav_qa_processing.qa import run_qa
+    from nav_qa_processing.theme import resolve_theme
+
+    site = openvdm.load_site_config(args.site_config)
+    if args.changed_files is not None and not openvdm.has_nav_changes(
+        args.changed_files, site.nav_files
+    ):
+        print(f"{args.transfer}: no new or updated nav files; nothing to do")
+        return 0
+    run, site_root = _resolve_openvdm(args, site)
+    if not run.config.nav_format:
+        raise OpenVDMError(
+            "no nav format: set [nav] format in the site config (--site-config); "
+            "`nav-qa-processing formats` lists them"
+        )
+    if not run.fileset_dir.is_dir():
+        print(f"{run.fileset_dir} doesn't exist yet; nothing to do")
+        return 0
+
+    print(f"{run.config.cruise_id}: {run.fileset_dir} -> {run.output_dir} ({_sources(run)})")
+    for note in run.notes:
+        print(f"  note: {note}")
+    theme = resolve_theme(args.theme, run.config)  # a bad theme fails before the run
+    run.output_dir.mkdir(parents=True, exist_ok=True)
+    # Snapshot what OpenVDM supplied, so the notebook can re-run exactly this assessment
+    snapshot = run.output_dir / f"{run.config.cruise_id}_config.toml"
+    snapshot.write_text(openvdm.cruise_toml(run, site_root))
+    result = run_qa(run.fileset_dir, snapshot)
+    print(result)
+    written = [
+        snapshot,
+        *reports.write_reports(
+            result,
+            run.output_dir,
+            theme=theme,
+            theme_file=args.theme,
+            execute_notebook=args.execute_notebook,
+        ),
+    ]
+    openvdm.chown_tree(run.output_dir, run.owner)
+    _print_written(written)
+    _queue_md5_update(args, run, written)
+    return 0
+
+
+def _queue_md5_update(args: argparse.Namespace, run, written: list[Path]) -> None:
+    """Adds the reports to OpenVDM's MD5 summary. The QA itself succeeded, so a failure here
+    is a warning, not a failed hook
+    """
+    from nav_qa_processing.integrations.openvdm import hook as openvdm
+
+    # With --site-root there's no openvdm.yaml to find OpenVDM by; try the default install
+    openvdm_yaml = DEFAULT_OPENVDM_CONFIG if args.site_root else args.openvdm_config
+    problem = openvdm.queue_md5_update(openvdm.openvdm_install_dir(openvdm_yaml), run, written)
+    if problem:
+        logger.warning("the reports aren't in OpenVDM's MD5 summary: %s", problem)
+    else:
+        print(f"queued an MD5 summary update for the reports in {run.output_dir}")
+
+
+def _config_from_openvdm(args: argparse.Namespace) -> int:
+    from nav_qa_processing.integrations.openvdm import hook as openvdm
+
+    run, site_root = _resolve_openvdm(args)
+    print(f"{run.config.cruise_id}: {_sources(run)}", file=sys.stderr)
+    for note in run.notes:
+        print(f"  note: {note}", file=sys.stderr)
+    return _write_cruise_toml(openvdm.cruise_toml(run, site_root), run.config.cruise_id, args)
 
 
 def _r2r_run(args: argparse.Namespace) -> int:
@@ -247,6 +347,95 @@ def _add_cruise_toml_output(parser: argparse.ArgumentParser) -> None:
         help="directory for <CRUISE_ID>_<FILESET_ID>.toml, or - for stdout (default %(default)s)",
     )
     parser.add_argument("--force", action="store_true", help="overwrite an existing cruise TOML")
+
+
+def _add_openvdm_arguments(parser: argparse.ArgumentParser) -> None:
+    """Where to find OpenVDM and the site config, shared by the hook and config-from-openvdm"""
+    parser.add_argument(
+        "transfer",
+        metavar="TRANSFER",
+        help="collection system transfer name, e.g. {collectionSystemTransferName}",
+    )
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument(
+        "--openvdm-config",
+        metavar="OPENVDM_YAML",
+        type=Path,
+        default=DEFAULT_OPENVDM_CONFIG,
+        help="openvdm.yaml, for OpenVDM's siteRoot and vessel settings (default %(default)s)",
+    )
+    source.add_argument(
+        "--site-root",
+        metavar="URL",
+        help=(
+            "OpenVDM's web root URL, instead of --openvdm-config; the vessel settings then come "
+            "from the cruise's ovdmConfig.json"
+        ),
+    )
+    parser.add_argument(
+        "--site-config",
+        metavar="SITE_TOML",
+        type=Path,
+        help="per-ship TOML: the [nav] format and files, vessel, extent, ...",
+    )
+
+
+def _add_openvdm_commands(commands) -> None:
+    hook = commands.add_parser(
+        "openvdm",
+        help="assess the current cruise's GNSS feed from an OpenVDM post-transfer hook",
+        description=(
+            "Reads the current cruise from OpenVDM's API, assesses the collection system "
+            "transfer's nav files ([nav] in the site config), and writes the products and "
+            "reports into an OpenVDM extra directory, replacing earlier ones."
+        ),
+    )
+    _add_openvdm_arguments(hook)
+    hook.add_argument(
+        "--changed-files",
+        action="append",
+        metavar="FILES",
+        help=(
+            "OpenVDM's {newFiles}/{updatedFiles}; repeatable. When given, the QA only runs if "
+            "they include nav files ([nav] files). Use the --changed-files={newFiles} form, so "
+            "an empty list isn't dropped"
+        ),
+    )
+    hook.add_argument(
+        "--theme",
+        metavar="THEME_TOML",
+        type=Path,
+        help="theme file for the PDF, figures and notebook; the site config's [theme] applies on top",
+    )
+    hook.add_argument(
+        "--execute-notebook",
+        action="store_true",
+        help="run the notebook and save its outputs (needs nbclient and ipykernel)",
+    )
+    hook.set_defaults(handler=_openvdm)
+
+    from_openvdm = commands.add_parser(
+        "config-from-openvdm",
+        help="make a config TOML from OpenVDM's current cruise, without running the QA",
+        description=(
+            "Merges OpenVDM's current cruise with the site config, as the openvdm hook does, "
+            "and writes the config TOML for review and `run -c`. Reports what's missing or "
+            "assumed."
+        ),
+    )
+    _add_openvdm_arguments(from_openvdm)
+    from_openvdm.add_argument(
+        "-o",
+        "--output",
+        metavar="OUTPUT_DIR",
+        type=Path,
+        default=Path("configs"),
+        help="directory for <CRUISE_ID>.toml, or - for stdout (default %(default)s)",
+    )
+    from_openvdm.add_argument(
+        "--force", action="store_true", help="overwrite an existing config TOML"
+    )
+    from_openvdm.set_defaults(handler=_config_from_openvdm)
 
 
 def _add_r2r_commands(commands) -> None:
@@ -406,6 +595,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     maps.set_defaults(handler=_fetch_map_data)
 
+    _add_openvdm_commands(commands)
     _add_r2r_commands(commands)
     _add_verbose(parser)
     return parser
@@ -450,10 +640,14 @@ def main(argv: list[str] | None = None) -> int:
     matplotlib.use("Agg")
     try:
         return args.handler(args)
-    except _expected_errors() as error:
+    except Exception as error:
+        hook = args.command == "openvdm"  # OpenVDM shows the hook's failure message
+        if not hook and not isinstance(error, _expected_errors()):
+            raise
         if level <= logging.DEBUG:
             traceback.print_exc()
-        print(f"nav-qa-processing: {error}", file=sys.stderr)
+        message = f"{type(error).__name__}: {error}" if hook else str(error)
+        print(f"nav-qa-processing: {message}", file=sys.stderr)
         return 1
 
 

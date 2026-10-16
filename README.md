@@ -532,6 +532,149 @@ that need one skip without it and name the command.
 | RR2212 / 151339 (Revelle) | R: out of sequence 50.08 %, files processed out of order | G |
 | SP2220 / 150139 (Sproul) | R: no fix for most of the cruise | R: bad quality 82.61 %, completeness, gap |
 
+## OpenVDM
+
+[OpenVDM](https://github.com/OceanDataTools/openvdm) can run the QA after each transfer of the
+collection system that logs the ship's GNSS, as a `postCollectionSystemTransfer` hook. It writes
+the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
+
+- **From OpenVDM's API** (`api/warehouse/getCruiseConfig`): the cruise ID, name, PI, location
+  and dates, the cruise extent, the warehouse directory, the transfer's destination, the extra
+  directories and the MD5 summary.
+- **The vessel's name and contact:** from OpenVDM 2.17, the `vessel` block of `openvdm.yaml`.
+  With `--site-root` instead of `--openvdm-config`, they come from the copy in the cruise's
+  `ovdmConfig.json`.
+- **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the primary
+  GNSS feed, or their format, so the ship's site TOML says (`[nav] format` and `files`).
+
+1. **Install** this project with the `openvdm` extra (pyyaml, to read `openvdm.yaml`) somewhere
+   OpenVDM's worker can run it. It has its own environment, not OpenVDM's venv. Fetch the map
+   data too:
+
+   ```bash
+   sudo mkdir -p /opt/nav-qa-processing && sudo chown "$USER": /opt/nav-qa-processing
+   git clone https://github.com/OceanDataTools/nav-qa-processing.git /opt/nav-qa-processing
+   cd /opt/nav-qa-processing
+   uv sync --no-dev --extra openvdm --no-managed-python      # a system Python 3.11+
+   sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing fetch-map-data
+   ```
+
+   Run `fetch-map-data` as the user OpenVDM's transfer workers run as, since cartopy caches the
+   maps in that user's home. Leave out `--no-dev` to use the hook's `--execute-notebook`.
+2. **Add an extra directory** for the reports in OpenVDM (Configuration > Extra Directories).
+   It's named `NAV_QA` by default, e.g. with destination `Products/NAV_QA`.
+3. **Write the ship's site TOML**, starting from `configs/site.example.toml`. The essentials
+   are the GNSS feed's format and a glob of its files within the collection system:
+
+   ```toml
+   [nav]
+   format = "nav33"                 # nav-qa-processing formats
+   files = "raw/POSMV_GGA-*.txt"    # within the collection system's directory
+   ```
+
+   [Site TOML](#site-toml) lists every key.
+4. **Add the hook** to OpenVDM's `openvdm.yaml` (`/opt/openvdm/server/etc/openvdm.yaml` by
+   default), under the collection system that logs the GNSS:
+
+```yaml
+postHookCommands:
+    postCollectionSystemTransfer:
+        - collectionSystemTransferName: OpenRVDAS
+          commandList:
+          - name: "Navigation QA"
+            command:
+            - /opt/nav-qa-processing/.venv/bin/nav-qa-processing
+            - openvdm
+            - "{collectionSystemTransferName}"
+            - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"  # <INSTALL_ROOT>/openvdm/...
+            - "--site-config=/opt/nav-qa-processing/configs/site.toml"
+            - "--changed-files={newFiles}"
+            - "--changed-files={updatedFiles}"
+```
+
+The hook:
+- **skips** transfers whose new or updated files include none matching `[nav] files`. Use the
+  `--changed-files={newFiles}` form, so an empty list isn't dropped;
+- reads the cruise's nav files from the transfer's directory, within OpenVDM's cruise dates (an
+  open-ended cruise ends today, UTC);
+- **writes into the extra directory**, replacing earlier ones: the three GeoCSV products, the
+  plots, the PDF and the notebook, and `<CRUISE>_config.toml`, a snapshot of what OpenVDM and the
+  site TOML supplied, which the notebook re-runs from. Run as root, it gives them to the
+  warehouse user;
+- **adds those files to the cruise's MD5 summary**, with OpenVDM's
+  `utils/update_md5_summary.py` (OpenVDM 2.16.1 or later). If that fails, the hook logs a
+  warning and still succeeds;
+- **checks the nav files' checksums** against OpenVDM's MD5 summary. Files changed after the
+  summary was written count as pending, not failures;
+- **checks the fixes against an expected area:** OpenVDM's `cruiseExtent` (OpenVDM 2.17), else
+  the site TOML's `[extent]`; without either, the area check is n/a (#1 will have the hook set
+  `cruiseExtent` from the quality-checked fixes instead);
+- exits non-zero with a one-line message on failure, which OpenVDM shows.
+
+### OpenVDM commands
+
+#### `openvdm`
+
+```text
+nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
+                          [--site-config SITE_TOML] [--changed-files FILES]
+                          [--theme THEME_TOML] [--execute-notebook] TRANSFER
+```
+
+The post-transfer hook: assesses the collection system transfer's nav files for OpenVDM's
+current cruise, and writes the products and reports into an OpenVDM extra directory, replacing
+earlier ones. Installed `openvdm.yaml` files call it, so its arguments keep their names; they're
+named as in sbe-qa-processing's hook.
+
+| Argument | Default | Description |
+|---|---|---|
+| `TRANSFER` | required | The collection system transfer's name; in a hook, `{collectionSystemTransferName}` |
+| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml` | OpenVDM's settings: its web root (`siteRoot`) and, from OpenVDM 2.17, the `vessel` block. Needs the `openvdm` extra |
+| `--site-root URL` | none | OpenVDM's web root, instead of `--openvdm-config`. The vessel block then comes from the cruise's `ovdmConfig.json` |
+| `--site-config SITE_TOML` | none | The ship's [site TOML](#site-toml); the hook needs its `[nav] format` |
+| `--changed-files FILES` | none | OpenVDM's `{newFiles}` and `{updatedFiles}`; repeatable. When given, the QA runs only if they include nav files (`[nav] files`, or any file without it) |
+| `--theme THEME_TOML` | none | A [theme](#themes) file; the site TOML's `[theme]` applies on top |
+| `--execute-notebook` | off | Run the notebook and save its outputs |
+
+#### `config-from-openvdm`
+
+```text
+nav-qa-processing config-from-openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
+                                      [--site-config SITE_TOML] [-o OUTPUT_DIR] [--force]
+                                      TRANSFER
+```
+
+Builds the config TOML the hook would use, from OpenVDM's current cruise and the site TOML,
+without running the QA, and reports what's missing or assumed. `TRANSFER`, `--openvdm-config`,
+`--site-root` and `--site-config` are as for `openvdm`. To review it, or run the QA by hand:
+
+```bash
+uv run nav-qa-processing config-from-openvdm OpenRVDAS --site-config configs/site.toml  # configs/<CRUISE>.toml
+uv run nav-qa-processing run /path/to/cruise/OpenRVDAS -c configs/<CRUISE>.toml -o output/<CRUISE>
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `-o`, `--output OUTPUT_DIR` | `configs` | Directory for `<CRUISE_ID>.toml`, or `-` for stdout |
+| `--force` | off | Replace an existing TOML |
+
+### Site TOML
+
+The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
+`configs/site.example.toml` shows every key.
+
+| Table | Key | Default | Description |
+|---|---|---|---|
+| `[vessel]` | `name` | blank | The vessel's name, for the report header. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.name` wins |
+| `[nav]` | `format` | required | The GNSS feed's format ID (`nav-qa-processing formats`), e.g. `nav33` for OpenRVDAS's ISO timestamp + GGA |
+| `[nav]` | `files` | every file | A glob of the GNSS feed's files within the collection system's directory, e.g. `raw/POSMV_GGA-*.txt`. Also what `--changed-files` is matched against |
+| `[extent]` | `westernmost`, `easternmost`, `southernmost`, `northernmost` | none | The expected cruise area, used when OpenVDM has no `cruiseExtent`. westernmost > easternmost crosses the antimeridian |
+| `[openvdm]` | `output_extra_directory` | `NAV_QA` | The OpenVDM extra directory the reports go into |
+| `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.contact` wins |
+| `[geocsv]` | `attribution` | blank | The GeoCSV products' attribution |
+| `[thresholds]` | as in a [config TOML](#config-toml) | defaults | QC and QA limits |
+| `[theme]` | as in a [config TOML](#config-toml) | none | The reports' look; paths relative to the site TOML |
+
 ## Development
 
 ```bash
