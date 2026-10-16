@@ -34,6 +34,9 @@ A config TOML looks like (see "Configuration TOMLs" in docs/architecture.md)::
     [thresholds]                  # overrides of Thresholds
     max_accel = 1.0
 
+    [theme]                       # the reports' look (theme.py); over a --theme file
+    page_size = "A4"
+
 Tables and keys only the integrations use (R2R's IDs and ports, the site TOML's [openvdm]) are
 ignored. Threshold defaults are NavManager's (`include/globals.inc.php`, `navtools.inc.php`,
 `navqc.inc.php`) except where noted.
@@ -176,6 +179,8 @@ class QAConfig(Readable):
     # with paths relative to the manifest's directory. A BagIt bag uses its own manifest-md5.txt
     manifest_path: Path | None = None
     thresholds: Thresholds = field(default_factory=Thresholds)
+    # The [theme] table, checked and with absolute paths (theme.py); applied over a --theme file
+    theme: dict = field(default_factory=dict)
 
     @property
     def identifier(self) -> str:
@@ -207,6 +212,8 @@ def thresholds_from_table(table: dict) -> Thresholds:
 
 def load_config(path: Path | str) -> QAConfig:
     """A config TOML. Tables and keys only the integrations use are ignored"""
+    from nav_qa_processing.theme import theme_table  # theme.py imports this module
+
     with open(path, "rb") as file:
         data = tomllib.load(file)
     cruise = data.get("cruise", {})
@@ -232,11 +239,14 @@ def load_config(path: Path | str) -> QAConfig:
         nav_files=nav.get("files", ""),
         manifest_path=(Path(path).parent / manifest).resolve() if manifest else None,
         thresholds=thresholds_from_table(data.get("thresholds", {})),
+        theme=theme_table(data.get("theme", {}), Path(path).parent, str(path)),
     )
 
 
 def config_to_toml(config: QAConfig) -> str:
     """The config as TOML that load_config reads back, e.g. to snapshot what a run used"""
+    from nav_qa_processing.theme import theme_toml  # theme.py imports this module
+
     cruise = {
         "id": config.cruise_id,
         "name": config.cruise_name,
@@ -267,6 +277,7 @@ def config_to_toml(config: QAConfig) -> str:
     lines += _table("provenance", provenance)
     lines += _table("geocsv", {"attribution": config.attribution})
     lines += thresholds_toml(config.thresholds)
+    lines += theme_toml(config.theme)
     return "\n".join(lines) + "\n"
 
 

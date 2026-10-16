@@ -10,8 +10,8 @@ Conventions shared by every command:
 - An integration's commands are a group named after it (``r2r ...``).
 - ``-v/--verbose``, before or after the command, logs more: ``-v`` is INFO and ``-vv`` DEBUG
   (default WARNING), for the ``nav_qa_processing`` loggers. Expected errors (a server that can't
-  be reached, R2R not having what was asked for, a config that can't run the QA) are one line
-  on stderr and exit 1; ``-vv`` adds their traceback.
+  be reached, R2R not having what was asked for, a config that can't run the QA, a bad theme)
+  are one line on stderr and exit 1; ``-vv`` adds their traceback.
 """
 
 import argparse
@@ -33,8 +33,9 @@ def _expected_errors() -> tuple[type[Exception], ...]:
     """Errors that are a one-line message, not a traceback: the user can act on them"""
     from nav_qa_processing.integrations.r2r.catalog import R2RError
     from nav_qa_processing.qa import ConfigError
+    from nav_qa_processing.theme import ThemeError
 
-    return (NetworkError, R2RError, ConfigError)
+    return (NetworkError, R2RError, ConfigError, ThemeError)
 
 
 def _refuse_overwrite(path: Path, force: bool) -> bool:
@@ -77,6 +78,7 @@ def _print_written(written: list[Path]) -> None:
 def _run(args: argparse.Namespace) -> int:
     from nav_qa_processing import reports
     from nav_qa_processing.qa import resolve_config, run_qa
+    from nav_qa_processing.theme import resolve_theme
 
     config = resolve_config(args.config, args.fileset_dir)
     if args.format:
@@ -88,13 +90,14 @@ def _run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    theme = resolve_theme(args.theme, config)  # a bad theme fails before the run
     paths = reports.report_paths(args.output, config.cruise_id)
     if _refuse_existing_reports(paths.values(), args.force):
         return 1
     result = run_qa(args.fileset_dir, config)
     result.config_path = args.config
     print(result)
-    _print_written(reports.write_reports(result, args.output))
+    _print_written(reports.write_reports(result, args.output, theme=theme))
     return 0
 
 
@@ -124,15 +127,17 @@ def _r2r_run(args: argparse.Namespace) -> int:
     from nav_qa_processing import reports
     from nav_qa_processing.integrations.r2r.config import load_cruise_config
     from nav_qa_processing.integrations.r2r.reports import run_r2r, write_r2r_reports
+    from nav_qa_processing.theme import resolve_theme
 
     # The XML's name has the run's time, so only the products can already exist
-    cruise_id = load_cruise_config(args.cruise_toml).cruise_id
-    paths = reports.report_paths(args.output, cruise_id)
+    config = load_cruise_config(args.cruise_toml)
+    theme = resolve_theme(args.theme, config)  # a bad theme fails before the run
+    paths = reports.report_paths(args.output, config.cruise_id)
     if _refuse_existing_reports(paths.values(), args.force):
         return 1
     run = run_r2r(args.fileset_dir, args.cruise_toml)
     print(run)
-    _print_written(write_r2r_reports(run, args.output))
+    _print_written(write_r2r_reports(run, args.output, theme))
     return 0
 
 
@@ -389,6 +394,12 @@ def _add_report_output(parser: argparse.ArgumentParser) -> None:
         help="directory for the products and reports (default %(default)s)",
     )
     parser.add_argument("--force", action="store_true", help="overwrite existing reports")
+    parser.add_argument(
+        "--theme",
+        metavar="THEME_TOML",
+        type=Path,
+        help="theme file for the PDF, figures and notebook; the config's [theme] applies on top",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

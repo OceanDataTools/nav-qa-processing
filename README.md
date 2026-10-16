@@ -66,7 +66,7 @@ Every command follows these conventions:
 - Fileset IDs are integers.
 - A command exits 0 on success and 1 when it refuses (e.g. existing outputs) or fails with an
   expected error (a server that can't be reached, R2R not having what was asked for, a config
-  that can't run the QA), with a one-line message on stderr, e.g.
+  that can't run the QA, a bad theme), with a one-line message on stderr, e.g.
   `nav-qa-processing: couldn't reach R2R (service.rvdata.us): ... Check the network connection and try again`.
 - `-v`/`--verbose`, before or after the command, logs more: `-v` is INFO and `-vv` is DEBUG
   (default WARNING). `-vv` also prints the traceback of an expected error.
@@ -88,7 +88,8 @@ Without `ID`, lists R2R's raw navigation format IDs (`nav1` … `nav33`, `uhdas`
 #### `run`
 
 ```text
-nav-qa-processing run [-c CONFIG_TOML] [-f FORMAT_ID] [-o OUTPUT_DIR] [--force] FILESET_DIR
+nav-qa-processing run [-c CONFIG_TOML] [-f FORMAT_ID] [-o OUTPUT_DIR] [--force]
+                      [--theme THEME_TOML] FILESET_DIR
 ```
 
 Reads the fileset's primary GNSS feed, flags bad fixes, computes the QA statistics and checks,
@@ -101,6 +102,7 @@ and writes the three products.
 | `-f`, `--format FORMAT_ID` | the config's `[nav] format` | The GNSS files' format (see `formats`). Needed when the config doesn't set it |
 | `-o`, `--output OUTPUT_DIR` | `output` | Directory for the products, created if needed |
 | `--force` | off | Replace existing products; without it, `run` stops if any of them exists |
+| `--theme THEME_TOML` | none | A [theme](#themes) file for the PDF, figures and notebook; the config's `[theme]` applies on top |
 
 It writes `<CRUISE>_bestres.geoCSV`, `<CRUISE>_1min.geoCSV` and `<CRUISE>_control.geoCSV`,
 where `<CRUISE>` is the config's `[cruise] id`, or the fileset directory's name. It prints a
@@ -160,6 +162,7 @@ max_accel = 1.0
 | `[provenance]` | `contact_institution`, `contact_email` | The reports' contact |
 | `[geocsv]` | `attribution` | GeoCSV `attribution` |
 | `[thresholds]` | see below | QC and the QA checks |
+| `[theme]` | see [Themes](#themes) | The PDF, figures and notebook |
 
 `[thresholds]`, with their defaults:
 
@@ -188,10 +191,49 @@ max_accel = 1.0
 The QC rules are described in `src/nav_qa_processing/qc.py`.
 
 Parsing rules:
-- An unknown key in `[thresholds]` is an error, so a typo doesn't go unnoticed.
+- An unknown key in `[thresholds]` or `[theme]` is an error, so a typo doesn't go unnoticed.
 - Other tables and keys are ignored, so an [R2R cruise TOML](#r2r-cruise-toml) works as a config
   too.
-- `[fileset] manifest` is relative to the TOML file; `[nav] files` to the fileset.
+- `[fileset] manifest` and theme fonts and logo are relative to the TOML file; `[nav] files` to
+  the fileset.
+
+### Themes
+
+The PDF, its figures and the notebook can take a house style: page size and margins, fonts,
+text sizes, colors, a logo and the footer. Pass a theme file with `--theme` (`run` and `r2r
+run`), or set a `[theme]` table in the config, which applies over the file's settings.
+`configs/theme.example.toml` shows every setting:
+
+```bash
+uv run nav-qa-processing run path/to/fileset -c my_config.toml --theme configs/theme.example.toml
+```
+
+```toml
+[theme]                     # in a config TOML
+page_size = "A4"
+logo = "logo.png"           # relative to the TOML file
+organization = "Example Oceanographic Institution"
+palette = "colorblind"      # Okabe-Ito colors, distinct with common color vision deficiencies
+
+[theme.colors]
+water = "#e6f0f7"
+```
+
+| Key | Default | Description |
+|---|---|---|
+| `page_size` | `letter` | `letter` or `A4` |
+| `margin` | `0.6` [in] | Page margins |
+| `font`, `bold_font` | DejaVu Sans | TrueType (`.ttf`) fonts for the PDF and figures |
+| `font_scale`, `figure_font_scale` | `1.0` | Text sizes in the PDF and in the figures |
+| `logo` | none | PNG or JPEG beside the report title |
+| `organization` | none | At the start of the footer |
+| `footer` | the report title | Footer text |
+| `palette` | `default` | `default` or `colorblind` (Okabe-Ito); `[colors]` then changes single colors |
+| `[colors]` | the palette's | `#rrggbb` colors: `primary` (the good track), `secondary` (flagged fixes, limits, the expected area), `status_pass`, `status_warn`, `status_fail`, `status_info`, `status_na`, `table_header`, `table_grid`, `muted_text`, `footer_text`, `land`, `water`, `coast`, `rating_green`, `rating_yellow`, `rating_red` |
+
+A bad setting (an unknown key, a color that isn't `#rrggbb`, a missing font or logo) stops the
+run before it reads anything, with a one-line message. The PDF, figures and notebook that use
+the theme are still to come (#37–#39).
 
 ## R2R
 
@@ -219,7 +261,7 @@ uv run nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_g
 #### `r2r run`
 
 ```text
-nav-qa-processing r2r run [-o OUTPUT_DIR] [--force] CRUISE_TOML FILESET_DIR
+nav-qa-processing r2r run [-o OUTPUT_DIR] [--force] [--theme THEME_TOML] CRUISE_TOML FILESET_DIR
 ```
 
 Runs the QA as `run` does, then R2R's six tests, and writes the products and the QA 2.0 XML.
@@ -230,6 +272,7 @@ Runs the QA as `run` does, then R2R's six tests, and writes the products and the
 | `FILESET_DIR` | required | A BagIt bag or directory of GNSS files, as for `run` |
 | `-o`, `--output OUTPUT_DIR` | `output` | Directory for the products and report |
 | `--force` | off | Replace existing products |
+| `--theme THEME_TOML` | none | A [theme](#themes) file; the cruise TOML's `[theme]` applies on top |
 
 It prints the R2R rating and each test's rating and result, then the core summary.
 

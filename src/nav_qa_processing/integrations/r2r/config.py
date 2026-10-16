@@ -52,6 +52,7 @@ from nav_qa_processing.config import (
     thresholds_toml,
     toml_value,
 )
+from nav_qa_processing.theme import theme_toml
 
 
 @dataclass
@@ -193,6 +194,7 @@ def config_to_toml(config: CruiseConfig) -> str:
     if config.attribution:
         lines += ["", "[geocsv]", f"attribution = {toml_value(config.attribution)}"]
     lines += thresholds_toml(config.thresholds)
+    lines += theme_toml(config.theme)
     return "\n".join(lines) + "\n"
 
 
