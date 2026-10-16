@@ -1,6 +1,6 @@
 """Runs the QA for R2R: the core QA with a cruise config, then R2R's tests; and writes what R2R
-publishes: the core reports (the three GeoCSV products) with R2R's source values, and the QA
-2.0 XML.
+publishes, the three GeoCSV products with R2R's source values and the QA 2.0 XML, with the core
+reports (figures, PDF, notebook) carrying R2R's certificate.
 """
 
 from dataclasses import dataclass, replace
@@ -9,9 +9,15 @@ from pathlib import Path
 from nav_qa_processing import geocsv, reports
 from nav_qa_processing.fileset import Fileset
 from nav_qa_processing.integrations.r2r.catalog import R2R_REPOSITORY
-from nav_qa_processing.integrations.r2r.config import CruiseConfig, load_cruise_config
+from nav_qa_processing.integrations.r2r.certificate import NOTEBOOK_CELLS, certificate, pdf_subject
+from nav_qa_processing.integrations.r2r.config import (
+    CruiseConfig,
+    config_to_toml,
+    load_cruise_config,
+)
 from nav_qa_processing.integrations.r2r.rules import R2RResult, run_r2r_tests
 from nav_qa_processing.integrations.r2r.xml_report import qa_xml_name, write_qa_xml
+from nav_qa_processing.notebook import NotebookExtras
 from nav_qa_processing.qa import NavQAResult, run_qa
 from nav_qa_processing.readable import Readable
 from nav_qa_processing.theme import Theme
@@ -25,11 +31,15 @@ class R2RRun(Readable):
 
     @property
     def source(self) -> geocsv.Source:
-        """The GeoCSV source values, with R2R as the repository"""
-        return replace(self.result.source, repository=R2R_REPOSITORY)
+        return r2r_source(self.result)
 
     def __str__(self) -> str:
         return "\n".join([str(self.r2r), str(self.result)])
+
+
+def r2r_source(result: NavQAResult) -> geocsv.Source:
+    """The GeoCSV source values, with R2R as the repository"""
+    return replace(result.source, repository=R2R_REPOSITORY)
 
 
 def run_r2r(fileset: Fileset | Path | str, config: CruiseConfig | Path | str) -> R2RRun:
@@ -50,6 +60,41 @@ def report_paths(run: R2RRun, output: Path) -> dict[str, Path]:
     }
 
 
+PACKAGE = "nav_qa_processing.integrations.r2r"
+
+
+def notebook_extras(run: R2RRun) -> NotebookExtras:
+    """The notebook re-runs R2R's tests and writes the reports as write_r2r_reports does"""
+    config = run.result.config
+    return NotebookExtras(
+        heading=f" fileset {config.fileset_id}" if config.fileset_id else "",
+        reports=" and R2R QA 2.0 XML",
+        checks=", then R2R's six tests",
+        imports=(
+            f"from {PACKAGE}.certificate import bound_text, certificate, pdf_subject, "
+            "result_text\n"
+            f"from {PACKAGE}.config import load_cruise_config, loads_cruise_config\n"
+            f"from {PACKAGE}.reports import r2r_source\n"
+            f"from {PACKAGE}.rules import run_r2r_tests\n"
+            f"from {PACKAGE}.xml_report import qa_xml_name, write_qa_xml\n"
+        ),
+        load_config="load_cruise_config",
+        config_toml=config_to_toml(config),
+        loads_config="loads_cruise_config",
+        after_run="\nr2r = run_r2r_tests(result.stats)\nprint(r2r)",
+        cells=list(NOTEBOOK_CELLS),
+        report_arguments=(
+            ",\n    source=r2r_source(result),\n"
+            "    pdf_front=certificate(result, r2r),\n"
+            "    pdf_subject=pdf_subject(r2r),"
+        ),
+        write=(
+            "print(write_qa_xml(result, r2r, OUTPUT_DIR / qa_xml_name(result.config, "
+            "result.finished)))\n"
+        ),
+    )
+
+
 def write_r2r_reports(
     run: R2RRun,
     output: Path,
@@ -57,14 +102,17 @@ def write_r2r_reports(
     theme_file: Path | None = None,
     execute_notebook: bool = False,
 ) -> list[Path]:
-    """The core reports with R2R's source values, then the QA 2.0 XML"""
+    """The core reports with R2R's source values and certificate, then the QA 2.0 XML"""
     written = reports.write_reports(
         run.result,
         output,
         run.source,
         theme,
+        pdf_front=certificate(run.result, run.r2r),
+        pdf_subject=pdf_subject(run.r2r),
         theme_file=theme_file,
         execute_notebook=execute_notebook,
+        notebook_extras=notebook_extras(run),
     )
     written.append(write_qa_xml(run.result, run.r2r, report_paths(run, output)["xml"]))
     return written

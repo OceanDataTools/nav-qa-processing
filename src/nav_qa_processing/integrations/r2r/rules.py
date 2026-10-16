@@ -31,7 +31,7 @@ How the ratings are reached (docs/navmanager-differences.md, A7):
 from dataclasses import dataclass
 
 from nav_qa_processing import quantities as q
-from nav_qa_processing.readable import Readable, block
+from nav_qa_processing.readable import Readable, block, plural
 from nav_qa_processing.stats import NavStats
 
 GREEN, YELLOW, RED = "G", "Y", "R"
@@ -179,7 +179,7 @@ def run_r2r_tests(stats: NavStats) -> R2RResult:
             s.longest_gap,
             LONGEST_GAP_BOUNDS,
             q.DURATION,
-            f"{s.gaps} gaps of the gap threshold or longer",
+            f"{plural(s.gaps, 'gap')} of the gap threshold or longer",
         ),
         at_most(
             "PercentRecordsOutOfSequence",

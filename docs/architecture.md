@@ -406,8 +406,8 @@ src/nav_qa_processing/
     catalog.py      configs from R2R's catalog API and from R2R's QA 2.0 XML
     rules.py        R2R's six tests, bounds, G/Y/R ratings and infos
     xml_report.py   R2R QA 2.0 XML: provenance, filesetinfo, certificate, supplements, manifest
-    certificate.py  the certificate's PDF pages and notebook cells (Phase 4)
-    reports.py      run_r2r, write_r2r_reports (core reports + XML; R2R's GeoCSV Source)
+    certificate.py  the certificate's PDF page and notebook cells
+    reports.py      run_r2r, write_r2r_reports (core reports with the certificate + XML; R2R's GeoCSV Source)
     download.py     r2r fetch-fileset (replaced scripts/fetch_r2r_fileset.py)
   integrations/openvdm/
     hook.py         QAConfig from OpenVDM's API and the site TOML; skip/chown/pending-checksum
@@ -693,14 +693,19 @@ Comparisons with R2R parse the numbers and map the units.
   - SOG and acceleration time series with the limits drawn,
   - a timeline of gaps and flags by reason,
   - histograms of the sampling interval, satellite count, HDOP and quality indicator.
-- **PDF:** a certificate page followed by the figures.
+- **PDF:** the title block, an integration's pages (R2R's certificate), the checks, statistics
+  and products, QC, then the figures.
 - **Notebook:** re-runs `run_qa` step by step.
 - **OpenVDM hook** (`integrations/openvdm`): runs after the GNSS collection-system transfer and
   writes the core reports (never R2R's) into an extra directory. Its behavior matches
   sbe-qa-processing's hook: skip, chown and pending-checksum handling, with pyyaml as the
   `openvdm` extra.
-- **R2R certificate** (`integrations/r2r/certificate.py`): the certificate's PDF pages and
-  notebook cells, added through core's `front` pages and `NotebookExtras`.
+- **R2R certificate** (`integrations/r2r/certificate.py`): the certificate's PDF page (R2R's
+  catalog facts, the rating banner in the theme's G/Y/R color, the six tests with results and
+  bounds as the XML writes them, the infos) and notebook cells (`run_r2r_tests`, the tables,
+  `write_qa_xml`), added through core's `front` pages and `NotebookExtras`. The notebook names
+  its XML by its own run time, as `r2r run` does; `--execute-notebook` leaves the cell that
+  writes the reports unrun, so a run writes one XML.
 
 ### Validation strategy
 
@@ -732,7 +737,7 @@ Comparisons with R2R parse the numbers and map the units.
 | 1 | `nmea.py`, `framing.py`, specs for the formats used by OpenVDM ships (nav29 first: SP2613's format), `rawnav.py`, `r2rnav.py` | pre-QC r2rnav identical to `navcopy` on fixtures. **nav29 done:** SP2613's pre-QC records equal R2R's bestres by value (no PHP run yet) |
 | 2 | `geodesy.py`, `qc.py`, `products.py`, `geocsv.py` | SP2613's three products have R2R's GeoCSV structure; records, flags and values compared with R2R's (`tests/fixtures`, plus the full bestres in `data/`) and every difference documented. **geodesy done (#6):** SP2613 and SP2424 SOG/COG match within the documented tolerance. **QC done (#7):** SP2613 unflagged like R2R; SP2424's differences documented. **Products done (#8):** SP2613's 1min and control equal R2R's; SP2424's but for its final fix. **GeoCSV done (#9):** R2R's header structure; SP2613's products equal R2R's by parsed value. **Flagged reference done (#10):** SP1925 settles R2R's flagged-record form; flag differences documented |
 | 3 | core: `config.py` (QAConfig, TOML), `fileset.py`, `stats.py`, `qa.py`, `network.py`, `readable.py`, `cli.py run`; `integrations/r2r/`: `config.py`, `rules.py`, `xml_report.py`, `catalog.py`, `download.py`, `reports.py`, the `r2r` commands | core runs without R2R; the QA 2.0 report has R2R's structure; statistics, results and ratings compared with R2R's on released filesets, differences documented |
-| 4 | `reports.py`, `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py`; `integrations/r2r/certificate.py` | report and notebook generated for every validation cruise, with and without R2R's certificate |
+| 4 | `reports.py`, `plots.py`, `maps.py`, `pdf_report.py`, `notebook.py`; `integrations/r2r/certificate.py` | report and notebook generated for every validation cruise, with and without R2R's certificate. **Done (#36–#40):** `r2r run --execute-notebook` writes them for SP2613 (G), SP2503 (R), RR2406 (Y), RR2212 (G) and SP2220 (R); the certificate says what the XML says (`tests/test_r2r_certificate.py`) |
 | 5 | `integrations/openvdm/` (`hook.py`, `site_setup.py`), `openvdm`, `config-from-openvdm`, `site-config`, site TOML | hook runs on an OpenVDM test instance |
 | 6 | the remaining format IDs, `formats.detect()` | every `doc/fileformat` format has a spec and a fixture. **Definitions done** for all 35 IDs (`formats/definitions/`); readers and fixtures remain |
 

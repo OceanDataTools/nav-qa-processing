@@ -103,7 +103,7 @@ and writes the three products, the figures and the PDF report.
 | `-o`, `--output OUTPUT_DIR` | `output` | Directory for the products, created if needed |
 | `--force` | off | Replace existing products and reports; without it, `run` stops if any of them exists |
 | `--theme THEME_TOML` | none | A [theme](#themes) file for the PDF, figures and notebook; the config's `[theme]` applies on top |
-| `--execute-notebook` | off | Run the notebook (needs `nbclient` and `ipykernel`, in the dev group) and save it with its outputs |
+| `--execute-notebook` | off | Run the notebook (needs `nbclient` and `ipykernel`, in the dev group) and save it with its outputs. Its last cell, which writes the reports again, isn't run |
 
 It writes `<CRUISE>_bestres.geoCSV`, `<CRUISE>_1min.geoCSV` and `<CRUISE>_control.geoCSV`,
 and the figures as SVGs in `<CRUISE>_plots/`, where `<CRUISE>` is the config's `[cruise] id`, or
@@ -127,7 +127,7 @@ It also writes `<CRUISE>_qa_report.pdf`, which embeds the SVGs as vector drawing
 | 2 | Quality control: records flagged by flag, QC's notes (raised limits, position steps), reader and manifest errors (the first 12, then a count), and the coverage timeline |
 | 3–5 | The trackline map; speed and acceleration; sampling and fix quality |
 
-Integrations put their pages after the title block: `r2r run` adds R2R's certificate (#40).
+Integrations put their pages after the title block: `r2r run` adds [R2R's certificate](#r2r).
 
 And it writes `<CRUISE>_qa.ipynb`, a notebook that re-runs the assessment step by step: the
 config (the config file, or the run's config written into it as TOML), `run_qa`, the checks,
@@ -175,7 +175,8 @@ generated notebooks ask for the default `python3` kernel, so do this for each ne
 
 The notebook's paths to the fileset, the config, the theme and the output directory are
 absolute, so it doesn't matter where Jupyter starts. `--execute-notebook` runs the notebook
-with the project's Python and needs neither setup.
+with the project's Python and needs neither setup. It runs every cell but the last, which
+would rewrite the reports just written; run that one yourself to write them again.
 
 ### Config TOML
 
@@ -323,6 +324,8 @@ uv run nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_g
 |---|---|
 | `<CRUISE>_bestres.geoCSV`, `_1min.geoCSV`, `_control.geoCSV` | The products, as `run` writes them, with R2R's attribution, repository and DOIs |
 | `<CRUISE>_<FILESET>_qa.2.0.<TIME>.xml` | R2R QA 2.0 report: R2R's structure, tests, bounds, infos and ranges, with its stylesheet reference. `<TIME>` is the run's, as in the products' `creation_date` |
+| `<CRUISE>_plots/`, `<CRUISE>_qa_report.pdf` | The figures and PDF, as `run` writes them, with R2R's certificate after the title block: R2R's fileset, vessel, ports, receiver and format, the rating as a G/Y/R banner in the theme's rating colors, each test's rating, result, G and Y bounds and detail, and the infos. The PDF's subject is the rating, e.g. `R2R rating G` |
+| `<CRUISE>_qa.ipynb` | The notebook, as `run` writes it, loading the cruise TOML (or, for a config built in Python, the cruise TOML written into it), then running R2R's tests, showing the certificate's tables, and writing the reports with the certificate and a new QA 2.0 XML, named by the notebook's run time |
 
 `run -c` takes the same cruise TOML and ignores the R2R fields.
 
@@ -335,7 +338,8 @@ nav-qa-processing r2r run [-o OUTPUT_DIR] [--force] [--theme THEME_TOML] [--exec
                           CRUISE_TOML FILESET_DIR
 ```
 
-Runs the QA as `run` does, then R2R's six tests, and writes the products and the QA 2.0 XML.
+Runs the QA as `run` does, then R2R's six tests, and writes the products, figures, PDF with
+R2R's certificate, notebook and QA 2.0 XML.
 
 | Argument | Default | Description |
 |---|---|---|
