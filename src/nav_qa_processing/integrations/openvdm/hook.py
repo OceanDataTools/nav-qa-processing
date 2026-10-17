@@ -14,8 +14,12 @@ contact in ``openvdm.yaml``'s ``vessel`` block, which it copies into each cruise
 ``ovdmConfig.json``. Its values win over the site TOML's. Its R2R IDs aren't used: the hook writes
 the core reports, not R2R's.
 
-The expected area is OpenVDM's ``cruiseExtent``, else the site TOML's ``[extent]``. (#1 has the
-hook set ``cruiseExtent`` from the quality-checked fixes instead.)
+The hook sets OpenVDM 2.17's ``cruiseExtent`` from the fixes that pass QC (`set_cruise_extent`),
+with the worker key (``workerApiKey``) from ``openvdm.yaml``: a box from the QC'd fixes, which
+leave out jumps to 0, 0 and stretches the ship couldn't reach, is better than OpenVDM's own from
+the dashboard's unchecked positions. The area check is then n/a, since the extent is the track's.
+With ``--no-set-extent``, without a worker key, or with OpenVDM before 2.17, the hook checks the
+fixes against ``cruiseExtent``, else the site TOML's ``[extent]``.
 
 The OpenVDM API is read over HTTP, so this runs in its own environment, not OpenVDM's venv.
 Reading ``openvdm.yaml`` needs pyyaml, the ``openvdm`` extra.
@@ -28,6 +32,8 @@ import re
 import shutil
 import subprocess
 import tomllib
+import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -50,6 +56,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_OPENVDM_CONFIG = Path("/opt/openvdm/server/etc/openvdm.yaml")
 API_TIMEOUT = 30  # [s]
+EXTENT_DECIMALS = 6  # [degree] about 11 cm; as OpenVDM rounds the extents it sets
 MD5_UPDATE_TIMEOUT = 120  # [s] to queue the job, not to hash the files
 
 
@@ -71,7 +78,7 @@ class SiteConfig:
     format = "nav33"
     files = "raw/POSMV_GGA-*.txt"
 
-    [extent]                  # used when OpenVDM has no cruiseExtent
+    [extent]                  # with --no-set-extent, when OpenVDM has no cruiseExtent
     westernmost = -125.0
     easternmost = -115.0
     southernmost = 30.0
@@ -152,8 +159,9 @@ def site_config_to_toml(site: SiteConfig) -> str:
         entry("format", site.nav_format, "required"),
         entry("files", site.nav_files),
         "",
-        "# Expected cruise area, used when OpenVDM has no cruise extent (OpenVDM 2.17's",
-        "# cruiseExtent). westernmost > easternmost is a box across the antimeridian",
+        "# Expected cruise area, used when the hook doesn't set OpenVDM's cruise extent",
+        "# (--no-set-extent) and OpenVDM has none. westernmost > easternmost is a box across the",
+        "# antimeridian",
     ]
     edges = fields_of(Extent)
     if site.extent:
@@ -311,6 +319,7 @@ class HookRun:
     # "ovdmConfig.json" or "none"
     # What the config is missing, or had to assume
     notes: list[str] = field(default_factory=list)
+    sets_extent: bool = False  # the hook sets cruiseExtent from the fixes, so has no area check
 
 
 def resolve(
@@ -318,9 +327,12 @@ def resolve(
     site: SiteConfig,
     transfer_name: str,
     vessel: OpenVDMVessel | None = None,
+    set_extent: bool = False,
 ) -> HookRun:
     """The QA configuration and directories for a collection system transfer. vessel is
-    openvdm.yaml's vessel block; without it, the one in the cruise's ovdmConfig.json is used
+    openvdm.yaml's vessel block; without it, the one in the cruise's ovdmConfig.json is used.
+    With set_extent, the hook will set OpenVDM's cruiseExtent from the fixes, so the config has
+    no expected area, unless OpenVDM is too old to have one
     """
     warehouse = cruise_config["warehouseConfig"]
     cruise_id = cruise_config["cruiseID"]
@@ -350,8 +362,19 @@ def resolve(
         )
     if not site.nav_files:
         notes.append(f"the site config has no [nav] files: every file in {transfer_name} is read")
+    if set_extent and "cruiseExtent" not in cruise_config:
+        set_extent = False
+        notes.append(
+            "OpenVDM has no cruiseExtent (it needs OpenVDM 2.17), so the hook can't set it"
+        )
     extent, extent_source = openvdm_extent(cruise_config.get("cruiseExtent")), "openvdm"
-    if extent is None and site.extent is not None:
+    if set_extent:
+        extent, extent_source = None, "the fixes"
+        notes.append(
+            "the hook sets OpenVDM's cruise extent from the fixes that pass QC, so the area "
+            "check is n/a"
+        )
+    elif extent is None and site.extent is not None:
         extent, extent_source = site.extent, "site config"
         notes.append("OpenVDM has no cruise extent; using the site config's [extent]")
     elif extent is None:
@@ -414,7 +437,54 @@ def resolve(
         extent_source=extent_source,
         vessel_source=vessel.source,
         notes=notes,
+        sets_extent=set_extent,
     )
+
+
+def worker_key(settings: dict) -> str:
+    """openvdm.yaml's workerApiKey (OpenVDM 2.17), which setting cruiseExtent needs, or ''"""
+    key = settings.get("workerApiKey")
+    return str(key).strip() if key else ""
+
+
+def set_cruise_extent(site_root: str, cruise_id: str, extent: Extent, key: str) -> str | None:
+    """Sets OpenVDM's cruiseExtent (api/warehouse/setCruiseExtent, OpenVDM 2.17) for cruise_id,
+    if it's still OpenVDM's current cruise. Returns what went wrong, or None
+    """
+    try:
+        current = _get_json(f"{site_root}api/warehouse/getCruiseID").get("cruiseID")
+    except (OSError, ValueError, AttributeError) as error:
+        return f"couldn't ask OpenVDM for its current cruise: {error}"
+    if current != cruise_id:
+        return f"OpenVDM's current cruise is now {current!r}, not {cruise_id!r}"
+    edges = {edge: round(getattr(extent, edge), EXTENT_DECIMALS) for edge in fields_of(Extent)}
+    request = urllib.request.Request(
+        f"{site_root}api/warehouse/setCruiseExtent",
+        data=urllib.parse.urlencode({"extent": json.dumps(edges)}).encode(),
+        headers={"X-Worker-Token": key},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=API_TIMEOUT):
+            pass
+    except urllib.error.HTTPError as error:
+        if error.code == 403:
+            return (
+                "OpenVDM refused the worker key (403): workerApiKey in openvdm.yaml must match "
+                "WORKER_API_KEY in OpenVDM's www/app/Core/Config.php"
+            )
+        if error.code == 404:
+            return "OpenVDM has no api/warehouse/setCruiseExtent (it needs OpenVDM 2.17)"
+        detail = error.read().decode(errors="replace").strip()
+        return f"OpenVDM answered {error.code}: {detail or error.reason}"
+    except OSError as error:  # URLError, timeouts
+        return f"couldn't reach OpenVDM ({site_root}): {error}"
+    return None
+
+
+def _get_json(url: str) -> dict:
+    with urllib.request.urlopen(url, timeout=API_TIMEOUT) as response:
+        return json.loads(response.read())
 
 
 def cruise_toml(run: HookRun, site_root: str) -> str:

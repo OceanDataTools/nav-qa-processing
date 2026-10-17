@@ -32,14 +32,16 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `r2rnav.py`: read/write legacy r2rnav.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
-- `config.py`: `QAConfig` (every field optional; integration tables ignored), `Extent`,
+- `config.py`: `QAConfig` (every field optional; integration tables ignored), `Extent`
+  (`Extent.around`: the box around positions, OpenVDM's largest-gap rule across 180°),
   `Thresholds` (QC and QA limits, TOML-friendly: dates and day counts), `load_config`,
   `config_to_toml` (configs print as their TOML).
 - `fileset.py`: `load_fileset(path, files, manifest_path)` -> `Fileset` (a bag or a directory;
   the nav files by glob; the bag's manifest with R2R's file ids, or an external one);
   `verify_manifest` lists problems as text.
 - `qa.py`: `run_qa(fileset, config=None)` -> `NavQAResult` (the core pipeline: reader within
-  the cruise-date window, QC, products; `source` for GeoCSV; errors as text). `ConfigError`
+  the cruise-date window, QC, products; `source` for GeoCSV; `track_extent`, the box around
+  the good fixes; errors as text). `ConfigError`
   when the config can't run the QA (no `[nav] format`).
 - `stats.py`: `compute(nav, qc_result, thresholds, extent)` -> `NavStats` (navqa's statistics on
   the pre-QC records, done soundly: completeness from interval slots, QC's acceleration) and the
@@ -84,7 +86,9 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `load_site_config`, `site_config_to_toml`, `resolve(getCruiseConfig, site, transfer, vessel)`
   -> `HookRun` (the `QAConfig`, directories, owner, extent and vessel sources, notes),
   `cruise_toml`, `has_nav_changes` (`--changed-files` against `[nav] files`),
-  `queue_md5_update`, `chown_tree`; pyyaml only in `load_openvdm_yaml`. The `openvdm` and
+  `queue_md5_update`, `chown_tree`, `set_cruise_extent` (#1: OpenVDM 2.17's `cruiseExtent`
+  from `NavQAResult.track_extent`, with `workerApiKey`; `--no-set-extent` checks against it
+  instead); pyyaml only in `load_openvdm_yaml`. The `openvdm` and
   `config-from-openvdm` commands (`tests/test_openvdm.py`, a stand-in API).
 - `integrations/openvdm/site_setup.py` (#50, ported from sbe-qa-processing): `Prompter`,
   `prompt_site_config(defaults, prompt, from_openvdm)`: the `site-config` command's prompts on

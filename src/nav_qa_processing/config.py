@@ -47,6 +47,8 @@ from dataclasses import dataclass, field, fields, replace
 from datetime import date, datetime
 from pathlib import Path
 
+import numpy as np
+
 from nav_qa_processing.readable import Readable, latitude, longitude
 
 
@@ -73,6 +75,27 @@ class Extent(Readable):
         if self.crosses_antimeridian:
             return longitude >= west or longitude <= east
         return west <= longitude <= east
+
+    @classmethod
+    def around(cls, longitudes, latitudes) -> "Extent | None":
+        """The smallest box around the positions [degree], or None without any. Longitudes are
+        a circle: the box leaves out the largest gap between them, so a track across the
+        antimeridian has westernmost > easternmost (as OpenVDM 2.17's ``geojson_extent`` does)
+        """
+        lons = np.asarray(longitudes, dtype=float)
+        lats = np.asarray(latitudes, dtype=float)
+        if lons.size == 0:
+            return None
+        lons = np.unique(np.where(lons == 180.0, -180.0, lons))  # sorted
+        west, east = lons[0], lons[-1]
+        if lons.size > 1:
+            # A box from the least to the greatest leaves out the gap round through 180°; a
+            # bigger gap elsewhere means the track crosses it, and the box starts east of that
+            gaps = np.diff(lons)
+            largest = int(np.argmax(gaps))
+            if gaps[largest] > lons[0] + 360.0 - lons[-1]:
+                west, east = lons[largest + 1], lons[largest]
+        return cls(float(west), float(east), float(lats.min()), float(lats.max()))
 
     def __str__(self) -> str:
         across = " (across the antimeridian)" if self.crosses_antimeridian else ""

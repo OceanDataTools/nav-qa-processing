@@ -709,7 +709,10 @@ Comparisons with R2R parse the numbers and map the units.
   sbe-qa-processing's hook: skip, chown, MD5 summary and pending-checksum handling, with pyyaml
   as the `openvdm` extra; the commands are named as there (`openvdm`, `config-from-openvdm`,
   `site-config`). `site-config` (`site_setup.py`, #50) prompts for the site TOML, checking the
-  nav format against the readers.
+  nav format against the readers. The hook sets OpenVDM 2.17's `cruiseExtent` (#1) to the box
+  around the fixes that pass QC (`Extent.around`, OpenVDM's largest-gap rule across the
+  antimeridian), with `workerApiKey`, so its area check is n/a; with `--no-set-extent` (or no
+  key, or before 2.17) it checks against `cruiseExtent`, else the site TOML's `[extent]`.
 - **R2R certificate** (`integrations/r2r/certificate.py`): the certificate's PDF page (R2R's
   catalog facts, the rating banner in the theme's G/Y/R color, the six tests with results and
   bounds as the XML writes them, the infos) and notebook cells (`run_r2r_tests`, the tables,

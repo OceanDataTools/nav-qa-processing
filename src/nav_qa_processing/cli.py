@@ -148,19 +148,29 @@ def _formats(args: argparse.Namespace) -> int:
 
 
 def _resolve_openvdm(args: argparse.Namespace, site=None):
-    """The current cruise's HookRun from OpenVDM and the site config, and OpenVDM's web root"""
+    """The current cruise's HookRun from OpenVDM and the site config, OpenVDM's web root, and
+    the worker key to set cruiseExtent with ('' when the hook won't set it)
+    """
     from nav_qa_processing.integrations.openvdm import hook as openvdm
 
     if args.site_root:
         # No openvdm.yaml: resolve reads the vessel block from the cruise's ovdmConfig.json
-        site_root, vessel = args.site_root, None
+        site_root, vessel, key = args.site_root, None, ""
+        missing_key = "with --site-root there's no openvdm.yaml workerApiKey"
     else:
         settings = openvdm.load_openvdm_yaml(args.openvdm_config)
         site_root = openvdm.site_root_from_config(settings)
         vessel = openvdm.vessel_settings(settings.get("vessel"), "openvdm.yaml")
+        key = openvdm.worker_key(settings)
+        missing_key = "openvdm.yaml has no workerApiKey (OpenVDM 2.17)"
+    if args.no_set_extent:
+        key = ""
     cruise_config = openvdm.fetch_cruise_config(site_root)
     site = site or openvdm.load_site_config(args.site_config)
-    return openvdm.resolve(cruise_config, site, args.transfer, vessel), site_root
+    run = openvdm.resolve(cruise_config, site, args.transfer, vessel, set_extent=bool(key))
+    if not args.no_set_extent and not key:
+        run.notes.insert(0, f"{missing_key}, so the hook can't set OpenVDM's cruise extent")
+    return run, site_root, key if run.sets_extent else ""
 
 
 def _sources(run) -> str:
@@ -179,7 +189,7 @@ def _openvdm(args: argparse.Namespace) -> int:
     ):
         print(f"{args.transfer}: no new or updated nav files; nothing to do")
         return 0
-    run, site_root = _resolve_openvdm(args, site)
+    run, site_root, key = _resolve_openvdm(args, site)
     if not run.config.nav_format:
         raise OpenVDMError(
             "no nav format: set [nav] format in the site config (--site-config); "
@@ -212,7 +222,25 @@ def _openvdm(args: argparse.Namespace) -> int:
     openvdm.chown_tree(run.output_dir, run.owner)
     _print_written(written)
     _queue_md5_update(args, run, written)
+    if key:
+        _set_cruise_extent(run, site_root, key, result.track_extent)
     return 0
+
+
+def _set_cruise_extent(run, site_root: str, key: str, extent) -> None:
+    """Sets OpenVDM's cruiseExtent from the fixes that passed QC. The QA itself succeeded, so a
+    failure here is a warning, not a failed hook
+    """
+    from nav_qa_processing.integrations.openvdm import hook as openvdm
+
+    if extent is None:
+        logger.warning("no fixes passed QC, so OpenVDM's cruise extent is left as it is")
+        return
+    problem = openvdm.set_cruise_extent(site_root, run.config.cruise_id, extent, key)
+    if problem:
+        logger.warning("OpenVDM's cruise extent wasn't set: %s", problem)
+    else:
+        print(f"set OpenVDM's cruise extent to {extent}")
 
 
 def _queue_md5_update(args: argparse.Namespace, run, written: list[Path]) -> None:
@@ -233,7 +261,7 @@ def _queue_md5_update(args: argparse.Namespace, run, written: list[Path]) -> Non
 def _config_from_openvdm(args: argparse.Namespace) -> int:
     from nav_qa_processing.integrations.openvdm import hook as openvdm
 
-    run, site_root = _resolve_openvdm(args)
+    run, site_root, _ = _resolve_openvdm(args)
     print(f"{run.config.cruise_id}: {_sources(run)}", file=sys.stderr)
     for note in run.notes:
         print(f"  note: {note}", file=sys.stderr)
@@ -420,6 +448,14 @@ def _add_openvdm_arguments(parser: argparse.ArgumentParser) -> None:
         metavar="SITE_TOML",
         type=Path,
         help="per-ship TOML: the [nav] format and files, vessel, extent, ...",
+    )
+    parser.add_argument(
+        "--no-set-extent",
+        action="store_true",
+        help=(
+            "don't set OpenVDM's cruiseExtent from the fixes that pass QC; check the fixes "
+            "against it (else the site config's [extent]) instead"
+        ),
     )
 
 

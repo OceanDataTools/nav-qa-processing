@@ -12,8 +12,9 @@ name = "Robert Gordon Sproul"
 format = "nav33"                         # required
 files = "raw/POSMV_GGA-*.txt"
 
-# Expected cruise area, used when OpenVDM has no cruise extent (OpenVDM 2.17's
-# cruiseExtent). westernmost > easternmost is a box across the antimeridian
+# Expected cruise area, used when the hook doesn't set OpenVDM's cruise extent
+# (--no-set-extent) and OpenVDM has none. westernmost > easternmost is a box across the
+# antimeridian
 # [extent]
 # westernmost = -125.0
 # easternmost = -115.0
