@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from nav_qa_processing import __version__, formats, geocsv, products, qc, rawnav, stats
-from nav_qa_processing.config import QAConfig, load_config
+from nav_qa_processing.config import Extent, QAConfig, load_config
 from nav_qa_processing.fileset import Fileset, load_fileset, verify_manifest
 from nav_qa_processing.readable import Readable, plural, timestamp
 
@@ -48,6 +48,12 @@ class NavQAResult(Readable):
             fileset_doi=self.config.fileset_doi,
             attribution=self.config.attribution,
         )
+
+    @property
+    def track_extent(self) -> Extent | None:
+        """The box around the fixes that passed QC, or None when none did"""
+        good = self.bestres[self.bestres["flags"] == 0]
+        return Extent.around(good["lon"], good["lat"])
 
     def __str__(self) -> str:
         seconds = (self.finished - self.started).total_seconds()

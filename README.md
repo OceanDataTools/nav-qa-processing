@@ -540,7 +540,7 @@ collection system that logs the ship's GNSS, as a `postCollectionSystemTransfer`
 the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
 
 - **From OpenVDM's API** (`api/warehouse/getCruiseConfig`): the cruise ID, name, PI, location
-  and dates, the cruise extent, the warehouse directory, the transfer's destination, the extra
+  and dates, the cruise extent (which the hook sets), the warehouse directory, the transfer's destination, the extra
   directories and the MD5 summary.
 - **The vessel's name and contact:** from OpenVDM 2.17, the `vessel` block of `openvdm.yaml`.
   With `--site-root` instead of `--openvdm-config`, they come from the copy in the cruise's
@@ -614,9 +614,19 @@ The hook:
   warning and still succeeds;
 - **checks the nav files' checksums** against OpenVDM's MD5 summary. Files changed after the
   summary was written count as pending, not failures;
-- **checks the fixes against an expected area:** OpenVDM's `cruiseExtent` (OpenVDM 2.17), else
-  the site TOML's `[extent]`; without either, the area check is n/a (#1 will have the hook set
-  `cruiseExtent` from the quality-checked fixes instead);
+- **sets OpenVDM's cruise extent** (`cruiseExtent`, OpenVDM 2.17) to the box around the fixes
+  that pass QC, so a jump to 0, 0 or minutes at a wrong position never stretches it. Across the
+  antimeridian, westernmost > easternmost, as OpenVDM computes it. It needs `workerApiKey` in
+  `openvdm.yaml` (matching `WORKER_API_KEY` in OpenVDM's `Config.php`), and is skipped if
+  OpenVDM's current cruise changed during the run. If OpenVDM refuses it or can't be reached,
+  the hook logs a warning and still succeeds. The area check is then n/a, since the extent is
+  the track's own. OpenVDM's `build_cruise_tracks.py` also sets `cruiseExtent`, from the data
+  dashboard's unchecked positions: add `--no-extent` to its hook so it doesn't overwrite this
+  one;
+- **otherwise checks the fixes against an expected area:** with `--no-set-extent`, without a
+  `workerApiKey` (or with `--site-root`), or before OpenVDM 2.17, it checks them against
+  OpenVDM's `cruiseExtent`, else the site TOML's `[extent]`; without either, the area check is
+  n/a;
 - exits non-zero with a one-line message on failure, which OpenVDM shows.
 
 ### OpenVDM commands
@@ -625,8 +635,9 @@ The hook:
 
 ```text
 nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
-                          [--site-config SITE_TOML] [--changed-files FILES]
-                          [--theme THEME_TOML] [--execute-notebook] TRANSFER
+                          [--site-config SITE_TOML] [--no-set-extent]
+                          [--changed-files FILES] [--theme THEME_TOML]
+                          [--execute-notebook] TRANSFER
 ```
 
 The post-transfer hook: assesses the collection system transfer's nav files for OpenVDM's
@@ -640,6 +651,7 @@ named as in sbe-qa-processing's hook.
 | `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml` | OpenVDM's settings: its web root (`siteRoot`) and, from OpenVDM 2.17, the `vessel` block. Needs the `openvdm` extra |
 | `--site-root URL` | none | OpenVDM's web root, instead of `--openvdm-config`. The vessel block then comes from the cruise's `ovdmConfig.json` |
 | `--site-config SITE_TOML` | none | The ship's [site TOML](#site-toml); the hook needs its `[nav] format` |
+| `--no-set-extent` | off | Don't set OpenVDM's `cruiseExtent` from the fixes that pass QC; check the fixes against it (else the site TOML's `[extent]`) instead |
 | `--changed-files FILES` | none | OpenVDM's `{newFiles}` and `{updatedFiles}`; repeatable. When given, the QA runs only if they include nav files (`[nav] files`, or any file without it) |
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the site TOML's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook and save its outputs |
@@ -648,13 +660,14 @@ named as in sbe-qa-processing's hook.
 
 ```text
 nav-qa-processing config-from-openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
-                                      [--site-config SITE_TOML] [-o OUTPUT_DIR] [--force]
-                                      TRANSFER
+                                      [--site-config SITE_TOML] [--no-set-extent]
+                                      [-o OUTPUT_DIR] [--force] TRANSFER
 ```
 
 Builds the config TOML the hook would use, from OpenVDM's current cruise and the site TOML,
 without running the QA, and reports what's missing or assumed. `TRANSFER`, `--openvdm-config`,
-`--site-root` and `--site-config` are as for `openvdm`. To review it, or run the QA by hand:
+`--site-root`, `--site-config` and `--no-set-extent` are as for `openvdm`: when the hook would
+set the cruise extent, the config has no expected area. To review it, or run the QA by hand:
 
 ```bash
 uv run nav-qa-processing config-from-openvdm OpenRVDAS --site-config configs/site.toml  # configs/<CRUISE>.toml
@@ -696,7 +709,7 @@ The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
 | `[vessel]` | `name` | blank | The vessel's name, for the report header. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.name` wins |
 | `[nav]` | `format` | required | The GNSS feed's format ID (`nav-qa-processing formats`), e.g. `nav33` for OpenRVDAS's ISO timestamp + GGA |
 | `[nav]` | `files` | every file | A glob of the GNSS feed's files within the collection system's directory, e.g. `raw/POSMV_GGA-*.txt`. Also what `--changed-files` is matched against |
-| `[extent]` | `westernmost`, `easternmost`, `southernmost`, `northernmost` | none | The expected cruise area, used when OpenVDM has no `cruiseExtent`. westernmost > easternmost crosses the antimeridian |
+| `[extent]` | `westernmost`, `easternmost`, `southernmost`, `northernmost` | none | The expected cruise area, used when the hook doesn't set OpenVDM's `cruiseExtent` and OpenVDM has none. westernmost > easternmost crosses the antimeridian |
 | `[openvdm]` | `output_extra_directory` | `NAV_QA` | The OpenVDM extra directory the reports go into |
 | `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.contact` wins |
 | `[geocsv]` | `attribution` | blank | The GeoCSV products' attribution |

@@ -106,3 +106,20 @@ def test_extent_across_the_antimeridian():
     box = Extent(178.0, -178.0, -10.0, 10.0)
     assert box.crosses_antimeridian and box.contains(0.0, 179.5) and not box.contains(0.0, 0.0)
     assert "across the antimeridian" in str(box)
+
+
+@pytest.mark.parametrize(
+    "lons, lats, expected",
+    [
+        ([], [], None),
+        ([-117.3], [32.6], Extent(-117.3, -117.3, 32.6, 32.6)),
+        ([-117.4, -117.2, -117.3], [32.8, 32.5, 32.6], Extent(-117.4, -117.2, 32.5, 32.8)),
+        # Across the antimeridian: the box leaves out the largest gap, not the one through 180
+        ([178.0, 179.5, -179.5, -178.0], [-20, -19, -16, -15], Extent(178.0, -178.0, -20, -15)),
+        ([179.0, 180.0, -179.0], [0, 0, 0], Extent(179.0, -179.0, 0, 0)),  # 180 is -180
+        # A box the long way round is still the smaller one: from Greenwich, east to 170
+        ([0.0, 90.0, 170.0], [0, 0, 0], Extent(0.0, 170.0, 0, 0)),
+    ],
+)
+def test_extent_around(lons, lats, expected):
+    assert Extent.around(lons, lats) == expected

@@ -9,6 +9,7 @@ import threading
 from datetime import UTC, date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import pytest
 import yaml
@@ -75,9 +76,10 @@ def nmea(body: str) -> str:
     return f"${body}*{checksum(body):02X}"
 
 
-def openrvdas(directory: Path, minutes: int = 20) -> list[Path]:
+def openrvdas(directory: Path, minutes: int = 20, outliers: bool = False) -> list[Path]:
     """OpenRVDAS logs of a ship steaming north at 3 m s-1 on 2026-07-09, one GGA a second
-    (nav33), and a met station's log beside them
+    (nav33), and a met station's log beside them. With outliers, a fix at 0, 0 and half a
+    minute 40 km west, which QC flags
     """
     raw = directory / "raw"
     raw.mkdir(parents=True)
@@ -87,10 +89,12 @@ def openrvdas(directory: Path, minutes: int = 20) -> list[Path]:
         moment = start + timedelta(seconds=second)
         lat = 32.6 + second * 3 / 111_320
         minutes_lat = (lat - 32) * 60
-        body = (
-            f"GPGGA,{moment:%H%M%S}.00,32{minutes_lat:08.5f},N,11718.00000,W,2,10,0.9,7.5,M,"
-            "-35.0,M,,"
-        )
+        position = f"32{minutes_lat:08.5f},N,11718.00000,W"
+        if outliers and second == 300:
+            position = "0000.00000,N,00000.00000,E"
+        elif outliers and 600 <= second < 630:
+            position = f"32{minutes_lat:08.5f},N,11743.00000,W"
+        body = f"GPGGA,{moment:%H%M%S}.00,{position},2,10,0.9,7.5,M,-35.0,M,,"
         stamp = (moment + timedelta(seconds=0.1)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         lines.append(f"{stamp},{nmea(body)}")
     nav = raw / "POSMV_GGA-2026-07-09-120000.txt"
@@ -360,20 +364,44 @@ def api_response(tmp_path):
 
 
 @pytest.fixture
-def openvdm_api(tmp_path, api_response):
-    """A stand-in OpenVDM web API serving getCruiseConfig for a cruise under tmp_path"""
+def api_state():
+    """The stand-in API's current cruise, its answer to setCruiseExtent, and what was posted
+    to it: (X-Worker-Token, extent)
+    """
+    return {"cruise": "SP2613", "status": 200, "posts": []}
+
+
+@pytest.fixture
+def openvdm_api(tmp_path, api_response, api_state):
+    """A stand-in OpenVDM web API serving getCruiseConfig for a cruise under tmp_path, and
+    getCruiseID and setCruiseExtent (OpenVDM 2.17)
+    """
     response = api_response
 
     class Handler(BaseHTTPRequestHandler):
+        def reply(self, status: int, data: dict) -> None:
+            body = json.dumps(data).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_GET(self):
             if self.path.endswith("/api/warehouse/getCruiseConfig"):
-                body = json.dumps(response).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(body)
+                self.reply(200, response)
+            elif self.path.endswith("/api/warehouse/getCruiseID"):
+                self.reply(200, {"cruiseID": api_state["cruise"]})
             else:
                 self.send_error(404)
+
+        def do_POST(self):
+            if not self.path.endswith("/api/warehouse/setCruiseExtent"):
+                self.send_error(404)
+                return
+            form = parse_qs(self.rfile.read(int(self.headers["Content-Length"])).decode())
+            extent = json.loads(form["extent"][0])
+            api_state["posts"].append((self.headers.get("X-Worker-Token"), extent))
+            self.reply(api_state["status"], {"cruiseExtent": extent})
 
         def log_message(self, *args):
             pass
@@ -516,3 +544,105 @@ def test_the_example_site_config_loads():
     site = openvdm.load_site_config(Path(__file__).parents[1] / "configs/site.example.toml")
     assert (site.nav_format, site.nav_files) == ("nav33", "raw/POSMV_GGA-*.txt")
     assert site.output_extra_directory == "NAV_QA" and site.extent is None
+
+
+# Setting OpenVDM's cruiseExtent (#1) -----------------------------------------------------------
+
+
+def openvdm_yaml(tmp_path, site_root: str, key: str | None = "worker-secret") -> Path:
+    """openvdm.yaml for a stand-in OpenVDM install at tmp_path/openvdm"""
+    path = openvdm_install(tmp_path / "openvdm") / "server/etc/openvdm.yaml"
+    settings = {"siteRoot": site_root, "vessel": {"name": "Sproul"}}
+    if key is not None:
+        settings["workerApiKey"] = key
+    path.write_text(yaml.safe_dump(settings))
+    return path
+
+
+@pytest.fixture
+def hook_with_key(openvdm_api, tmp_path, monkeypatch):
+    """The hook's arguments with an openvdm.yaml that has a worker key, over a cruise whose
+    track has a fix at 0, 0 and half a minute 40 km off it
+    """
+    monkeypatch.setattr(openvdm.subprocess, "run", FakeRun())
+    site_root, cruise_dir = openvdm_api
+    openrvdas(cruise_dir / "OpenRVDAS", outliers=True)
+    config = openvdm_yaml(tmp_path, site_root)
+    site = str(site_config(tmp_path))
+    return ["openvdm", "OpenRVDAS", "--openvdm-config", str(config), "--site-config", site]
+
+
+def test_hook_sets_the_cruise_extent_from_the_good_fixes(hook_with_key, api_state, capsys):
+    assert main(hook_with_key) == 0
+    out = capsys.readouterr().out
+    assert "cruise extent from the fixes" in out
+    assert "Within the expected area: no extent configured" in out  # the extent is the track's own
+    ((token, extent),) = api_state["posts"]
+    assert token == "worker-secret"
+    # The fix at 0, 0 and the stretch 40 km west are left out
+    assert extent["westernmost"] == extent["easternmost"] == -117.3
+    assert extent["southernmost"] == pytest.approx(32.6, abs=1e-5)
+    assert extent["northernmost"] == pytest.approx(32.6 + 1199 * 3 / 111_320, abs=1e-5)
+    assert extent == {edge: round(value, 6) for edge, value in extent.items()}
+    assert "set OpenVDM's cruise extent to 32.6" in out
+
+
+def test_a_refused_extent_is_a_warning(hook_with_key, api_state, caplog, capsys):
+    api_state["status"] = 403
+    assert main(hook_with_key) == 0  # the QA succeeded
+    assert "workerApiKey in openvdm.yaml must match WORKER_API_KEY" in caplog.text
+    assert "set OpenVDM's cruise extent" not in capsys.readouterr().out
+
+
+def test_the_extent_isnt_set_for_another_cruise(hook_with_key, api_state, caplog):
+    api_state["cruise"] = "SP2614"  # OpenVDM moved on during the run
+    assert main(hook_with_key) == 0
+    assert api_state["posts"] == []
+    assert "OpenVDM's current cruise is now 'SP2614', not 'SP2613'" in caplog.text
+
+
+def test_unreachable_openvdm_when_setting_the_extent():
+    problem = openvdm.set_cruise_extent(
+        "http://127.0.0.1:9/", "SP2613", Extent(-117.3, -117.3, 32.6, 32.7), "key"
+    )
+    assert problem.startswith("couldn't ask OpenVDM for its current cruise")
+
+
+def test_no_set_extent_checks_against_openvdms_extent(hook_with_key, api_state, capsys):
+    assert main([*hook_with_key, "--no-set-extent"]) == 0
+    out = capsys.readouterr().out
+    assert (
+        "cruise extent from openvdm" in out
+        and "Within the expected area: no extent configured" not in out
+    )
+    assert api_state["posts"] == []
+
+
+@pytest.mark.parametrize(
+    "how, expected",
+    [
+        ("site root", "with --site-root there's no openvdm.yaml workerApiKey"),
+        ("no key", "openvdm.yaml has no workerApiKey (OpenVDM 2.17)"),
+        ("OpenVDM 2.16", "OpenVDM has no cruiseExtent (it needs OpenVDM 2.17)"),
+    ],
+)
+def test_without_a_way_to_set_the_extent_it_is_checked(
+    openvdm_api, api_response, api_state, tmp_path, monkeypatch, capsys, how, expected
+):
+    monkeypatch.setattr(openvdm.subprocess, "run", FakeRun())
+    site_root, cruise_dir = openvdm_api
+    openrvdas(cruise_dir / "OpenRVDAS")
+    hook = ["openvdm", "OpenRVDAS", "--site-config", str(site_config(tmp_path))]
+    if how == "site root":
+        hook += ["--site-root", site_root]
+    else:
+        key = None if how == "no key" else "worker-secret"
+        hook += ["--openvdm-config", str(openvdm_yaml(tmp_path, site_root, key))]
+    if how == "OpenVDM 2.16":
+        del api_response["cruiseExtent"]  # getCruiseConfig before OpenVDM 2.17
+    assert main(hook) == 0
+    out = capsys.readouterr().out
+    assert f"note: {expected}" in out
+    assert api_state["posts"] == []
+    if how != "OpenVDM 2.16":
+        assert "Within the expected area: 0 outside" in out  # OpenVDM's cruiseExtent

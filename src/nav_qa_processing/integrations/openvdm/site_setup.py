@@ -91,7 +91,8 @@ def _ask_nav(prompt: Prompter, defaults: SiteConfig) -> tuple[str, str]:
 
 def _ask_extent(prompt: Prompter, default: Extent | None) -> Extent | None:
     prompt.say(
-        "\nExpected cruise area, used when OpenVDM has no cruise extent. "
+        "\nExpected cruise area, used when the hook doesn't set OpenVDM's cruise extent "
+        "(--no-set-extent) and OpenVDM has none. "
         "Leave westernmost blank to skip. westernmost > easternmost is a box across the "
         "antimeridian (180°)."
     )
