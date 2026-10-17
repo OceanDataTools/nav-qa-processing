@@ -421,7 +421,7 @@ def _by_file(lay: Layout, result: NavQAResult) -> Table:
 
 def _products(lay: Layout, result: NavQAResult) -> Table:
     rows = [
-        [geocsv.file_name(result.config.cruise_id, product), q.FIXES.format(len(frame))]
+        [geocsv.file_name(result.config.stem, product), q.FIXES.format(len(frame))]
         for product, frame in (
             (geocsv.BESTRES, result.bestres),
             (geocsv.ONE_MINUTE, result.one_minute),

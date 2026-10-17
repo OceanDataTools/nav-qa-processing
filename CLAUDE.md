@@ -32,8 +32,12 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `r2rnav.py`: read/write legacy r2rnav.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
-- `config.py`: `QAConfig` (every field optional; integration tables ignored), `NavDevice`
-  (`[nav.device]`: make, model, serial number, location; `QAConfig.nav_device`, #58), `Extent`
+- `config.py`: `QAConfig` (every field optional; integration tables ignored; one feed:
+  `nav_format`, `nav_files`, `nav_device`, `nav_name`, `nav_primary`, and `stem`, the outputs'
+  prefix: the cruise ID, plus the name of a non-primary feed), `load_config(path, nav=None)`
+  (one feed, the primary by default) and `load_configs` (each `[[nav]]`, primary first;
+  `nav_tables` checks them), `NavDevice` (`[nav.device]`: make, model, serial number,
+  location; #58), `Extent`
   (`Extent.around`: the box around positions, OpenVDM's largest-gap rule across 180°),
   `Thresholds` (QC and QA limits, TOML-friendly: dates and day counts), `load_config`,
   `config_to_toml` (configs print as their TOML).
@@ -84,10 +88,13 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   the infos), `NOTEBOOK_CELLS`, `pdf_subject`. `tests/test_r2r_certificate.py` checks it
   against the XML on the five reference filesets.
 - `integrations/openvdm/hook.py` (#49, ported from sbe-qa-processing): `SiteConfig` (the site
-  TOML: `[vessel]`, `[nav] format`/`files`, `[extent]`, `[openvdm] output_extra_directory`
-  (`NAV_QA`), `[provenance]`, `[geocsv] attribution`, `[thresholds]`, `[theme]`),
-  `load_site_config`, `site_config_to_toml`, `resolve(getCruiseConfig, site, transfer, vessel)`
-  -> `HookRun` (the `QAConfig`, directories, owner, extent and vessel sources, notes),
+  TOML: `[vessel]`, `feeds` (`SiteFeed`s from `[nav]` or `[[nav]]`: name, primary, format,
+  files, device, transfer; `feeds_for(transfer)`, #58), `[extent]`, `[openvdm]
+  output_extra_directory` (`NAV_QA`), `[provenance]`, `[geocsv] attribution`, `[thresholds]`,
+  `[theme]`), `load_site_config`, `site_config_to_toml`,
+  `resolve(getCruiseConfig, site, transfer, vessel, set_extent, feed)` -> `HookRun` for one
+  feed (the `QAConfig`, directories, owner, extent and vessel sources, notes); the CLI loops
+  over the transfer's feeds, primary first, and one feed's failure doesn't stop the others,
   `cruise_toml`, `has_nav_changes` (`--changed-files` against `[nav] files`),
   `queue_md5_update`, `chown_tree`, `set_cruise_extent` (#1: OpenVDM 2.17's `cruiseExtent`
   from `NavQAResult.track_extent`, with `workerApiKey`; `--no-set-extent` checks against it

@@ -8,6 +8,7 @@ from nav_qa_processing.cli import main
 from nav_qa_processing.config import Extent, NavDevice
 from nav_qa_processing.integrations.openvdm.hook import (
     SiteConfig,
+    SiteFeed,
     load_site_config,
     site_config_to_toml,
 )
@@ -39,6 +40,8 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
         "POS MV",
         "",
         "main lab",
+        "",  # any transfer
+        "",  # no other sensors
         "R/V Roger Revelle, Scripps Institution of Oceanography",
         "",  # reports extra directory: default
         "-125",  # westernmost
@@ -56,9 +59,13 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
     site = load_site_config(output)
     assert site == SiteConfig(
         vessel_name="Roger Revelle",
-        nav_format="nav33",
-        nav_files="raw/POSMV_GGA-*.txt",
-        nav_device=NavDevice(make="Applanix", model="POS MV", location="main lab"),
+        feeds=[
+            SiteFeed(
+                format="nav33",
+                files="raw/POSMV_GGA-*.txt",
+                device=NavDevice(make="Applanix", model="POS MV", location="main lab"),
+            )
+        ],
         extent=Extent(-125.0, -115.0, 30.0, 36.0),
         contact_institution="Scripps Institution of Oceanography",
         contact_email="tech@example.org",
@@ -74,7 +81,7 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
 
 
 def test_prompted_extent_across_the_antimeridian(tmp_path, monkeypatch, capsys):
-    answer(monkeypatch, "", "", "", "nav29", "", *[""] * 4, "", "", "178", "-178", "-20", "-15")
+    answer(monkeypatch, "", "", "", "nav29", "", *[""] * 6, "", "", "178", "-178", "-20", "-15")
     output = tmp_path / "site.toml"
     assert main(["site-config", "-o", str(output)]) == 0
     assert load_site_config(output).extent == Extent(178.0, -178.0, -20.0, -15.0)
@@ -90,9 +97,13 @@ def test_writes_to_stdout(monkeypatch, capsys):
 
 EXISTING = SiteConfig(
     vessel_name="Revelle",
-    nav_format="nav33",
-    nav_files="raw/POSMV_GGA-*.txt",
-    nav_device=NavDevice(make="Applanix", model="POS MV", serial_number="1234"),
+    feeds=[
+        SiteFeed(
+            format="nav33",
+            files="raw/POSMV_GGA-*.txt",
+            device=NavDevice(make="Applanix", model="POS MV", serial_number="1234"),
+        )
+    ],
     extent=Extent(-125.0, -115.0, 30.0, 36.0),
     output_extra_directory="Products/NAV_QA",
     attribution="R/V Roger Revelle",
@@ -113,10 +124,10 @@ def test_overwrites_only_with_force_starting_from_the_file(tmp_path, monkeypatch
     assert main(["site-config", "-o", str(output), "--force"]) == 0
     site = load_site_config(output)
     assert (site.vessel_name, site.contact_institution) == ("", "Scripps")
-    assert site.nav_format == "nav29"
+    assert site.primary.format == "nav29"
     # Kept as the defaults at the end of input
-    assert site.nav_files == EXISTING.nav_files and site.extent == EXISTING.extent
-    assert site.nav_device == EXISTING.nav_device
+    assert site.primary.files == EXISTING.primary.files and site.extent == EXISTING.extent
+    assert site.primary.device == EXISTING.primary.device
     assert site.output_extra_directory == "Products/NAV_QA"
     assert site.theme == EXISTING.theme
 
@@ -155,6 +166,8 @@ def test_settings_in_openvdm_yaml_are_not_asked_for(tmp_path, monkeypatch, capsy
         "nav33",
         "",  # every file
         *[""] * 4,  # no device
+        "",  # any transfer
+        "",  # no other sensors
         "",  # no attribution
         "",  # reports extra directory
         "",  # no expected area
@@ -163,7 +176,7 @@ def test_settings_in_openvdm_yaml_are_not_asked_for(tmp_path, monkeypatch, capsy
     assert main(["site-config", "--openvdm-config", str(openvdm_yaml), "-o", str(output)]) == 0
     site = load_site_config(output)
     assert (site.vessel_name, site.contact_institution) == ("", "")
-    assert (site.contact_email, site.nav_format) == ("tech@example.org", "nav33")
+    assert (site.contact_email, site.primary.format) == ("tech@example.org", "nav33")
     prompts = capsys.readouterr().err
     assert "vessel_name = Roger Revelle" in prompts and "Vessel name" not in prompts
     assert "Contact email" in prompts
@@ -198,3 +211,60 @@ def test_missing_openvdm_config_is_an_error(tmp_path, capsys):
     assert main(["site-config", "--openvdm-config", str(missing), "-o", str(output)]) == 1
     assert f"no openvdm.yaml at {missing}" in capsys.readouterr().err
     assert not output.exists()
+
+
+def test_adding_a_second_position_sensor(tmp_path, monkeypatch, capsys):
+    answer(
+        monkeypatch,
+        "",  # vessel name
+        "",  # contact institution
+        "",  # contact email
+        "nav33",  # the primary: format, files, device, transfer
+        "raw/POSMV_GGA-*.txt",
+        *[""] * 4,
+        "OpenRVDAS",
+        "seapath",  # another sensor
+        "nav33",
+        "raw/SEAPATH_GGA-*.txt",
+        "",
+        "Seapath 380",
+        "",
+        "",
+        "",  # its transfer: any
+        "bad name",  # re-asked
+        "seapath",  # taken, re-asked
+        "",  # no more sensors
+        "posmv",  # the primary's name, now required
+    )
+    output = tmp_path / "site.toml"
+    assert main(["site-config", "-o", str(output)]) == 0
+    site = load_site_config(output)
+    assert [(f.name, f.primary, f.transfer) for f in site.feeds] == [
+        ("posmv", True, "OpenRVDAS"),
+        ("seapath", False, ""),
+    ]
+    assert site.feeds[1].device == NavDevice(model="Seapath 380")
+    prompts = capsys.readouterr().err
+    assert "use letters, digits, _ and -" in prompts and "seapath is taken" in prompts
+
+
+TWO_SENSORS = SiteConfig(
+    feeds=[
+        SiteFeed(name="posmv", format="nav33", files="raw/POSMV_GGA-*.txt"),
+        SiteFeed(name="seapath", primary=False, format="nav33", files="raw/SEA*.txt"),
+    ]
+)
+
+
+def test_editing_keeps_or_drops_the_other_sensors(tmp_path, monkeypatch):
+    output = tmp_path / "site.toml"
+    text = site_config_to_toml(TWO_SENSORS)
+    output.write_text(text)
+    answer(monkeypatch)  # end of input: both kept, unchanged
+    assert main(["site-config", "-o", str(output), "--force"]) == 0
+    assert output.read_text() == text
+    # Keep every answer up to the Seapath's name, then drop it
+    answer(monkeypatch, *[""] * 10, "-", "")
+    assert main(["site-config", "-o", str(output), "--force"]) == 0
+    site = load_site_config(output)
+    assert [f.name for f in site.feeds] == ["posmv"] and site.primary.primary

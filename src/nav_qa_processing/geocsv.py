@@ -103,8 +103,10 @@ def write(
     decimals: dict[str, int],
     source: Source,
     created: datetime | None = None,
+    stem: str | None = None,
 ) -> Path:
-    """Writes `frame` as `product` into `directory`; returns the file's path.
+    """Writes `frame` as `product` into `directory`, named after `stem` (default: the cruise
+    ID); returns the file's path.
 
     `decimals` gives the receiver's precision for the columns whose quantity takes it (RawNav's
     `decimals`). A `flags` column, if present, marks flagged records (non-zero).
@@ -124,7 +126,7 @@ def write(
         "#" + DELIMITER.join(values[:short]) if bad else DELIMITER.join(values)
         for bad, values in zip(flagged, zip(*columns, strict=True), strict=True)
     ]
-    path = Path(directory) / file_name(source.cruise_id, product)
+    path = Path(directory) / file_name(stem or source.cruise_id, product)
     path.write_text("\n".join(lines) + "\n")
     return path
 

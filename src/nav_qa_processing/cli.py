@@ -83,37 +83,63 @@ def _print_written(written: list[Path]) -> None:
 # Commands ------------------------------------------------------------------------------------
 
 
+def _run_configs(args: argparse.Namespace) -> list:
+    """The feeds to run: the config's (one with --nav), or one without a config"""
+    from nav_qa_processing.config import load_config, load_configs
+    from nav_qa_processing.qa import ConfigError, resolve_config
+
+    if args.config is None:
+        if args.nav:
+            raise ConfigError("--nav picks one of a config's [[nav]] feeds: give -c CONFIG_TOML")
+        configs = [None]
+    else:
+        try:
+            configs = (
+                [load_config(args.config, nav=args.nav)] if args.nav else load_configs(args.config)
+            )
+        except ValueError as error:  # e.g. no such feed, or [[nav]] without names
+            raise ConfigError(str(error)) from None
+    if args.format and len(configs) > 1:
+        names = ", ".join(c.nav_name for c in configs)
+        raise ConfigError(f"-f applies to one feed: pick one of {names} with --nav")
+    configs = [resolve_config(config, args.fileset_dir) for config in configs]
+    if args.format:
+        configs = [replace(configs[0], nav_format=args.format)]
+    return configs
+
+
 def _run(args: argparse.Namespace) -> int:
     from nav_qa_processing import reports
-    from nav_qa_processing.qa import resolve_config, run_qa
+    from nav_qa_processing.qa import run_qa
     from nav_qa_processing.theme import resolve_theme
 
-    config = resolve_config(args.config, args.fileset_dir)
-    if args.format:
-        config = replace(config, nav_format=args.format)
-    if not config.nav_format:
-        print(
-            "nav-qa-processing: no nav format: give -f FORMAT_ID or set [nav] format in a "
-            "config (`nav-qa-processing formats` lists them)",
-            file=sys.stderr,
-        )
+    configs = _run_configs(args)
+    for config in configs:
+        if not config.nav_format:
+            feed = f" for [[nav]] {config.nav_name}" if config.nav_name else ""
+            print(
+                f"nav-qa-processing: no nav format{feed}: give -f FORMAT_ID or set [nav] format "
+                "in a config (`nav-qa-processing formats` lists them)",
+                file=sys.stderr,
+            )
+            return 1
+    themes = [resolve_theme(args.theme, config) for config in configs]  # fail before a run
+    paths = [p for c in configs for p in reports.report_paths(args.output, c.stem).values()]
+    if _refuse_existing_reports(paths, args.force):
         return 1
-    theme = resolve_theme(args.theme, config)  # a bad theme fails before the run
-    paths = reports.report_paths(args.output, config.cruise_id)
-    if _refuse_existing_reports(paths.values(), args.force):
-        return 1
-    result = run_qa(args.fileset_dir, config)
-    result.config_path = args.config
-    print(result)
-    _print_written(
-        reports.write_reports(
-            result,
-            args.output,
-            theme=theme,
-            theme_file=args.theme,
-            execute_notebook=args.execute_notebook,
+    for config, theme in zip(configs, themes, strict=True):
+        result = run_qa(args.fileset_dir, config)
+        result.config_path = args.config
+        print(result)
+        _print_written(
+            reports.write_reports(
+                result,
+                args.output,
+                theme=theme,
+                theme_file=args.theme,
+                execute_notebook=args.execute_notebook,
+            )
         )
-    )
     return 0
 
 
@@ -147,9 +173,10 @@ def _formats(args: argparse.Namespace) -> int:
     return 0
 
 
-def _resolve_openvdm(args: argparse.Namespace, site=None):
-    """The current cruise's HookRun from OpenVDM and the site config, OpenVDM's web root, and
-    the worker key to set cruiseExtent with ('' when the hook won't set it)
+def _resolve_openvdm(args: argparse.Namespace, site=None, feeds=None):
+    """The current cruise's HookRuns from OpenVDM and the site config, one per feed (the site's
+    feeds for the transfer, the primary first, unless given), OpenVDM's web root, and the worker
+    key to set cruiseExtent with ('' when the hook won't set it)
     """
     from nav_qa_processing.integrations.openvdm import hook as openvdm
 
@@ -167,10 +194,17 @@ def _resolve_openvdm(args: argparse.Namespace, site=None):
         key = ""
     cruise_config = openvdm.fetch_cruise_config(site_root)
     site = site or openvdm.load_site_config(args.site_config)
-    run = openvdm.resolve(cruise_config, site, args.transfer, vessel, set_extent=bool(key))
-    if not args.no_set_extent and not key:
-        run.notes.insert(0, f"{missing_key}, so the hook can't set OpenVDM's cruise extent")
-    return run, site_root, key if run.sets_extent else ""
+    feeds = site.feeds_for(args.transfer) if feeds is None else feeds
+    runs = [
+        openvdm.resolve(
+            cruise_config, site, args.transfer, vessel, set_extent=bool(key), feed=feed
+        )
+        for feed in feeds
+    ]
+    for run in runs:
+        if run.config.nav_primary and not args.no_set_extent and not key:
+            run.notes.insert(0, f"{missing_key}, so the hook can't set OpenVDM's cruise extent")
+    return runs, site_root, key if any(run.sets_extent for run in runs) else ""
 
 
 def _sources(run) -> str:
@@ -178,34 +212,66 @@ def _sources(run) -> str:
 
 
 def _openvdm(args: argparse.Namespace) -> int:
+    from nav_qa_processing.integrations.openvdm import hook as openvdm
+
+    site = openvdm.load_site_config(args.site_config)
+    feeds = site.feeds_for(args.transfer)
+    if not feeds:
+        print(f"{args.transfer}: the site config has no [nav] feed in it; nothing to do")
+        return 0
+    if args.changed_files is not None:
+        feeds = [f for f in feeds if openvdm.has_nav_changes(args.changed_files, f.files)]
+        if not feeds:
+            print(f"{args.transfer}: no new or updated nav files; nothing to do")
+            return 0
+    runs, site_root, key = _resolve_openvdm(args, site, feeds)
+    # One feed's failure doesn't stop the others; OpenVDM shows them all, on one line
+    failures = []
+    primary_extent = None
+    for run in runs:  # the primary first, so the others are checked against its extent
+        if not run.config.nav_primary and primary_extent is not None:
+            run.config = replace(run.config, extent=primary_extent)
+            run.extent_source = "the primary feed"
+        try:
+            result = _openvdm_feed(args, run, site_root, key if run.sets_extent else "")
+        except Exception as error:
+            if len(runs) == 1:
+                raise
+            label = run.config.nav_name or "[nav]"
+            logger.debug("feed %s failed", label, exc_info=True)
+            failures.append(f"{label}: {type(error).__name__}: {error}")
+            continue
+        if result is not None and run.sets_extent:
+            primary_extent = result.track_extent
+    if failures:
+        raise OpenVDMError(f"{len(failures)} of {len(runs)} feeds failed: {'; '.join(failures)}")
+    return 0
+
+
+def _openvdm_feed(args: argparse.Namespace, run, site_root: str, key: str):
+    """Assesses one feed and writes its reports; its result, or None before its first files"""
     from nav_qa_processing import reports
     from nav_qa_processing.integrations.openvdm import hook as openvdm
     from nav_qa_processing.qa import run_qa
     from nav_qa_processing.theme import resolve_theme
 
-    site = openvdm.load_site_config(args.site_config)
-    if args.changed_files is not None and not openvdm.has_nav_changes(
-        args.changed_files, site.nav_files
-    ):
-        print(f"{args.transfer}: no new or updated nav files; nothing to do")
-        return 0
-    run, site_root, key = _resolve_openvdm(args, site)
     if not run.config.nav_format:
+        feed = f" for {run.config.nav_name}" if run.config.nav_name else ""
         raise OpenVDMError(
-            "no nav format: set [nav] format in the site config (--site-config); "
+            f"no nav format{feed}: set [nav] format in the site config (--site-config); "
             "`nav-qa-processing formats` lists them"
         )
     if not run.fileset_dir.is_dir():
         print(f"{run.fileset_dir} doesn't exist yet; nothing to do")
-        return 0
+        return None
 
-    print(f"{run.config.cruise_id}: {run.fileset_dir} -> {run.output_dir} ({_sources(run)})")
+    print(f"{run.config.stem}: {run.fileset_dir} -> {run.output_dir} ({_sources(run)})")
     for note in run.notes:
         print(f"  note: {note}")
     theme = resolve_theme(args.theme, run.config)  # a bad theme fails before the run
     run.output_dir.mkdir(parents=True, exist_ok=True)
     # Snapshot what OpenVDM supplied, so the notebook can re-run exactly this assessment
-    snapshot = run.output_dir / f"{run.config.cruise_id}_config.toml"
+    snapshot = run.output_dir / f"{run.config.stem}_config.toml"
     snapshot.write_text(openvdm.cruise_toml(run, site_root))
     result = run_qa(run.fileset_dir, snapshot)
     print(result)
@@ -224,7 +290,7 @@ def _openvdm(args: argparse.Namespace) -> int:
     _queue_md5_update(args, run, written)
     if key:
         _set_cruise_extent(run, site_root, key, result.track_extent)
-    return 0
+    return result
 
 
 def _set_cruise_extent(run, site_root: str, key: str, extent) -> None:
@@ -261,11 +327,20 @@ def _queue_md5_update(args: argparse.Namespace, run, written: list[Path]) -> Non
 def _config_from_openvdm(args: argparse.Namespace) -> int:
     from nav_qa_processing.integrations.openvdm import hook as openvdm
 
-    run, site_root, _ = _resolve_openvdm(args)
-    print(f"{run.config.cruise_id}: {_sources(run)}", file=sys.stderr)
-    for note in run.notes:
-        print(f"  note: {note}", file=sys.stderr)
-    return _write_cruise_toml(openvdm.cruise_toml(run, site_root), run.config.cruise_id, args)
+    runs, site_root, _ = _resolve_openvdm(args)
+    if not runs:
+        raise OpenVDMError(f"the site config has no [nav] feed in {args.transfer}")
+    if str(args.output) == STDOUT and len(runs) > 1:
+        names = ", ".join(run.config.nav_name for run in runs)
+        raise OpenVDMError(f"{args.transfer} has several feeds ({names}): give -o OUTPUT_DIR")
+    for run in runs:
+        print(f"{run.config.stem}: {_sources(run)}", file=sys.stderr)
+        for note in run.notes:
+            print(f"  note: {note}", file=sys.stderr)
+        status = _write_cruise_toml(openvdm.cruise_toml(run, site_root), run.config.stem, args)
+        if status:
+            return status
+    return 0
 
 
 def _site_config(args: argparse.Namespace) -> int:
@@ -319,7 +394,7 @@ def _r2r_run(args: argparse.Namespace) -> int:
     # The XML's name has the run's time, so only the products can already exist
     config = load_cruise_config(args.cruise_toml)
     theme = resolve_theme(args.theme, config)  # a bad theme fails before the run
-    paths = reports.report_paths(args.output, config.cruise_id)
+    paths = reports.report_paths(args.output, config.stem)
     if _refuse_existing_reports(paths.values(), args.force):
         return 1
     run = run_r2r(args.fileset_dir, args.cruise_toml)
@@ -509,7 +584,10 @@ def _add_openvdm_commands(commands) -> None:
         metavar="OUTPUT_DIR",
         type=Path,
         default=Path("configs"),
-        help="directory for <CRUISE_ID>.toml, or - for stdout (default %(default)s)",
+        help=(
+            "directory for <CRUISE_ID>.toml, and <CRUISE_ID>_<NAME>.toml for each other feed, "
+            "or - for stdout with one feed (default %(default)s)"
+        ),
     )
     from_openvdm.add_argument(
         "--force", action="store_true", help="overwrite an existing config TOML"
@@ -690,6 +768,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--format",
         metavar="FORMAT_ID",
         help="the GNSS files' format (see `formats`), e.g. nav29; overrides the config's [nav]",
+    )
+    run.add_argument(
+        "--nav",
+        metavar="NAME",
+        help=(
+            "run only the config's [[nav]] feed of this name; without it, every feed is run "
+            "and a non-primary feed's outputs are named <CRUISE_ID>_<NAME>_..."
+        ),
     )
     _add_report_output(run)
     run.set_defaults(handler=_run)

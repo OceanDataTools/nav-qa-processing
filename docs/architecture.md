@@ -460,6 +460,8 @@ files = "data/*.txt"            # glob within the fileset, when it holds other f
 [nav.device]                    # the receiver or INS (#58); R2R's [fileset.device] by default
 make = "Trimble"
 model = "BX992"
+# Several position sensors are [[nav]] tables, each with a name, one primary = true (#58):
+# one QAConfig per feed (load_configs); a non-primary feed's outputs are <CRUISE>_<name>_...
 
 [provenance]
 distro_type = "post-cruise"
@@ -717,7 +719,11 @@ Comparisons with R2R parse the numbers and map the units.
   sbe-qa-processing's hook: skip, chown, MD5 summary and pending-checksum handling, with pyyaml
   as the `openvdm` extra; the commands are named as there (`openvdm`, `config-from-openvdm`,
   `site-config`). `site-config` (`site_setup.py`, #50) prompts for the site TOML, checking the
-  nav format against the readers. The hook sets OpenVDM 2.17's `cruiseExtent` (#1) to the box
+  nav format against the readers. Several position sensors (#58): the site TOML's `[[nav]]`
+  feeds, each optionally naming its `transfer`; the hook runs the feeds of its transfer, the
+  primary first, each with its own reports and snapshot (`<CRUISE>_<name>_…` for the others),
+  and one feed's failure doesn't stop the rest. The hook sets OpenVDM 2.17's `cruiseExtent` (#1)
+  from the primary feed only, to the box
   around the fixes that pass QC (`Extent.around`, OpenVDM's largest-gap rule across the
   antimeridian), with `workerApiKey`, so its area check is n/a; with `--no-set-extent` (or no
   key, or before 2.17) it checks against `cruiseExtent`, else the site TOML's `[extent]`.

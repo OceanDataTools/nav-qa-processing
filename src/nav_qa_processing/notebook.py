@@ -49,9 +49,12 @@ def _config_code(result: NavQAResult, extras: NotebookExtras) -> tuple[str, str,
             "" if extras.loads_config else "from nav_qa_processing.config import loads_config\n",
         )
     path = Path(result.config_path).resolve()
-    lines = f"config = {extras.load_config or 'load_config'}(CONFIG)\n"
+    # The feed this run assessed, when the config names its feeds ([[nav]])
+    nav = None if extras.load_config or not config.nav_name else config.nav_name
+    feed = f", nav={nav!r}" if nav else ""
+    lines = f"config = {extras.load_config or 'load_config'}(CONFIG{feed})\n"
     imports = "" if extras.load_config else "from nav_qa_processing.config import load_config\n"
-    if load_config(path).nav_format != config.nav_format:  # run -f overrode the config's
+    if load_config(path, nav=nav).nav_format != config.nav_format:  # run -f overrode it
         lines += f"config = replace(config, nav_format={config.nav_format!r})\n"
         imports += "from dataclasses import replace\n"
     return f"CONFIG = Path({str(path)!r})\n", lines, imports

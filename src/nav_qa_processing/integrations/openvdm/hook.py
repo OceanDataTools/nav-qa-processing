@@ -48,6 +48,7 @@ from nav_qa_processing.config import (
     fields_of,
     nav_device_from_table,
     nav_device_toml,
+    nav_tables,
     thresholds_from_table,
     thresholds_toml,
     toml_value,
@@ -67,6 +68,22 @@ class OpenVDMError(RuntimeError):
     """OpenVDM's or the site's configuration doesn't support running the QA (e.g. a missing
     directory, or no nav format)
     """
+
+
+@dataclass
+class SiteFeed:
+    """A position sensor's feed the hook assesses: a [nav] table, or one of several [[nav]]"""
+
+    name: str = ""  # required with several feeds; a non-primary feed's outputs carry it
+    primary: bool = True  # sets cruiseExtent, and its outputs are named after the cruise alone
+    format: str = ""
+    files: str = ""
+    device: NavDevice = field(default_factory=NavDevice)
+    transfer: str = ""  # the collection system transfer it's in; any, when blank
+
+    @property
+    def label(self) -> str:
+        return self.name or "[nav]"
 
 
 @dataclass
@@ -105,12 +122,26 @@ class SiteConfig:
     [thresholds]              # as in a config TOML
 
     [theme]                   # as in a config TOML; paths relative to this file
+
+    Several position sensors are [[nav]] tables, as in a config TOML, each optionally naming its
+    collection system transfer (#58)::
+
+    [[nav]]
+    name = "posmv"
+    primary = true
+    transfer = "OpenRVDAS"    # the hook runs the feeds of its TRANSFER, and those without one
+    format = "nav33"
+    files = "raw/POSMV_GGA-*.txt"
+
+    [[nav]]
+    name = "seapath"
+    transfer = "OpenRVDAS"
+    format = "nav33"
+    files = "raw/SEAPATH_GGA-*.txt"
     """
 
     vessel_name: str = ""
-    nav_format: str = ""
-    nav_files: str = ""
-    nav_device: NavDevice = field(default_factory=NavDevice)
+    feeds: list[SiteFeed] = field(default_factory=lambda: [SiteFeed()])  # the primary first
     extent: Extent | None = None
     output_extra_directory: str = "NAV_QA"
     contact_institution: str = ""
@@ -119,20 +150,37 @@ class SiteConfig:
     thresholds: Thresholds = field(default_factory=Thresholds)
     theme: dict = field(default_factory=dict)  # the [theme] table, as QAConfig.theme
 
+    @property
+    def primary(self) -> SiteFeed:
+        return self.feeds[0]
+
+    def feeds_for(self, transfer: str) -> list[SiteFeed]:
+        """The feeds a transfer's hook assesses: those naming it, and those naming none"""
+        return [feed for feed in self.feeds if feed.transfer in ("", transfer)]
+
 
 def load_site_config(path: Path | str | None) -> SiteConfig:
     if path is None:
         return SiteConfig()
     with open(path, "rb") as file:
         data = tomllib.load(file)
-    vessel, nav, openvdm = data.get("vessel", {}), data.get("nav", {}), data.get("openvdm", {})
+    vessel, openvdm = data.get("vessel", {}), data.get("openvdm", {})
     provenance = data.get("provenance", {})
     defaults = SiteConfig()
+    feeds = [
+        SiteFeed(
+            name=nav.get("name", ""),
+            primary=nav["primary"],
+            format=nav.get("format", ""),
+            files=nav.get("files", ""),
+            device=nav_device_from_table(nav.get("device", {}), str(path)),
+            transfer=nav.get("transfer", ""),
+        )
+        for nav in nav_tables(data, str(path))
+    ]
     return SiteConfig(
         vessel_name=vessel.get("name", ""),
-        nav_format=nav.get("format", ""),
-        nav_files=nav.get("files", ""),
-        nav_device=nav_device_from_table(nav.get("device", {}), str(path)),
+        feeds=feeds,
         extent=Extent(**data["extent"]) if "extent" in data else None,
         output_extra_directory=openvdm.get(
             "output_extra_directory", defaults.output_extra_directory
@@ -164,23 +212,31 @@ def site_config_to_toml(site: SiteConfig) -> str:
         entry("name", site.vessel_name),
         "",
         "# The primary GNSS feed: its format (`nav-qa-processing formats`) and a glob of its",
-        "# files within the collection system's directory",
-        "[nav]",
-        entry("format", site.nav_format, "required"),
-        entry("files", site.nav_files),
+        "# files within the collection system's directory. Several position sensors are",
+        "# [[nav]] tables, each with a name (and optionally its transfer), one primary = true",
     ]
-    device = nav_device_toml(site.nav_device)
-    if device:
-        lines += device
-    else:
-        lines += [
-            "",
-            "# The receiver or INS, for the reports; every key optional",
-            "# [nav.device]",
-        ]
-        lines += [f'# {k} = ""' for k in fields_of(NavDevice)]
+    several = len(site.feeds) > 1
+    for feed in site.feeds:
+        lines += ["[[nav]]" if several else "[nav]"]
+        if feed.name:
+            lines.append(entry("name", feed.name))
+        if several:
+            lines.append(f"primary = {'true' if feed.primary else 'false'}")
+        if feed.transfer:
+            lines.append(entry("transfer", feed.transfer))
+        lines += [entry("format", feed.format, "required"), entry("files", feed.files)]
+        device = nav_device_toml(feed.device)
+        if device:
+            lines += device
+        elif not several:
+            lines += [
+                "",
+                "# The receiver or INS, for the reports; every key optional",
+                "# [nav.device]",
+            ]
+            lines += [f'# {k} = ""' for k in fields_of(NavDevice)]
+        lines.append("")
     lines += [
-        "",
         "# Expected cruise area, used when the hook doesn't set OpenVDM's cruise extent",
         "# (--no-set-extent) and OpenVDM has none. westernmost > easternmost is a box across the",
         "# antimeridian",
@@ -350,12 +406,16 @@ def resolve(
     transfer_name: str,
     vessel: OpenVDMVessel | None = None,
     set_extent: bool = False,
+    feed: SiteFeed | None = None,
 ) -> HookRun:
-    """The QA configuration and directories for a collection system transfer. vessel is
-    openvdm.yaml's vessel block; without it, the one in the cruise's ovdmConfig.json is used.
-    With set_extent, the hook will set OpenVDM's cruiseExtent from the fixes, so the config has
-    no expected area, unless OpenVDM is too old to have one
+    """The QA configuration and directories for one of the site's feeds (the primary by
+    default) in a collection system transfer. vessel is openvdm.yaml's vessel block; without
+    it, the one in the cruise's ovdmConfig.json is used. With set_extent, the hook will set
+    OpenVDM's cruiseExtent from the primary feed's fixes, so its config has no expected area,
+    unless OpenVDM is too old to have one
     """
+    feed = feed or site.primary
+    set_extent = set_extent and feed.primary
     warehouse = cruise_config["warehouseConfig"]
     cruise_id = cruise_config["cruiseID"]
     if not cruise_id:
@@ -377,13 +437,16 @@ def resolve(
     output_dir = cruise_dir / _translate(output["destDir"], cruise_id)
 
     notes = []
-    if not site.nav_format:
+    which = f" for {feed.name}" if feed.name else ""
+    if not feed.format:
         notes.append(
-            "the site config has no [nav] format, so the QA can't run: set it "
+            f"the site config has no [nav] format{which}, so the QA can't run: set it "
             "(`nav-qa-processing formats` lists them)"
         )
-    if not site.nav_files:
-        notes.append(f"the site config has no [nav] files: every file in {transfer_name} is read")
+    if not feed.files:
+        notes.append(
+            f"the site config has no [nav] files{which}: every file in {transfer_name} is read"
+        )
     if set_extent and "cruiseExtent" not in cruise_config:
         set_extent = False
         notes.append(
@@ -443,9 +506,11 @@ def resolve(
         depart_date=depart,
         arrive_date=arrive if depart is not None else None,
         attribution=site.attribution,
-        nav_format=site.nav_format,
-        nav_files=site.nav_files,
-        nav_device=site.nav_device,
+        nav_format=feed.format,
+        nav_files=feed.files,
+        nav_device=feed.device,
+        nav_name=feed.name,
+        nav_primary=feed.primary,
         manifest_path=cruise_dir / md5_summary if md5_summary else None,
         thresholds=site.thresholds,
         theme=site.theme,
