@@ -111,7 +111,8 @@ def build_notebook(
             + config_lines
             + "result = run_qa(FILESET, config)\n"
             "theme = resolve_theme(THEME_FILE, result.config)\n"
-            "print(result)" + extras.after_run
+            "print(result)\n"
+            "print(result.stats.verdict[1])  # the checks in a line" + extras.after_run
         ),
         *extras.cells,
         new_markdown_cell(

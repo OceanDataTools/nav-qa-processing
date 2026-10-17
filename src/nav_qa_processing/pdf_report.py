@@ -293,8 +293,28 @@ def _title(lay: Layout, result: NavQAResult) -> list[Flowable]:
             + escape(", ".join(f"{k} {v}" for k, v in result.versions.items())),
             lay.small,
         ),
+        Spacer(1, 6),
+        _verdict(lay, result),
         Spacer(1, 10),
     ]
+
+
+def _verdict(lay: Layout, result: NavQAResult) -> Table:
+    """The checks in a line (#68), on the worst status's color: whether anything is wrong,
+    without reading the checks table
+    """
+    status, text = result.stats.verdict
+    line = Table(
+        [[Paragraph(escape(text), lay.cell_bold)]],
+        colWidths=[lay.frame_width],
+        style=[
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(lay.colors.status[status])),
+            ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor(lay.colors.table_grid)),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ],
+    )
+    return line
 
 
 # -- Checks, statistics and QC --

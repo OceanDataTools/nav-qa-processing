@@ -57,6 +57,7 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   nav file for the PDF's and notebook's "Checks by file" (#61). `gaps(nav, qc_result,
   thresholds)` lists the gaps, longest first, with their files (#65). `NavStats.good`
   (`GoodFixes`) has the ranges over the fixes that pass QC, beside navqa's pre-QC ones (#66).
+  `NavStats.verdict` is the checks in a line, (status, text), under the PDF's title (#68).
 - `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...);
   `tests/test_boundaries.py` keeps core from importing `integrations/`.
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's

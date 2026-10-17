@@ -123,6 +123,30 @@ class NavStats(Readable):
     # only with an expected area
     counted: dict[str, np.ndarray] = field(default_factory=dict, repr=False, compare=False)
 
+    @property
+    def verdict(self) -> tuple[str, str]:
+        """The checks in a line (#68): the worst status of those that could be made (pass or
+        warn), and which didn't pass with their values, e.g. "2 of 7 checks warn: Completeness
+        6.02 %; Longest gap 102103.500 s." Info checks are left out; n/a ones are named
+        """
+        judged = [c for c in self.checks if c.status in ("pass", "warn", "fail")]
+        missing = [c.name for c in self.checks if c.status == "n/a"]
+        total = len(judged) + len(missing)
+        na = f" n/a: {', '.join(missing)}." if missing else ""
+        if not judged:
+            return "n/a", f"No check could be made.{na}"
+        problems = [c for c in judged if c.status != "pass"]
+        checks = "checks" if total > 1 else "check"
+        if not problems:
+            if not missing:
+                return "pass", f"All {total} {checks} pass."
+            verb = "pass" if len(judged) > 1 else "passes"
+            return "pass", f"{len(judged)} of {total} {checks} {verb}.{na}"
+        status = "fail" if any(c.status == "fail" for c in problems) else "warn"
+        listed = "; ".join(f"{c.name} {c.value}" for c in problems)
+        verb = status if len(problems) > 1 else f"{status}s"
+        return status, f"{len(problems)} of {total} {checks} {verb}: {listed}.{na}"
+
     def __str__(self) -> str:
         statuses = [check.status for check in self.checks]
         return block(f"QA statistics: {counts(statuses)}", [str(c) for c in self.checks])

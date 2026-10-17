@@ -33,6 +33,7 @@ def test_the_report(tmp_path):
     first = text[0]
     assert "Navigation QA report: TEST" in first
     assert "format nav29" in first and "Generated" in first
+    assert result.stats.verdict[1] in " ".join(first.split())  # the checks in a line (#68)
     assert "Receiver: not in the config; talker IDs: GP (GPS, " in first
     for check in result.stats.checks:
         assert check.name in first
