@@ -4,6 +4,7 @@ import pytest
 
 from nav_qa_processing.config import (
     Extent,
+    NavDevice,
     QAConfig,
     Thresholds,
     config_to_toml,
@@ -38,6 +39,11 @@ doi = "doi:10.7284/169851"
 format = "nav29"
 files = "data/*.txt"
 
+[nav.device]
+make = "Trimble"
+model = "BX992"
+location = "main mast"
+
 [provenance]
 contact_institution = "Scripps Institution of Oceanography"
 
@@ -61,6 +67,7 @@ def test_load_a_full_config(tmp_path):
     assert config.depart_date == date(2026, 7, 9) and config.arrive_date == date(2026, 7, 9)
     assert config.cruise_doi == "doi:10.7284/911454" and config.fileset_doi == "doi:10.7284/169851"
     assert (config.nav_format, config.nav_files) == ("nav29", "data/*.txt")
+    assert config.nav_device == NavDevice(make="Trimble", model="BX992", location="main mast")
     assert config.attribution == "R/V Sproul"
     assert config.extent == Extent(-117.38, -117.22, 32.59, 32.71)
     assert config.thresholds.max_accel == 1.5 and config.thresholds.gps_end == date(2040, 1, 1)
@@ -81,6 +88,23 @@ def test_round_trip(tmp_path):
     again.write_text(config_to_toml(config))
     assert load_config(again) == config
     assert str(config) == config_to_toml(config).rstrip("\n")
+
+
+def test_nav_device():
+    assert str(NavDevice("Trimble", "BX992")) == "Trimble BX992"
+    assert str(NavDevice("Applanix", "POS MV", "1234", "main lab")) == (
+        "Applanix POS MV (serial number 1234, main lab)"
+    )
+    assert str(NavDevice(location="mast")) == "unnamed device (mast)"
+    assert not NavDevice() and NavDevice(model="BX992")
+    assert "[nav.device]" not in config_to_toml(QAConfig(nav_format="nav29"))
+
+
+def test_unknown_nav_device_keys_are_an_error(tmp_path):
+    path = tmp_path / "bad.toml"
+    path.write_text('[nav.device]\nmodle = "BX992"\n')
+    with pytest.raises(ValueError, match=r"unknown \[nav.device\] keys: modle"):
+        load_config(path)
 
 
 def test_unknown_thresholds_are_an_error(tmp_path):

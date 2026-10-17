@@ -12,6 +12,13 @@ name = "Robert Gordon Sproul"
 format = "nav33"                         # required
 files = "raw/POSMV_GGA-*.txt"
 
+# The receiver or INS, for the reports; every key optional
+[nav.device]
+make = "Applanix"
+model = "POS MV"
+# serial_number = ""
+location = "main lab"
+
 # Expected cruise area, used when the hook doesn't set OpenVDM's cruise extent
 # (--no-set-extent) and OpenVDM has none. westernmost > easternmost is a box across the
 # antimeridian

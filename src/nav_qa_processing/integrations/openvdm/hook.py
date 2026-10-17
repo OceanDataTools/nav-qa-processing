@@ -41,10 +41,13 @@ from pathlib import Path
 
 from nav_qa_processing.config import (
     Extent,
+    NavDevice,
     QAConfig,
     Thresholds,
     config_to_toml,
     fields_of,
+    nav_device_from_table,
+    nav_device_toml,
     thresholds_from_table,
     thresholds_toml,
     toml_value,
@@ -78,6 +81,11 @@ class SiteConfig:
     format = "nav33"
     files = "raw/POSMV_GGA-*.txt"
 
+    [nav.device]              # the receiver or INS; every key optional
+    make = "Applanix"
+    model = "POS MV"
+    location = "main lab"
+
     [extent]                  # with --no-set-extent, when OpenVDM has no cruiseExtent
     westernmost = -125.0
     easternmost = -115.0
@@ -102,6 +110,7 @@ class SiteConfig:
     vessel_name: str = ""
     nav_format: str = ""
     nav_files: str = ""
+    nav_device: NavDevice = field(default_factory=NavDevice)
     extent: Extent | None = None
     output_extra_directory: str = "NAV_QA"
     contact_institution: str = ""
@@ -123,6 +132,7 @@ def load_site_config(path: Path | str | None) -> SiteConfig:
         vessel_name=vessel.get("name", ""),
         nav_format=nav.get("format", ""),
         nav_files=nav.get("files", ""),
+        nav_device=nav_device_from_table(nav.get("device", {}), str(path)),
         extent=Extent(**data["extent"]) if "extent" in data else None,
         output_extra_directory=openvdm.get(
             "output_extra_directory", defaults.output_extra_directory
@@ -158,6 +168,18 @@ def site_config_to_toml(site: SiteConfig) -> str:
         "[nav]",
         entry("format", site.nav_format, "required"),
         entry("files", site.nav_files),
+    ]
+    device = nav_device_toml(site.nav_device)
+    if device:
+        lines += device
+    else:
+        lines += [
+            "",
+            "# The receiver or INS, for the reports; every key optional",
+            "# [nav.device]",
+        ]
+        lines += [f'# {k} = ""' for k in fields_of(NavDevice)]
+    lines += [
         "",
         "# Expected cruise area, used when the hook doesn't set OpenVDM's cruise extent",
         "# (--no-set-extent) and OpenVDM has none. westernmost > easternmost is a box across the",
@@ -423,6 +445,7 @@ def resolve(
         attribution=site.attribution,
         nav_format=site.nav_format,
         nav_files=site.nav_files,
+        nav_device=site.nav_device,
         manifest_path=cruise_dir / md5_summary if md5_summary else None,
         thresholds=site.thresholds,
         theme=site.theme,

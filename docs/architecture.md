@@ -457,6 +457,10 @@ doi = "doi:10.7284/169851"      # GeoCSV source_dataset
 format = "nav29"                # a FormatSpec ID (`nav-qa-processing formats`)
 files = "data/*.txt"            # glob within the fileset, when it holds other files
 
+[nav.device]                    # the receiver or INS (#58); R2R's [fileset.device] by default
+make = "Trimble"
+model = "BX992"
+
 [provenance]
 distro_type = "post-cruise"
 
@@ -477,6 +481,10 @@ output_extra_directory = "NAV_QA"
 [nav]                            # the GPS feed within the collection system the hook runs for
 format = "nav33"
 files = "raw/POSMV_GGA-*.txt"
+
+[nav.device]
+make = "Applanix"
+model = "POS MV"
 
 [provenance]
 contact_institution = "Scripps Institution of Oceanography"

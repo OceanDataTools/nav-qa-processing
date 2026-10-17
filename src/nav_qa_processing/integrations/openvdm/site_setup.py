@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, replace
 from typing import TextIO
 
 from nav_qa_processing import formats
-from nav_qa_processing.config import Extent
+from nav_qa_processing.config import Extent, NavDevice
 from nav_qa_processing.integrations.openvdm.hook import SiteConfig
 
 CLEAR = "-"
@@ -75,7 +75,7 @@ def _degrees(limit: float, required: bool = False) -> Callable[[str], str | None
     return check
 
 
-def _ask_nav(prompt: Prompter, defaults: SiteConfig) -> tuple[str, str]:
+def _ask_nav(prompt: Prompter, defaults: SiteConfig) -> tuple[str, str, NavDevice]:
     prompt.say("\nThe primary GNSS feed. Formats with a reader:")
     for format_id, spec in sorted(formats.all_formats().items()):
         if spec.supported:
@@ -86,7 +86,19 @@ def _ask_nav(prompt: Prompter, defaults: SiteConfig) -> tuple[str, str]:
         "raw/POSMV_GGA-*.txt (blank: every file)",
         defaults.nav_files,
     )
-    return nav_format, nav_files
+    prompt.say("  The receiver or INS that logs it, for the reports (each may be left blank):")
+    device = NavDevice(
+        **{
+            name: prompt.ask(f"    {label}", getattr(defaults.nav_device, name))
+            for name, label in (
+                ("make", "make (e.g. Applanix)"),
+                ("model", "model (e.g. POS MV)"),
+                ("serial_number", "serial number"),
+                ("location", "location (e.g. main lab)"),
+            )
+        }
+    )
+    return nav_format, nav_files, device
 
 
 def _ask_extent(prompt: Prompter, default: Extent | None) -> Extent | None:
@@ -149,7 +161,7 @@ def prompt_site_config(
         contact_institution=ask("contact_institution", "Contact institution for the QA report"),
         contact_email=ask("contact_email", "Contact email", _email),
     )
-    site.nav_format, site.nav_files = _ask_nav(prompt, defaults)
+    site.nav_format, site.nav_files, site.nav_device = _ask_nav(prompt, defaults)
     site.attribution = prompt.ask(
         "\nGeoCSV products' attribution (e.g. R/V Roger Revelle, Scripps Institution of "
         "Oceanography)",

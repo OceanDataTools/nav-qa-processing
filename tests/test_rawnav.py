@@ -107,6 +107,7 @@ def test_sp2613_all_records_match_r2r_bestres(sp2613):
     r2r = read_geocsv(path)
     assert sp2613.files == ["SP2613_mru_trimble_bx992-2026-07-09.txt"]
     assert sp2613.errors == []
+    assert sp2613.talkers == {"GN": 56_925}  # a multi-constellation receiver
     # SP2613 has no flagged records, so pre-QC equals bestres record for record
     assert len(sp2613.frame) == len(r2r) == 56_925
     _compare(sp2613, r2r)

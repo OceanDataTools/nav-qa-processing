@@ -286,6 +286,7 @@ def _title(lay: Layout, result: NavQAResult) -> list[Flowable]:
         Spacer(1, 4),
         *([Paragraph(escape(" · ".join(facts)), lay.small)] if facts else []),
         Paragraph(escape(_source(result)), lay.small),
+        Paragraph(escape(f"Receiver: {result.receiver}"), lay.small),
         Paragraph(
             f"Generated {result.finished:%Y-%m-%d %H:%M} UTC by "
             + escape(", ".join(f"{k} {v}" for k, v in result.versions.items())),
