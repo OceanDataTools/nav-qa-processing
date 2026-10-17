@@ -12,12 +12,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
+import pandas as pd
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     Flowable,
@@ -32,7 +34,7 @@ from reportlab.platypus import (
 )
 from svglib.svglib import svg2rlg
 
-from nav_qa_processing import formats, geocsv
+from nav_qa_processing import formats, geocsv, stats
 from nav_qa_processing import quantities as q
 from nav_qa_processing.qa import NavQAResult
 from nav_qa_processing.qc import DESCRIPTIONS, Flag
@@ -45,6 +47,8 @@ SERIES_HEIGHT = 5.4
 TIMELINE_HEIGHT, HISTOGRAMS_HEIGHT = 3.2, 6.0
 HEADING_ROOM = 0.5 * inch  # a page heading above a figure
 MAX_ERRORS = 12  # reader and manifest errors listed; the rest are counted
+BY_FILE_PADDING = 3  # [pt] each side of a cell in the checks-by-file table, which is crowded;
+# its columns get 2 pt more, so a word measured to fit isn't wrapped by rounding
 
 # DejaVu Sans ships with matplotlib and, unlike ReportLab's built-in base fonts, has glyphs
 # such as ≤ ≥ ° used in the report text
@@ -372,6 +376,48 @@ def _qc(lay: Layout, result: NavQAResult) -> list[Flowable]:
     return story
 
 
+def _by_file(lay: Layout, result: NavQAResult) -> Table:
+    """What each check counted, per nav file (#61): the files read, those skipped as outside the
+    cruise window, and the total
+    """
+    counts = stats.counts_by_file(result.nav, result.stats)
+    heads = list(stats.COUNTED.values())
+    number = ParagraphStyle("number", parent=lay.cell, alignment=TA_RIGHT)
+    number_bold = ParagraphStyle("numberbold", parent=lay.cell_bold, alignment=TA_RIGHT)
+    rows, styles = [], []
+    records = counts.to_dict("records")
+    for i, row in enumerate(records, start=1):
+        if row["status"] == stats.SKIPPED:
+            rows.append([row["file"], f"skipped: {stats.SKIPPED}"] + [""] * len(heads))
+            styles.append(("SPAN", (1, i), (-1, i)))
+            continue
+        total = i == len(records)
+        style = number_bold if total else number
+        cells = [
+            Paragraph("n/a" if pd.isna(row[c]) else q.COUNT.format(int(row[c])), style)
+            for c in ["fixes", *heads]
+        ]
+        rows.append([_cell(row["file"], lay.cell_bold if total else lay.cell), *cells])
+    header = ["File", q.FIXES.label, *heads]
+    # Each count's column as wide as its header's longest word or its widest (bold) value, the
+    # file name taking the rest
+    bold = lay.cell_bold
+    width = lambda text: stringWidth(text, bold.fontName, bold.fontSize) + BY_FILE_PADDING * 2 + 2
+    counts_width = [
+        max(
+            *(width(word) for word in head.split()),
+            *(width(q.COUNT.format(int(v))) for v in counts[column].dropna()),
+        )
+        for head, column in zip(header[1:], ["fixes", *heads], strict=True)
+    ]
+    widths = [w / lay.frame_width for w in [lay.frame_width - sum(counts_width), *counts_width]]
+    styles += [
+        ("LEFTPADDING", (0, 0), (-1, -1), BY_FILE_PADDING),
+        ("RIGHTPADDING", (0, 0), (-1, -1), BY_FILE_PADDING),
+    ]
+    return table(lay, header, rows, widths, styles)
+
+
 def _products(lay: Layout, result: NavQAResult) -> Table:
     rows = [
         [geocsv.file_name(result.config.cruise_id, product), q.FIXES.format(len(frame))]
@@ -387,6 +433,14 @@ def _products(lay: Layout, result: NavQAResult) -> Table:
 def _summary(lay: Layout, result: NavQAResult) -> list[Flowable]:
     return [
         KeepTogether([Paragraph("Checks", lay.heading), checks_table(lay, result.stats.checks)]),
+        Spacer(1, 10),
+        Paragraph("Checks by file", lay.subheading),
+        Paragraph(
+            "What each check counted, per nav file. A speed, a step out of sequence or a gap is "
+            "counted in the file of the fix that ends it.",
+            lay.small,
+        ),
+        _by_file(lay, result),
         Spacer(1, 10),
         KeepTogether([Paragraph("Statistics", lay.subheading), _statistics(lay, result)]),
         Spacer(1, 10),

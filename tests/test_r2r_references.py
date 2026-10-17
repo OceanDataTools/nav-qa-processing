@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 from conftest import CONFIGS, DATA
 
-from nav_qa_processing import geocsv
+from nav_qa_processing import geocsv, stats
 from nav_qa_processing.integrations.r2r.config import load_cruise_config
 from nav_qa_processing.integrations.r2r.reports import run_r2r
 
@@ -172,3 +172,16 @@ def test_fkt230417_nav33():
     assert not (missing & unreachable & ~hex_letters).any()
     off = np.isin(theirs, times[unreachable])
     assert off.sum() == (unreachable & ~missing).sum() and not best.records["flagged"][off].any()
+    # Checks by file (#61): 20 files whose counts add up to the checks'; the unreachable
+    # stretch is in the 04-27 file
+    s = run.result.stats
+    by_file = stats.counts_by_file(run.result.nav, s).set_index("file")
+    total = by_file.loc["Total"]
+    assert len(by_file) == 21 and (by_file["status"].iloc[:-1] == "read").all()
+    assert by_file.iloc[:-1]["Flagged by QC"].sum() == total["Flagged by QC"] == 285
+    assert (total["Unreasonable speeds"], total["Unreasonable accelerations"]) == (
+        s.unreasonable_speeds,
+        s.unreasonable_accelerations,
+    )
+    assert (total["Bad quality"], total["Gaps"]) == (s.bad_quality, s.gaps) == (8, 2)
+    assert by_file.loc["FKt230417_posmv_gga-2023-04-27.txt", "Flagged by QC"] == 283

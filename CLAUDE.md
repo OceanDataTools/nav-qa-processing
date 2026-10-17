@@ -46,6 +46,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `stats.py`: `compute(nav, qc_result, thresholds, extent)` -> `NavStats` (navqa's statistics on
   the pre-QC records, done soundly: completeness from interval slots, QC's acceleration) and the
   core checks (`CheckResult`: pass/warn/info/n/a against `Thresholds`). In `NavQAResult.stats`.
+  `NavStats.counted` keeps which records each check counted; `counts_by_file` splits them by
+  nav file for the PDF's and notebook's "Checks by file" (#61).
 - `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...);
   `tests/test_boundaries.py` keeps core from importing `integrations/`.
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's

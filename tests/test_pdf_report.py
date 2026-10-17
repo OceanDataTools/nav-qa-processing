@@ -35,6 +35,7 @@ def test_the_report(tmp_path):
     assert "format nav29" in first and "Generated" in first
     for check in result.stats.checks:
         assert check.name in first
+    assert "Checks by file" in first and "nav.txt" in first and "Total" in first
     assert "Statistics" in first and "Most common time between fixes [s]" in first
     assert "TEST_bestres.geoCSV" in first
     assert "Quality control" in text[1] and "Coverage, gaps and flags" in text[1]

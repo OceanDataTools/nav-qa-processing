@@ -97,7 +97,7 @@ def build_notebook(
             "import matplotlib.pyplot as plt\n"
             "import pandas as pd\n"
             "from IPython.display import display\n\n"
-            "from nav_qa_processing import plots, reports\n"
+            "from nav_qa_processing import plots, reports, stats\n"
             "from nav_qa_processing import quantities as q\n"
             "from nav_qa_processing.qa import run_qa\n"
             "from nav_qa_processing.qc import DESCRIPTIONS, Flag\n"
@@ -118,6 +118,12 @@ def build_notebook(
             "`[thresholds]`."
         ),
         new_code_cell("display(pd.DataFrame([vars(c) for c in result.stats.checks]))"),
+        new_markdown_cell(
+            "### Checks by file\n\n"
+            "What each check counted, per nav file. A speed, a step out of sequence or a gap is "
+            "counted in the file of the fix that ends it."
+        ),
+        new_code_cell("display(stats.counts_by_file(result.nav, result.stats))"),
         new_markdown_cell("## Statistics"),
         new_code_cell(
             "s = result.stats\n"
