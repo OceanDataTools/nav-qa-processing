@@ -41,6 +41,11 @@ def test_gga():
     assert (g.quality, g.nsat, g.hdop, g.alt, g.alt_decimals) == (2, 7, 1.3, -4.31, 2)
 
 
+def test_gga_talker_id():
+    assert GGA.from_fields(parse_sentence(SP_GGA).fields).talker == SP_GGA[1:3]
+    assert GGA.from_fields(["INGGA", "123519", "", "", "", "", "0", "00"]).talker == "IN"
+
+
 def test_gga_empty_fields_are_missing():
     g = GGA.from_fields(["$GPGGA", "123519", "", "", "", "", "0", "00", "", "", "M"])
     assert g.lat is None and g.lon is None and g.hdop is None and g.quality == 0

@@ -10,6 +10,7 @@ Files without a span are listed in `errors` and skipped.
 import bz2
 import gzip
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,6 +50,9 @@ class RawNav:
     files: list[str]  # read, in order
     skipped_files: list[str] = field(default_factory=list)  # outside the window
     errors: list[str] = field(default_factory=list)
+    # GGA talker IDs and how many fixes each gave, e.g. {"GP": 56925}: whether the feed is a
+    # GPS or GNSS receiver (GP, GN) or an INS (IN), as the data says
+    talkers: dict[str, int] = field(default_factory=dict)
 
 
 def read_lines(path: Path) -> list[str]:
@@ -118,4 +122,7 @@ def read_fileset(
         "hdop": max((g.hdop_decimals for g in ggas if g.hdop is not None), default=0),
         "alt": max((g.alt_decimals for g in ggas if g.alt is not None), default=0),
     }
-    return RawNav(frame, decimals, [name for _, name, _ in selected], skipped, errors)
+    talkers = dict(sorted(Counter(g.talker for g in ggas if g.talker).items()))
+    return RawNav(
+        frame, decimals, [name for _, name, _ in selected], skipped, errors, talkers=talkers
+    )

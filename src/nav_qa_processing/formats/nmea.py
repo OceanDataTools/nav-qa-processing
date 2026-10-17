@@ -125,6 +125,20 @@ def _degrees(text: str, hemisphere: str, negative: str, positive: str) -> float 
     return -degrees if hemisphere == negative else degrees
 
 
+# What a GGA's talker ID says about the device (NMEA 0183)
+TALKERS = {
+    "GP": "GPS",
+    "GL": "GLONASS",
+    "GA": "Galileo",
+    "GB": "BeiDou",
+    "BD": "BeiDou",
+    "GQ": "QZSS",
+    "GI": "NavIC",
+    "GN": "multi-constellation GNSS",
+    "IN": "integrated navigation (INS)",
+}
+
+
 @dataclass(frozen=True)
 class GGA:
     """GPS fix data. Missing fields are None."""
@@ -140,6 +154,7 @@ class GGA:
     hdop_decimals: int
     alt: float | None  # [m]
     alt_decimals: int
+    talker: str = ""  # the sentence's talker ID, e.g. GP (GPS), GN (GNSS), IN (integrated)
 
     @classmethod
     def from_fields(cls, f: list[str]) -> "GGA":
@@ -156,6 +171,7 @@ class GGA:
             hdop_decimals=decimals(f[8]),
             alt=_float(f[9]),
             alt_decimals=decimals(f[9]),
+            talker=f[0].lstrip("$!")[:-3],
         )
 
 

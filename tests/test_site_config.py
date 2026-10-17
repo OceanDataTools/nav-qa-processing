@@ -5,7 +5,7 @@ import io
 import pytest
 
 from nav_qa_processing.cli import main
-from nav_qa_processing.config import Extent
+from nav_qa_processing.config import Extent, NavDevice
 from nav_qa_processing.integrations.openvdm.hook import (
     SiteConfig,
     load_site_config,
@@ -35,6 +35,10 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
         "nav99",  # no reader, re-asked
         "nav33",
         "raw/POSMV_GGA-*.txt",
+        "Applanix",  # the device: make, model, serial number, location
+        "POS MV",
+        "",
+        "main lab",
         "R/V Roger Revelle, Scripps Institution of Oceanography",
         "",  # reports extra directory: default
         "-125",  # westernmost
@@ -54,6 +58,7 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
         vessel_name="Roger Revelle",
         nav_format="nav33",
         nav_files="raw/POSMV_GGA-*.txt",
+        nav_device=NavDevice(make="Applanix", model="POS MV", location="main lab"),
         extent=Extent(-125.0, -115.0, 30.0, 36.0),
         contact_institution="Scripps Institution of Oceanography",
         contact_email="tech@example.org",
@@ -69,7 +74,7 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
 
 
 def test_prompted_extent_across_the_antimeridian(tmp_path, monkeypatch, capsys):
-    answer(monkeypatch, "", "", "", "nav29", "", "", "", "178", "-178", "-20", "-15")
+    answer(monkeypatch, "", "", "", "nav29", "", *[""] * 4, "", "", "178", "-178", "-20", "-15")
     output = tmp_path / "site.toml"
     assert main(["site-config", "-o", str(output)]) == 0
     assert load_site_config(output).extent == Extent(178.0, -178.0, -20.0, -15.0)
@@ -87,6 +92,7 @@ EXISTING = SiteConfig(
     vessel_name="Revelle",
     nav_format="nav33",
     nav_files="raw/POSMV_GGA-*.txt",
+    nav_device=NavDevice(make="Applanix", model="POS MV", serial_number="1234"),
     extent=Extent(-125.0, -115.0, 30.0, 36.0),
     output_extra_directory="Products/NAV_QA",
     attribution="R/V Roger Revelle",
@@ -110,6 +116,7 @@ def test_overwrites_only_with_force_starting_from_the_file(tmp_path, monkeypatch
     assert site.nav_format == "nav29"
     # Kept as the defaults at the end of input
     assert site.nav_files == EXISTING.nav_files and site.extent == EXISTING.extent
+    assert site.nav_device == EXISTING.nav_device
     assert site.output_extra_directory == "Products/NAV_QA"
     assert site.theme == EXISTING.theme
 
@@ -147,6 +154,7 @@ def test_settings_in_openvdm_yaml_are_not_asked_for(tmp_path, monkeypatch, capsy
         "tech@example.org",  # contact email: empty in openvdm.yaml, so asked
         "nav33",
         "",  # every file
+        *[""] * 4,  # no device
         "",  # no attribution
         "",  # reports extra directory
         "",  # no expected area

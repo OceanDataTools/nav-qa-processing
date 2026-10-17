@@ -24,6 +24,12 @@ A config TOML looks like (see "Configuration TOMLs" in docs/architecture.md)::
     format = "nav29"              # a format ID (`nav-qa-processing formats`)
     files = "data/*.txt"          # glob within the fileset
 
+    [nav.device]                  # the receiver or INS that logged it; every key optional
+    make = "Trimble"
+    model = "BX992"
+    serial_number = "5839R00123"
+    location = "main mast"
+
     [provenance]
     contact_institution = "..."
     contact_email = "..."
@@ -103,6 +109,26 @@ class Extent(Readable):
             f"{latitude(self.southernmost)} to {latitude(self.northernmost)}, "
             f"{longitude(self.westernmost)} to {longitude(self.easternmost)}{across}"
         )
+
+
+@dataclass
+class NavDevice:
+    """The receiver or INS that logged the nav feed, as the config says; every field optional"""
+
+    make: str = ""
+    model: str = ""
+    serial_number: str = ""
+    location: str = ""  # where it, or its antenna, is mounted
+
+    def __bool__(self) -> bool:
+        return any(getattr(self, name) for name in fields_of(NavDevice))
+
+    def __str__(self) -> str:
+        """e.g. "Trimble BX992 (serial number 5839R00123, main mast)" """
+        name = " ".join(part for part in (self.make, self.model) if part) or "unnamed device"
+        details = [f"serial number {self.serial_number}"] if self.serial_number else []
+        details += [self.location] if self.location else []
+        return f"{name} ({', '.join(details)})" if details else name
 
 
 @dataclass(frozen=True)
@@ -204,6 +230,7 @@ class QAConfig(Readable):
     # The primary GNSS feed: a format ID, and a glob of its files within the fileset
     nav_format: str = ""
     nav_files: str = ""
+    nav_device: NavDevice = field(default_factory=NavDevice)
     # Checksum manifest for a plain directory (e.g. OpenVDM's MD5 summary): "<md5> <path>" lines,
     # with paths relative to the manifest's directory. A BagIt bag uses its own manifest-md5.txt
     manifest_path: Path | None = None
@@ -277,6 +304,7 @@ def _config(data: dict, base: Path, where: str) -> QAConfig:
         attribution=data.get("geocsv", {}).get("attribution", ""),
         nav_format=nav.get("format", ""),
         nav_files=nav.get("files", ""),
+        nav_device=nav_device_from_table(nav.get("device", {}), where),
         manifest_path=(base / manifest).resolve() if manifest else None,
         thresholds=thresholds_from_table(data.get("thresholds", {})),
         theme=theme_table(data.get("theme", {}), base, where),
@@ -313,12 +341,25 @@ def config_to_toml(config: QAConfig) -> str:
         fileset["manifest"] = str(config.manifest_path)
     lines += _table("fileset", fileset)
     lines += _table("nav", {"format": config.nav_format, "files": config.nav_files})
+    lines += nav_device_toml(config.nav_device)
     provenance = {k: getattr(config, k) for k in ("contact_institution", "contact_email")}
     lines += _table("provenance", provenance)
     lines += _table("geocsv", {"attribution": config.attribution})
     lines += thresholds_toml(config.thresholds)
     lines += theme_toml(config.theme)
     return "\n".join(lines) + "\n"
+
+
+def nav_device_from_table(table: dict, where: str) -> NavDevice:
+    unknown = set(table) - set(fields_of(NavDevice))
+    if unknown:
+        raise ValueError(f"{where}: unknown [nav.device] keys: {', '.join(sorted(unknown))}")
+    return NavDevice(**{k: str(v) for k, v in table.items()})
+
+
+def nav_device_toml(device: NavDevice) -> list[str]:
+    """A [nav.device] table of the set fields, or nothing"""
+    return _table("nav.device", {k: getattr(device, k) for k in fields_of(NavDevice)})
 
 
 def _table(name: str, values: dict[str, str]) -> list[str]:

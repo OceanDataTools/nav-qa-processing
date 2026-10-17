@@ -208,6 +208,11 @@ manifest = "MD5_Summary.txt"      # checksums for a plain directory; relative to
 format = "nav29"
 files = "data/*bx992*.txt"        # glob within the fileset
 
+[nav.device]                      # the receiver or INS, for the reports; every key optional
+make = "Trimble"
+model = "BX992"
+location = "main mast"
+
 [provenance]
 contact_institution = "Scripps Institution of Oceanography"
 contact_email = "ship-tech@example.org"
@@ -230,6 +235,7 @@ max_accel = 1.0
 | | `manifest` | A checksum file for a plain directory: `<md5> <path>` lines, paths relative to the manifest's directory, as in OpenVDM's MD5 summary. A BagIt bag uses its own `manifest-md5.txt` |
 | `[nav]` | `format` | The GNSS files' format ID (see `formats`). Required, here or as `run -f` |
 | | `files` | A glob of the GNSS files within the fileset. Default: every file in the data directory |
+| `[nav.device]` | `make`, `model`, `serial_number`, `location` | The receiver or INS that logged the feed, shown in the reports' title block with the GGA talker IDs found in the data (e.g. GN, a multi-constellation receiver; IN, an INS). All optional. In an R2R cruise TOML it defaults to R2R's `[fileset.device]` (make ID, model name, location) |
 | `[provenance]` | `contact_institution`, `contact_email` | The reports' contact |
 | `[geocsv]` | `attribution` | GeoCSV `attribution` |
 | `[thresholds]` | see below | QC and the QA checks |
@@ -687,7 +693,8 @@ nav-qa-processing site-config [-o SITE_TOML] [--openvdm-config OPENVDM_YAML] [--
 
 Writes the [site TOML](#site-toml) by prompting, on stderr, for each field OpenVDM doesn't
 store: the vessel name and report contact, the GNSS feed's format (one with a reader; the
-prompt lists them) and files glob, the GeoCSV attribution, the extra directory and an expected
+prompt lists them), files glob and device (make, model, serial number, location), the GeoCSV
+attribution, the extra directory and an expected
 cruise area. Enter keeps the `[default]` and `-` clears it. It works offline. Over an existing
 file (with `--force`) its values are the defaults, and at the end of input every remaining
 field keeps its default, so with no input the file is written back unchanged. `[thresholds]`
@@ -709,6 +716,7 @@ The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
 | `[vessel]` | `name` | blank | The vessel's name, for the report header. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.name` wins |
 | `[nav]` | `format` | required | The GNSS feed's format ID (`nav-qa-processing formats`), e.g. `nav33` for OpenRVDAS's ISO timestamp + GGA |
 | `[nav]` | `files` | every file | A glob of the GNSS feed's files within the collection system's directory, e.g. `raw/POSMV_GGA-*.txt`. Also what `--changed-files` is matched against |
+| `[nav.device]` | `make`, `model`, `serial_number`, `location` | blank | The receiver or INS, for the reports, as in a [config TOML](#config-toml) |
 | `[extent]` | `westernmost`, `easternmost`, `southernmost`, `northernmost` | none | The expected cruise area, used when the hook doesn't set OpenVDM's `cruiseExtent` and OpenVDM has none. westernmost > easternmost crosses the antimeridian |
 | `[openvdm]` | `output_extra_directory` | `NAV_QA` | The OpenVDM extra directory the reports go into |
 | `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.contact` wins |

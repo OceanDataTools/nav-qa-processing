@@ -34,6 +34,9 @@ TOMLs")::
     model_id = "100542"
     model_name = "BX992"
 
+R2R's device gives the core config's receiver (`nav_device`: make, model and location) unless
+the cruise TOML has a [nav.device] of its own.
+
     [provenance]
     distro_type = "post-cruise"
     contact_institution_id = "us.rvdata"
@@ -46,10 +49,12 @@ from pathlib import Path
 
 from nav_qa_processing.config import (
     Extent,
+    NavDevice,
     QAConfig,
     fields_of,
     load_config,
     loads_config,
+    nav_device_toml,
     thresholds_toml,
     toml_value,
 )
@@ -101,6 +106,10 @@ class CruiseConfig(QAConfig):
     distro_type: str = "post-cruise"
     contact_institution_id: str = ""
 
+    def __post_init__(self) -> None:
+        if not self.nav_device:
+            self.nav_device = nav_device_from_r2r(self.device)
+
     @property
     def identifier(self) -> str:
         """<cruise>_<fileset>, or <cruise>_gnss without an R2R fileset ID"""
@@ -109,6 +118,13 @@ class CruiseConfig(QAConfig):
     def __str__(self) -> str:
         """The cruise TOML, as load_cruise_config reads it"""
         return config_to_toml(self).rstrip("\n")
+
+
+def nav_device_from_r2r(device: Device) -> NavDevice:
+    """The core config's receiver from R2R's catalog entry: its make ID, model name and
+    location
+    """
+    return NavDevice(make=device.make_id, model=device.model_name, location=device.location_name)
 
 
 # What a CruiseConfig needs, from [cruise]
@@ -196,6 +212,8 @@ def config_to_toml(config: CruiseConfig) -> str:
     nav = {k: v for k, v in nav.items() if v}
     if nav:
         lines += ["", "[nav]"] + [f"{k} = {toml_value(v)}" for k, v in nav.items()]
+    if config.nav_device != nav_device_from_r2r(config.device):  # not just R2R's
+        lines += nav_device_toml(config.nav_device)
     provenance = {
         k: getattr(config, k)
         for k in ("distro_type", "contact_institution", "contact_institution_id", "contact_email")

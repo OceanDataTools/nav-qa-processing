@@ -14,6 +14,7 @@ import pandas as pd
 from nav_qa_processing import __version__, formats, geocsv, products, qc, rawnav, stats
 from nav_qa_processing.config import Extent, QAConfig, load_config
 from nav_qa_processing.fileset import Fileset, load_fileset, verify_manifest
+from nav_qa_processing.formats.nmea import TALKERS
 from nav_qa_processing.readable import Readable, plural, timestamp
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,16 @@ class NavQAResult(Readable):
         )
 
     @property
+    def receiver(self) -> str:
+        """The device as the config names it, and the GGA talker IDs in the data"""
+        device = str(self.config.nav_device) if self.config.nav_device else "not in the config"
+        talkers = ", ".join(
+            f"{talker} ({TALKERS.get(talker, 'unknown')}, {plural(count, 'fix', 'fixes')})"
+            for talker, count in self.nav.talkers.items()
+        )
+        return f"{device}; talker IDs: {talkers or 'none'}"
+
+    @property
     def track_extent(self) -> Extent | None:
         """The box around the fixes that passed QC, or None when none did"""
         good = self.bestres[self.bestres["flags"] == 0]
@@ -68,6 +79,7 @@ class NavQAResult(Readable):
                 f"({self.config.nav_format}) from {plural(len(self.nav.files), 'file')} "
                 f"in {self.fileset.root}"
             ),
+            f"  receiver: {self.receiver}",
             f"  run {timestamp(self.started)}, {seconds:.1f} s"
             + (f"; {versions}" if versions else ""),
             f"  flagged: {flagged}" + (f" ({by_flag})" if by_flag else ""),

@@ -203,3 +203,15 @@ def test_only_links_under_a_listing_are_followed(href, child):
 
 def test_qa_report_url_from_qa_info(r2r):
     assert catalog.qa_report_url(169851) == REPORT_URL
+
+
+def test_the_receiver_comes_from_r2rs_device_unless_the_toml_names_one(tmp_path):
+    from nav_qa_processing.config import NavDevice
+    from nav_qa_processing.integrations.r2r.config import config_to_toml, loads_cruise_config
+
+    config = load_cruise_config(CONFIGS / "SP2613_169851.toml")
+    assert config.nav_device == NavDevice(make="com.trimble", model="BX992")
+    assert "[nav.device]" not in config_to_toml(config)  # R2R's alone isn't written twice
+    mine = replace(config, nav_device=NavDevice(make="Trimble", model="BX992", location="mast"))
+    text = config_to_toml(mine)
+    assert "[nav.device]" in text and loads_cruise_config(text).nav_device == mine.nav_device

@@ -16,7 +16,7 @@ import yaml
 
 from nav_qa_processing import maps
 from nav_qa_processing.cli import main
-from nav_qa_processing.config import Extent, QAConfig, load_config
+from nav_qa_processing.config import Extent, NavDevice, QAConfig, load_config
 from nav_qa_processing.fileset import md5sum
 from nav_qa_processing.formats.nmea import checksum
 from nav_qa_processing.integrations.openvdm import hook as openvdm
@@ -264,6 +264,15 @@ def test_site_config_round_trips(tmp_path):
     blank = openvdm.site_config_to_toml(openvdm.SiteConfig())
     assert '# format = ""' in blank and 'output_extra_directory = "NAV_QA"' in blank
     assert openvdm.load_site_config(site_config(tmp_path, blank)) == openvdm.SiteConfig()
+
+
+def test_resolve_passes_the_site_device_to_the_snapshot(tmp_path):
+    device = NavDevice(make="Applanix", model="POS MV", location="main lab")
+    site = openvdm.SiteConfig(nav_format="nav33", nav_device=device)
+    run = openvdm.resolve(cruise_config(tmp_path), site, "OpenRVDAS")
+    snapshot = tmp_path / "snapshot.toml"
+    snapshot.write_text(openvdm.cruise_toml(run, "http://openvdm/"))
+    assert load_config(snapshot).nav_device == device
 
 
 def test_resolve_passes_the_site_theme_to_the_snapshot(tmp_path):
