@@ -85,6 +85,30 @@ def test_unreasonable_speeds_and_accelerations():
     assert s.unreasonable_accelerations >= 1 and s.acceleration.maximum > 1
 
 
+def test_good_fix_ranges_leave_out_flagged_fixes():
+    """The same ranges over the fixes that pass QC (#66): a fix 40 m off and an invalid one
+    with HDOP 99 show in the pre-QC ranges only
+    """
+    lat = 32.0 + np.arange(60) * 3.0 * METRE
+    lat[30] += 40 * METRE
+    quality = [2] * 60
+    quality[10] = 0
+    nav = nav_from(np.arange(60), lat=lat, quality=quality)
+    nav.frame.loc[10, "hdop"] = 99.0
+    s = compute(nav)
+    assert s.hdop.maximum == 99.0 and s.good.hdop.maximum == 0.8
+    assert s.speed.maximum > 8.7 and s.good.speed.maximum < 8.7
+    assert s.good.records == int((qc.flag(nav, Thresholds()).flags == 0).sum()) < s.records
+    assert s.good.first == START.to_pydatetime() and s.good.acceleration.maximum < 1
+    # Without flags, the two are the same
+    clean = compute(nav_from(range(10)))
+    assert (clean.good.speed, clean.good.hdop, clean.good.records) == (
+        clean.speed,
+        clean.hdop,
+        clean.records,
+    )
+
+
 def test_ranges():
     s = compute(nav_from(range(5)))
     assert (s.nsv.minimum, s.nsv.maximum) == (12, 12) and s.altitude.maximum == 7.0

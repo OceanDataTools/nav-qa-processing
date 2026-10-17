@@ -309,32 +309,61 @@ def checks_table(lay: Layout, checks) -> Table:
     return table(lay, ["Check", "Status", "Value", "Detail"], rows, [0.3, 0.08, 0.2, 0.42], styles)
 
 
+def _unbroken_unit(label: str) -> str:
+    """A label whose bracketed unit (e.g. [m s-1]) doesn't break across lines"""
+    head, bracket, unit = label.rpartition("[")
+    return f"{head}{bracket}{unit.replace(' ', chr(0xA0))}" if bracket else label
+
+
 def _statistics(lay: Layout, result: NavQAResult) -> Table:
-    """The QA statistics' extent and ranges, each written through its quantity"""
-    s = result.stats
+    """The QA statistics' extent and ranges, each written through its quantity: over every
+    record, as R2R reports them, and over the fixes that pass QC (#66)
+    """
+    s, good = result.stats, result.stats.good
     decimals = result.nav.decimals
     when = lambda moment: q.ISO_TIME.format(moment, decimals.get("time", 0))
+    bold = lambda text: _cell(text, lay.cell_bold)
     rows = [
-        [q.FIXES.label + " used", q.FIXES.format(s.records), ""],
-        ["First and last fix", when(s.first), when(s.last)],
-        [q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval), ""],
-        [q.LONGEST_GAP.label, q.LONGEST_GAP.format(s.longest_gap), ""],
+        ["", bold("Minimum or value"), bold("Maximum"), bold("Minimum or value"), bold("Maximum")],
+        [
+            q.FIXES.label + " used",
+            q.FIXES.format(s.records),
+            "",
+            q.FIXES.format(good.records) if good else "",
+            "",
+        ],
+        [
+            "First and last fix",
+            when(s.first),
+            when(s.last),
+            when(good.first) if good else "",
+            when(good.last) if good else "",
+        ],
+        [q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval), "", "", ""],
+        [q.LONGEST_GAP.label, q.LONGEST_GAP.format(s.longest_gap), "", "", ""],
     ]
-    for quantity, values, places in (
-        (q.NSV, s.nsv, None),
-        (q.HDOP, s.hdop, decimals.get("hdop", 1)),
-        (q.ANTENNA_HEIGHT, s.altitude, decimals.get("alt", 1)),
-        (q.SPEED_MADE_GOOD, s.speed, None),
-        (q.HORIZONTAL_ACCELERATION, s.acceleration, None),
+    for quantity, name, places in (
+        (q.NSV, "nsv", None),
+        (q.HDOP, "hdop", decimals.get("hdop", 1)),
+        (q.ANTENNA_HEIGHT, "altitude", decimals.get("alt", 1)),
+        (q.SPEED_MADE_GOOD, "speed", None),
+        (q.HORIZONTAL_ACCELERATION, "acceleration", None),
     ):
-        rows.append(
-            [
-                quantity.label,
-                quantity.format(values.minimum, places),
-                quantity.format(values.maximum, places),
-            ]
-        )
-    return table(lay, ["Quantity", "Minimum or value", "Maximum"], rows, [0.5, 0.25, 0.25])
+        ranges = [getattr(s, name)] + ([getattr(good, name)] if good else [])
+        values = [quantity.format(v, places) for r in ranges for v in (r.minimum, r.maximum)]
+        rows.append([_unbroken_unit(quantity.label), *values, *[""] * (4 - len(values))])
+    header = ["Quantity", "All records, as R2R reports them", "", "Fixes that pass QC", ""]
+    styles = [
+        ("SPAN", (1, 0), (2, 0)),
+        ("SPAN", (3, 0), (4, 0)),
+        ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(lay.colors.table_header)),
+    ]
+    # Each value column as wide as a timestamp, with ReportLab's 6 pt padding each side; the
+    # labels get the rest
+    stamp = when(s.first) if s.first else "0000-00-00T00:00:00Z"
+    value = stringWidth(stamp, lay.cell.fontName, lay.cell.fontSize) + 2 * 6 + 2
+    widths = [1 - 4 * value / lay.frame_width] + [value / lay.frame_width] * 4
+    return table(lay, header, rows, widths, styles)
 
 
 def _qc(lay: Layout, result: NavQAResult) -> list[Flowable]:

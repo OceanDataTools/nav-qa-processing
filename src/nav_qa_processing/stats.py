@@ -19,6 +19,9 @@ filter); out-of-sequence records are QC's `TIME_SEQUENCE`. The statistics:
   unreasonable above `max_accel`, so QA and QC agree. The range is the signed rate of change of
   speed over the same time base.
 - **Ranges:** NSV, HDOP and altitude over the records reporting them.
+- **Good fixes** (`NavStats.good`, #66): the same ranges, and the speeds and accelerations, over
+  the fixes that pass QC alone: the usable track, beside navqa's pre-QC figures (SP2220's HDOP
+  999.9 and 6,660 m s-1 are its receiver's junk, not its track's).
 
 The core checks (pass/warn/info/n/a) compare these with `Thresholds`, whose defaults equal R2R's
 green bounds; R2R's own G/Y/R ratings belong to the R2R integration.
@@ -74,6 +77,20 @@ class Range:
 
 
 @dataclass
+class GoodFixes:
+    """The ranges over the fixes that pass QC (flags 0), speeds and accelerations between them"""
+
+    records: int
+    first: datetime | None
+    last: datetime | None
+    nsv: Range
+    hdop: Range
+    altitude: Range  # [m]
+    speed: Range  # [m s-1]
+    acceleration: Range  # [m s-2], signed rate of change of speed
+
+
+@dataclass
 class NavStats(Readable):
     records: int  # usable records
     first: datetime | None
@@ -101,6 +118,7 @@ class NavStats(Readable):
     speed: Range  # [m s-1]
     acceleration: Range  # [m s-2], signed rate of change of speed
     checks: list[CheckResult] = field(default_factory=list)
+    good: GoodFixes | None = None
     # Per record of the frame: whether each test counted it, by COUNTED's keys. "outside_area"
     # only with an expected area
     counted: dict[str, np.ndarray] = field(default_factory=dict, repr=False, compare=False)
@@ -234,6 +252,7 @@ def compute(
         altitude=_range(f["alt"].to_numpy(dtype=float)[usable]),
         speed=_range(speeds),
         acceleration=_range(change),
+        good=_good_fixes(f, t_all, qc_result, th),
         counted=counted,
     )
     stats.checks = _checks(stats, qc_result, th, extent)
@@ -262,6 +281,27 @@ def gaps(nav: RawNav, qc_result: QCResult, thresholds: Thresholds) -> pd.DataFra
         }
     )
     return table.sort_values("length", ascending=False, kind="stable").reset_index(drop=True)
+
+
+def _good_fixes(f: pd.DataFrame, t_all: np.ndarray, qc_result: QCResult, th) -> GoodFixes:
+    good = qc_result.flags == 0  # in sequence: QC flags the others
+    t = t_all[good]
+    lon = f["lon"].to_numpy(dtype=float)[good]
+    lat = f["lat"].to_numpy(dtype=float)[good]
+    speeds = geodesy.segments(t, lon, lat).speed if len(t) > 1 else np.array([])
+    times = f["time"][good]
+    return GoodFixes(
+        records=int(good.sum()),
+        first=times.iloc[0].to_pydatetime() if len(times) else None,
+        last=times.iloc[-1].to_pydatetime() if len(times) else None,
+        nsv=_range(f["nsat"].to_numpy(dtype=float, na_value=np.nan)[good]),
+        hdop=_range(f["hdop"].to_numpy(dtype=float)[good]),
+        altitude=_range(f["alt"].to_numpy(dtype=float)[good]),
+        speed=_range(speeds),
+        acceleration=_range(
+            acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True) if len(t) else []
+        ),
+    )
 
 
 def _outside(extent: Extent, lat: np.ndarray, lon: np.ndarray) -> np.ndarray:

@@ -136,18 +136,22 @@ def build_notebook(
         new_code_cell(
             "s = result.stats\n"
             "ranges = {\n"
-            "    q.NSV: (s.nsv, None),\n"
-            '    q.HDOP: (s.hdop, result.nav.decimals.get("hdop")),\n'
-            '    q.ANTENNA_HEIGHT: (s.altitude, result.nav.decimals.get("alt")),\n'
-            "    q.SPEED_MADE_GOOD: (s.speed, None),\n"
-            "    q.HORIZONTAL_ACCELERATION: (s.acceleration, None),\n"
+            '    q.NSV: ("nsv", s.nsv, None),\n'
+            '    q.HDOP: ("hdop", s.hdop, result.nav.decimals.get("hdop")),\n'
+            '    q.ANTENNA_HEIGHT: ("altitude", s.altitude, result.nav.decimals.get("alt")),\n'
+            '    q.SPEED_MADE_GOOD: ("speed", s.speed, None),\n'
+            '    q.HORIZONTAL_ACCELERATION: ("acceleration", s.acceleration, None),\n'
             "}\n"
+            "# Over every record, as R2R reports them, and over the fixes that pass QC\n"
             "display(pd.DataFrame(\n"
             '    [{"quantity": quantity.label, "minimum": quantity.format(r.minimum, places),\n'
-            '      "maximum": quantity.format(r.maximum, places)}\n'
-            "     for quantity, (r, places) in ranges.items()],\n"
+            '      "maximum": quantity.format(r.maximum, places),\n'
+            '      "good minimum": quantity.format(getattr(s.good, name).minimum, places),\n'
+            '      "good maximum": quantity.format(getattr(s.good, name).maximum, places)}\n'
+            "     for quantity, (name, r, places) in ranges.items()],\n"
             "))\n"
             "print(q.FIXES.label, q.FIXES.format(s.records))\n"
+            'print(q.FIXES.label, "that pass QC", q.FIXES.format(s.good.records))\n'
             "print(q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval))\n"
             "print(q.LONGEST_GAP.label, q.LONGEST_GAP.format(s.longest_gap))"
         ),
