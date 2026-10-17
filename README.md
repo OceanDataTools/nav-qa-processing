@@ -114,9 +114,9 @@ the primary also carries the feed's name, e.g. `<CRUISE>_seapath_bestres.geoCSV`
 
 | Figure | Shows |
 |---|---|
-| `track_map.svg` | The good track over coastlines (broken at gaps), flagged fixes by QC flag, the 1min control points, the start and end, QC's position steps and the expected area, with a world inset. The legend and inset never cover the track: with no clear place on the map, the legend goes below it and the inset is left out. Polar stereographic beyond 70°, and whole across the antimeridian |
+| `track_map.svg` | The good track over coastlines (broken at gaps), flagged fixes by QC flag (each under its first flag; the legend gives the QC table's count and how many are drawn), the 1min control points, the start and end, QC's position steps and the expected area, with a world inset. The legend and inset never cover the track: with no clear place on the map, the legend goes below it and the inset is left out. Polar stereographic beyond 70°, and whole across the antimeridian |
 | `speed_acceleration.svg` | Speed over ground and the acceleration QC tests, at the good fixes, against time, with `max_speed` and QC's acceleration limit |
-| `timeline.svg` | When there are fixes, the gaps of `max_gap` or longer, and the flagged fixes by flag |
+| `timeline.svg` | When there are fixes, the gaps of `max_gap` or longer, and the flagged fixes by flag. Each record is marked once, under its first flag; a row gives the QC table's count and how many of its records are in the rows above |
 | `histograms.svg` | The time between fixes, satellites, HDOP and GGA quality (invalid qualities in the secondary color) |
 
 Long cruises are reduced for drawing (a simplified track line, min/max bands per time bin, at
