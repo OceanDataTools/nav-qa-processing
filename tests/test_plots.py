@@ -17,6 +17,7 @@ from nav_qa_processing import quantities as q
 from nav_qa_processing.config import Extent, QAConfig
 from nav_qa_processing.formats.nmea import checksum
 from nav_qa_processing.qa import run_qa
+from nav_qa_processing.qc import Flag
 from nav_qa_processing.theme import COLORBLIND, Theme
 
 START = datetime(2026, 7, 9, 12, tzinfo=UTC)
@@ -216,6 +217,22 @@ def test_timeline(tmp_path):
     rows = [label.get_text() for label in axis.get_yticklabels()]
     assert rows[:2] == ["Fixes", "Gaps of 300 s or longer"]
     assert "acceleration (1)" in rows and "bad fix (5)" in rows
+
+
+def test_flag_counts_match_the_qc_table(tmp_path):
+    """A record with two flags is drawn once, under its lowest; the labels still give the QC
+    table's counts and say where the rest are (#69)
+    """
+    result = cruise(tmp_path)
+    bad = np.flatnonzero(result.qc.flags & int(Flag.BAD_FIX))  # the 5 no-fix records
+    result.qc.flags[bad[:3]] |= int(Flag.POSITION)  # 3 also lack a position
+    result.bestres["flags"] = result.qc.flags  # the map draws bestres's copy
+    assert (result.qc.count(Flag.POSITION), result.qc.count(Flag.BAD_FIX)) == (3, 5)
+    rows = [t.get_text() for t in plots.timeline(result).axes[0].get_yticklabels()]
+    assert "position (3)" in rows and "bad fix (5)\n3 in the rows above" in rows
+    found = labels(plots.track_map(result).axes[0])
+    assert "Flagged: bad fix (5; 2 drawn)" in found  # the 3 without a position aren't
+    assert not any(label.startswith("Flagged: position") for label in found)
 
 
 def test_histograms(tmp_path):

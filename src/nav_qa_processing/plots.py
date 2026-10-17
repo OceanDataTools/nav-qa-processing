@@ -104,6 +104,10 @@ def _naive_utc(times: pd.Series) -> np.ndarray:
     return times.dt.tz_convert(None).to_numpy() if times.dt.tz is not None else times.to_numpy()
 
 
+def _flag_name(flag: Flag) -> str:
+    return flag.name.lower().replace("_", " ")
+
+
 def _flag_index(flags: np.ndarray) -> np.ndarray:
     """The lowest QC flag bit of each record, as an index into `Flag`, or -1 for a good fix"""
     index = np.full(len(flags), -1)
@@ -519,19 +523,23 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
             zorder=4,
         )
 
+    # Each record is drawn once, under its lowest flag; the legend gives the QC table's count
+    # (every record with the flag) and how many are drawn here (#69)
     which = _flag_index(flags)
     for i, flag in enumerate(Flag):
         mine = np.flatnonzero((which == i) & placed)
         if not len(mine):
             continue
         shown = _thin(mine)
+        total = result.qc.count(flag)
+        drawn = "" if len(mine) == total else f"; {q.COUNT.format(len(mine))} drawn"
         axis.scatter(
             x[shown],
             lat[shown],
             s=6,
             color=theme.cycle[i % len(theme.cycle)],
             linewidths=0,
-            label=f"Flagged: {flag.name.lower().replace('_', ' ')} ({len(mine)})",
+            label=f"Flagged: {_flag_name(flag)} ({q.COUNT.format(total)}{drawn})",
             transform=frame,
             zorder=5,
         )
@@ -686,11 +694,17 @@ def _timeline(result: NavQAResult, theme: Theme) -> Figure:
     frame = result.nav.frame
     flags = result.qc.flags
     times = _naive_utc(frame["time"])
+    # A row per flag the QC table has, with its count (every record with the flag); each record
+    # is marked once, in the row of its lowest flag, so a row may say how many are above (#69)
     which = _flag_index(flags)
-    present = [(i, flag) for i, flag in enumerate(Flag) if (which == i).any()]
-    rows = ["Fixes", f"Gaps of {th.max_gap:g} s or longer"] + [
-        f"{flag.name.lower().replace('_', ' ')} ({int((which == i).sum())})" for i, flag in present
-    ]
+    present = [(i, flag) for i, flag in enumerate(Flag) if result.qc.count(flag)]
+    rows = ["Fixes", f"Gaps of {th.max_gap:g} s or longer"]
+    for i, flag in present:
+        total, here = result.qc.count(flag), int((which == i).sum())
+        label = f"{_flag_name(flag)} ({q.COUNT.format(total)})"
+        if here < total:
+            label += f"\n{q.COUNT.format(total - here)} in the rows above"
+        rows.append(label)
 
     figure, axis = plt.subplots(
         figsize=(FIGURE_WIDTH, 1.2 + 0.32 * len(rows)), layout="constrained"
