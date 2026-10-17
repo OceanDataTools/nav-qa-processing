@@ -621,8 +621,8 @@ The hook:
   OpenVDM's current cruise changed during the run. If OpenVDM refuses it or can't be reached,
   the hook logs a warning and still succeeds. The area check is then n/a, since the extent is
   the track's own. OpenVDM's `build_cruise_tracks.py` also sets `cruiseExtent`, from the data
-  dashboard's unchecked positions: add `--no-extent` to its hook so it doesn't overwrite this
-  one;
+  dashboard's unchecked positions: add `--no-set-extent` to its hook so it doesn't overwrite
+  this one (the same option name in both; OpenVDM 2.17, openvdm#470);
 - **otherwise checks the fixes against an expected area:** with `--no-set-extent`, without a
   `workerApiKey` (or with `--site-root`), or before OpenVDM 2.17, it checks them against
   OpenVDM's `cruiseExtent`, else the site TOML's `[extent]`; without either, the area check is
