@@ -128,6 +128,13 @@ def test_sp2220_no_fix():
     assert r2r_rating == "R"
     assert r2r_tests["PercentRecordsWithBadQualityIndicator"][0] == "R"
     assert r2r_tests["PercentCompleteness"] == ("R", 33.99)
+    # What the reader skipped (#67): every GGA without a time and ZDA without a date, and
+    # the 09-27 file it couldn't read
+    by_file = stats.counts_by_file(run.result.nav, run.result.stats).set_index("file")
+    assert by_file.loc["Total", stats.SKIPPED_SENTENCES] == 695_387 + 349_970
+    assert by_file.loc["abx-two-rx-1_20220927000000.raw", "status"] == (
+        "not read: no ZDA sentence"
+    )
     # Over the fixes that pass QC (#66), the receiver's junk is gone
     s = run.result.stats
     assert (s.hdop.maximum, s.good.hdop.maximum) == (999.9, 47.2)

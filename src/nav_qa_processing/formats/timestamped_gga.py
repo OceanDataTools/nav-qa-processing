@@ -29,7 +29,16 @@ corrects the date across midnight buffer by buffer. Not reproduced (docs/navmana
 import re
 from datetime import UTC, date, datetime
 
-from nav_qa_processing.formats.gga_zda import DatedFix, Result, date_from, sentences
+from nav_qa_processing.formats.gga_zda import (
+    FAILED_CHECKSUM,
+    NO_LOGGER_TIMESTAMP,
+    NO_TIME,
+    DatedFix,
+    Result,
+    count_skipped,
+    date_from,
+    sentences,
+)
 from nav_qa_processing.formats.nmea import GGA, parse_sentence
 from nav_qa_processing.readable import plural
 
@@ -74,6 +83,7 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
     fixes: list[DatedFix] = []
     errors: list[str] = []
     rejected: dict[str, int] = {}
+    skipped: dict[str, dict[str, int]] = {}
     for name, lines in files:
         timeless = unstamped = 0
         for number, text in sentences(lines):
@@ -101,4 +111,7 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
             errors.append(
                 f"{name}: {plural(unstamped, 'GGA')} without a logger timestamp, skipped"
             )
-    return Result(fixes, errors, rejected)
+        count_skipped(skipped, name, NO_TIME, timeless)
+        count_skipped(skipped, name, NO_LOGGER_TIMESTAMP, unstamped)
+        count_skipped(skipped, name, FAILED_CHECKSUM, rejected.get(name, 0))
+    return Result(fixes, errors, rejected, skipped)

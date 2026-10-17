@@ -48,7 +48,7 @@ TIMELINE_HEIGHT, HISTOGRAMS_HEIGHT = 3.2, 6.0
 HEADING_ROOM = 0.5 * inch  # a page heading above a figure
 MAX_ERRORS = 12  # reader and manifest errors listed; the rest are counted
 MAX_GAPS = 10  # the longest gaps listed; the rest are counted
-BY_FILE_PADDING = 3  # [pt] each side of a cell in the checks-by-file table, which is crowded;
+BY_FILE_PADDING = 2  # [pt] each side of a cell in the checks-by-file table, which is crowded;
 # its columns get 2 pt more, so a word measured to fit isn't wrapped by rounding
 
 # DejaVu Sans ships with matplotlib and, unlike ReportLab's built-in base fonts, has glyphs
@@ -408,21 +408,24 @@ def _qc(lay: Layout, result: NavQAResult) -> list[Flowable]:
 
 
 def _by_file(lay: Layout, result: NavQAResult) -> Table:
-    """What each check counted, per nav file (#61): the files read, those skipped as outside the
-    cruise window, and the total
+    """What each check counted, per nav file (#61), and the sentences the reader couldn't use
+    (#67): the files read, those it couldn't read, those skipped as outside the cruise window,
+    and the total
     """
     counts = stats.counts_by_file(result.nav, result.stats)
-    heads = list(stats.COUNTED.values())
+    heads = [stats.SKIPPED_SENTENCES, *stats.COUNTED.values()]
     number = ParagraphStyle("number", parent=lay.cell, alignment=TA_RIGHT)
     number_bold = ParagraphStyle("numberbold", parent=lay.cell_bold, alignment=TA_RIGHT)
     rows, styles = [], []
     records = counts.to_dict("records")
     for i, row in enumerate(records, start=1):
-        if row["status"] == stats.SKIPPED:
-            rows.append([row["file"], f"skipped: {stats.SKIPPED}"] + [""] * len(heads))
+        total = i == len(records)
+        if not total and row["status"] != "read":
+            status = row["status"]
+            note = f"skipped: {status}" if status == stats.SKIPPED else status
+            rows.append([row["file"], note] + [""] * len(heads))
             styles.append(("SPAN", (1, i), (-1, i)))
             continue
-        total = i == len(records)
         style = number_bold if total else number
         cells = [
             Paragraph("n/a" if pd.isna(row[c]) else q.COUNT.format(int(row[c])), style)
@@ -499,8 +502,9 @@ def _summary(lay: Layout, result: NavQAResult) -> list[Flowable]:
         Spacer(1, 10),
         Paragraph("Checks by file", lay.subheading),
         Paragraph(
-            "What each check counted, per nav file. A speed, a step out of sequence or a gap is "
-            "counted in the file of the fix that ends it.",
+            "What each check counted, per nav file, and the sentences the reader couldn't use "
+            "(the reader and manifest errors say why). A speed, a step out of sequence or a gap "
+            "is counted in the file of the fix that ends it.",
             lay.small,
         ),
         _by_file(lay, result),

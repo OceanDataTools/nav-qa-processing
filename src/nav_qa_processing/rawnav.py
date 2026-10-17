@@ -53,6 +53,10 @@ class RawNav:
     # GGA talker IDs and how many fixes each gave, e.g. {"GP": 56925}: whether the feed is a
     # GPS or GNSS receiver (GP, GN) or an INS (IN), as the data says
     talkers: dict[str, int] = field(default_factory=dict)
+    # What the reader couldn't use (#67): sentences per file and reason (gga_zda's reasons),
+    # and files it couldn't read at all, with why
+    skipped_lines: dict[str, dict[str, int]] = field(default_factory=dict)
+    unread_files: dict[str, str] = field(default_factory=dict)
 
 
 def read_lines(path: Path) -> list[str]:
@@ -76,15 +80,18 @@ def read_fileset(
     errors: list[str] = []
     selected: list[tuple[datetime, str, list[str]]] = []
     skipped: list[str] = []
+    unread: dict[str, str] = {}
     for path in sorted(paths, key=lambda p: _natural_key(p.name)):
         try:
             lines = read_lines(path)
         except OSError as error:
             errors.append(f"{path.name}: {error}")
+            unread[path.name] = str(error)
             continue
         span = spec.reader.span(lines)
         if span is None:
             errors.append(f"{path.name}: no {spec.reader.dated_by}, skipped")
+            unread[path.name] = f"no {spec.reader.dated_by}"
         elif span[1] < start or span[0] > end:
             skipped.append(path.name)
         else:
@@ -124,5 +131,12 @@ def read_fileset(
     }
     talkers = dict(sorted(Counter(g.talker for g in ggas if g.talker).items()))
     return RawNav(
-        frame, decimals, [name for _, name, _ in selected], skipped, errors, talkers=talkers
+        frame,
+        decimals,
+        [name for _, name, _ in selected],
+        skipped,
+        errors,
+        talkers=talkers,
+        skipped_lines=result.skipped,
+        unread_files=unread,
     )

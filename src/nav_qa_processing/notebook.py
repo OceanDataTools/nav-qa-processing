@@ -126,7 +126,11 @@ def build_notebook(
             "What each check counted, per nav file. A speed, a step out of sequence or a gap is "
             "counted in the file of the fix that ends it."
         ),
-        new_code_cell("display(stats.counts_by_file(result.nav, result.stats))"),
+        new_code_cell(
+            "display(stats.counts_by_file(result.nav, result.stats))\n"
+            "# The sentences the reader couldn't use, and why\n"
+            "display(stats.skipped_by_file(result.nav))"
+        ),
         new_markdown_cell(
             "### Gaps\n\nThe steps of `max_gap` or longer between fixes, the longest first, "
             "with the files either side."

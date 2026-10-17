@@ -139,6 +139,7 @@ COUNTED = {
     "flagged": "Flagged by QC",
 }
 SKIPPED = "outside the cruise window"
+SKIPPED_SENTENCES = "Skipped sentences"  # counts_by_file's column of what the reader couldn't use
 
 
 def _percent(part: int, whole: int) -> float | None:
@@ -323,27 +324,43 @@ def _outside(extent: Extent, lat: np.ndarray, lon: np.ndarray) -> np.ndarray:
 
 
 def counts_by_file(nav: RawNav, stats: NavStats) -> pd.DataFrame:
-    """What each test counted, per nav file in the order read, then the files skipped as
-    outside the cruise window, then the total. Columns: file, fixes, then COUNTED's labels
-    (n/a, as missing, for the outside-area test without an expected area), and status
+    """What each test counted, per nav file in the order read, then the files the reader
+    couldn't read, those skipped as outside the cruise window, and the total. Columns: file,
+    fixes, skipped (sentences the reader couldn't use, #67), then COUNTED's labels (n/a, as
+    missing, for the outside-area test without an expected area), and status
     """
     files = nav.frame["source_file"].astype(str).to_numpy()
+    skipped = {name: sum(reasons.values()) for name, reasons in nav.skipped_lines.items()}
     rows = []
     for name in nav.files:
         mine = files == name
-        row = {"file": name, "fixes": int(mine.sum())}
+        row = {"file": name, "fixes": int(mine.sum()), SKIPPED_SENTENCES: skipped.get(name, 0)}
         for key, label in COUNTED.items():
             mask = stats.counted.get(key)
             row[label] = None if mask is None else int((mask & mine).sum())
         rows.append(row | {"status": "read"})
-    total = {"file": "Total", "fixes": len(files)}
+    total = {"file": "Total", "fixes": len(files), SKIPPED_SENTENCES: sum(skipped.values())}
     for key, label in COUNTED.items():
         mask = stats.counted.get(key)
         total[label] = None if mask is None else int(mask.sum())
+    rows += [
+        {"file": name, "status": f"not read: {why}"} for name, why in nav.unread_files.items()
+    ]
     rows += [{"file": name, "status": SKIPPED} for name in nav.skipped_files]
     rows.append(total | {"status": ""})
-    table = pd.DataFrame(rows, columns=["file", "fixes", *COUNTED.values(), "status"])
-    return table.astype({c: "Int64" for c in ["fixes", *COUNTED.values()]})
+    counts = ["fixes", SKIPPED_SENTENCES, *COUNTED.values()]
+    table = pd.DataFrame(rows, columns=["file", *counts, "status"])
+    return table.astype({c: "Int64" for c in counts})
+
+
+def skipped_by_file(nav: RawNav) -> pd.DataFrame:
+    """The sentences the reader couldn't use, per file and reason (#67)"""
+    rows = [
+        {"file": name, "reason": reason, "sentences": count}
+        for name, reasons in nav.skipped_lines.items()
+        for reason, count in reasons.items()
+    ]
+    return pd.DataFrame(rows, columns=["file", "reason", "sentences"])
 
 
 def _status(ok: bool | None) -> str:
