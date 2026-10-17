@@ -112,7 +112,7 @@ the fileset directory's name:
 
 | Figure | Shows |
 |---|---|
-| `track_map.svg` | The good track over coastlines (broken at gaps), flagged fixes by QC flag, the 1min control points, the start and end, QC's position steps and the expected area, with a world inset. Polar stereographic beyond 70°, and whole across the antimeridian |
+| `track_map.svg` | The good track over coastlines (broken at gaps), flagged fixes by QC flag, the 1min control points, the start and end, QC's position steps and the expected area, with a world inset. The legend and inset never cover the track: with no clear place on the map, the legend goes below it and the inset is left out. Polar stereographic beyond 70°, and whole across the antimeridian |
 | `speed_acceleration.svg` | Speed over ground and the acceleration QC tests, at the good fixes, against time, with `max_speed` and QC's acceleration limit |
 | `timeline.svg` | When there are fixes, the gaps of `max_gap` or longer, and the flagged fixes by flag |
 | `histograms.svg` | The time between fixes, satellites, HDOP and GGA quality (invalid qualities in the secondary color) |

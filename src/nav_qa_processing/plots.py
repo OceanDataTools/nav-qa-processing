@@ -2,7 +2,9 @@
 `Theme` and returns a matplotlib Figure:
 
 - `track_map`: the good track over coastlines, flagged fixes by QC flag, the 1min control
-  points, the start and end, QC's position steps and the expected area, with a world inset;
+  points, the start and end, QC's position steps and the expected area, with a world inset.
+  The legend and inset go where they cover no fix or marker: the legend below the map when
+  there's no such place on it, and the inset left out when there's none;
 - `speed_and_acceleration`: speed over ground and the acceleration QC tests, against time, with
   their limits;
 - `timeline`: when there are fixes, the gaps (`max_gap` or longer) and the flagged fixes by
@@ -43,6 +45,7 @@ MAP_POLAR_LATITUDE = 70.0  # [degree] beyond this, the map is polar stereographi
 TRACK_POINTS = 4000  # about how many vertices the simplified track line keeps
 TIME_BINS = 1500  # bins of the min/max envelopes against time
 MAX_MARKERS = 3000  # flagged fixes drawn per flag; the legend gives the full count
+OCCUPIED_TRACK_POINTS = 20_000  # track fixes a legend or the inset is checked against
 QUALITY_NAMES = {
     0: "invalid",
     1: "GPS",
@@ -185,8 +188,10 @@ def _wraps(extent, longitudes: np.ndarray) -> bool:
     return np.ptp(longitudes % 360) < np.ptp(longitudes)
 
 
-def _emptiest_corner(points: np.ndarray, view) -> str:
-    """The view quadrant with the fewest (x, lat) points, for the world inset"""
+def _corners_by_emptiness(points: np.ndarray, view) -> list[str]:
+    """The view's corners, the one whose quadrant has the fewest (x, lat) points first: the
+    order in which the world inset tries them
+    """
     west, east, south, north = view
     mid_x, mid_lat = (west + east) / 2, (south + north) / 2
     x, lat = (points[:, 0], points[:, 1]) if len(points) else (np.array([]), np.array([]))
@@ -196,18 +201,142 @@ def _emptiest_corner(points: np.ndarray, view) -> str:
         "upper left": int(((lat >= mid_lat) & (x < mid_x)).sum()),
         "upper right": int(((lat >= mid_lat) & (x >= mid_x)).sum()),
     }
-    return min(counts, key=counts.get)
+    return sorted(counts, key=counts.get)
 
 
-def _world_inset(axis, corner: str, latitude: float, longitude: float, theme: Theme) -> None:
-    """A small world map marking the cruise, in a corner of the map"""
-    colors = theme.colors
-    width = height = 0.28
-    x = 0.02 if "left" in corner else 0.98 - width
-    y = 0.02 if "lower" in corner else 0.98 - height
-    inset = axis.inset_axes(
-        (x, y, width, height), projection=ccrs.Robinson(central_longitude=longitude)
+Rect = tuple[float, float, float, float]  # (x, y, width, height) in axes coordinates
+
+# The legend's places on the map, in the order they're tried after the corner opposite the inset
+LEGEND_PLACES = (
+    "upper right",
+    "upper left",
+    "lower left",
+    "lower right",
+    "upper center",
+    "lower center",
+    "center left",
+    "center right",
+)
+INSET_EDGES = ("upper center", "lower center", "center left", "center right")  # after corners
+OPPOSITE = {
+    "upper right": "lower left",
+    "upper left": "lower right",
+    "lower right": "upper left",
+    "lower left": "upper right",
+}
+INSET_SIZES = (0.28, 0.2)  # share of the map's width and height the inset may take, tried in order
+INSET_PAD = 0.02  # [axes fraction] the inset's distance from the map's edges
+INSET_MARGIN = 0.01  # [axes fraction] clearance kept between the track and a legend or inset
+
+
+def _corner_rect(corner: str, width: float, height: float, pad_x: float, pad_y: float) -> Rect:
+    """The rectangle of a legend or inset of this size at a matplotlib legend location"""
+    if "left" in corner:
+        x = pad_x
+    elif "right" in corner:
+        x = 1 - pad_x - width
+    else:
+        x = (1 - width) / 2
+    if "lower" in corner:
+        y = pad_y
+    elif "upper" in corner:
+        y = 1 - pad_y - height
+    else:
+        y = (1 - height) / 2
+    return x, y, width, height
+
+
+def _covers(rect: Rect, points: np.ndarray, margin: float = INSET_MARGIN) -> bool:
+    """Whether any of the points (axes coordinates) is within margin of the rectangle"""
+    x, y, width, height = rect
+    inside = (
+        (points[:, 0] >= x - margin)
+        & (points[:, 0] <= x + width + margin)
+        & (points[:, 1] >= y - margin)
+        & (points[:, 1] <= y + height + margin)
     )
+    return bool(inside.any())
+
+
+def _overlap(a: Rect, b: Rect) -> bool:
+    return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+
+
+def _place_legend_and_inset(
+    figure: Figure,
+    axis,
+    frame,
+    occupied: tuple[np.ndarray, np.ndarray],
+    corners: list[str],
+    latitude: float,
+    longitude: float,
+    theme: Theme,
+) -> None:
+    """The legend and world inset where they cover no track or marker (#59). Both are measured
+    once the map is laid out, and each candidate place is checked against the occupied points
+    (x, lat in frame). In order of preference: the inset in a clear corner and the legend in a
+    clear place on the map; the inset with the legend below the map; the legend on the map
+    without the inset; the legend below the map without it
+    """
+    fontsize = _pt(theme, 6.5)
+    legend = axis.legend(fontsize=fontsize, loc="upper left", framealpha=0.85)
+    figure.draw_without_rendering()
+    area = axis.get_window_extent()
+    xs, lats = occupied
+    projected = axis.projection.transform_points(frame, np.asarray(xs), np.asarray(lats))
+    points = axis.transLimits.transform(projected[:, :2]) if len(xs) else np.empty((0, 2))
+    points = points[np.isfinite(points).all(axis=1)]
+
+    size = legend.get_window_extent()
+    pad = legend.borderaxespad * legend.prop.get_size_in_points() * figure.dpi / 72
+    width, height = size.width / area.width, size.height / area.height
+    pad_x, pad_y = pad / area.width, pad / area.height
+    robinson = ccrs.Robinson(central_longitude=longitude)
+    aspect = np.ptp(robinson.x_limits) / np.ptp(robinson.y_limits)
+
+    insets = []  # (corner, rect) clear of the track, by preference
+    for share in INSET_SIZES:
+        inset_width = min(share * area.width, share * area.height * aspect)
+        w, h = inset_width / area.width, inset_width / aspect / area.height
+        insets += [
+            (place, rect)
+            for place in [*corners, *INSET_EDGES]
+            if not _covers(rect := _corner_rect(place, w, h, INSET_PAD, INSET_PAD), points)
+        ]
+
+    def legend_place(inset: tuple[str, Rect] | None) -> str | None:
+        first = [OPPOSITE[inset[0]]] if inset and inset[0] in OPPOSITE else []
+        for place in first + [p for p in LEGEND_PLACES if p not in first]:
+            rect = _corner_rect(place, width, height, pad_x, pad_y)
+            if not _covers(rect, points) and not (inset and _overlap(rect, inset[1])):
+                return place
+        return None
+
+    # Keep the inset if anywhere is clear for it, moving the legend below the map if need be
+    inset = next((i for i in insets if legend_place(i) is not None), None)
+    inset = inset or (insets[0] if insets else None)
+    place = legend_place(inset)
+    if place is not None:
+        legend.set_loc(place)
+    else:
+        legend.remove()
+        handles, labels = axis.get_legend_handles_labels()
+        figure.legend(
+            handles,
+            labels,
+            loc="outside lower center",
+            ncols=min(3, len(labels)),
+            fontsize=fontsize,
+            framealpha=0.85,
+        )
+    if inset is not None:
+        _world_inset(axis, inset[1], latitude, longitude, theme)
+
+
+def _world_inset(axis, rect: Rect, latitude: float, longitude: float, theme: Theme) -> None:
+    """A small world map marking the cruise, at rect on the map"""
+    colors = theme.colors
+    inset = axis.inset_axes(rect, projection=ccrs.Robinson(central_longitude=longitude))
     inset.set_global()
     inset.set_facecolor(colors.water)
     land = maps.world_geometries("physical", "land")
@@ -414,10 +543,10 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
             0,
             len(good_seconds) - 1,
         )
-        index = np.flatnonzero(track)[at]
+        step_index = np.flatnonzero(track)[at]
         axis.scatter(
-            x[index],
-            lat[index],
+            x[step_index],
+            lat[step_index],
             marker="x",
             s=30,
             color="0.15",
@@ -451,15 +580,23 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
     gridlines.top_labels = gridlines.right_labels = False
     gridlines.xlabel_style = gridlines.ylabel_style = {"size": _pt(theme, 7)}
     points = np.column_stack([x[track] + center_lon, lat[track]])
-    corner = _emptiest_corner(points[:: max(1, len(points) // 2000)], view)
-    opposite = {
-        "upper right": "lower left",
-        "upper left": "lower right",
-        "lower right": "upper left",
-        "lower left": "upper right",
-    }
-    axis.legend(fontsize=_pt(theme, 6.5), loc=opposite[corner], framealpha=0.85)
-    _world_inset(axis, corner, center_lat, central, theme)
+    corners = _corners_by_emptiness(points[:: max(1, len(points) // 2000)], view)
+    # What a legend or the inset mustn't cover: the track at an even spacing in time, and
+    # every kind of marker
+    on_track = np.flatnonzero(track)
+    on_track = on_track[:: max(1, len(on_track) // OCCUPIED_TRACK_POINTS)]
+    flagged = _thin(np.flatnonzero(~good & placed))
+    marked = [on_track, flagged, ends[:1], ends[-1:]]
+    if result.qc.steps:
+        marked.append(step_index)
+    occupied = np.concatenate(marked).astype(int)
+    occupied_x, occupied_lat = x[occupied], lat[occupied]
+    if len(result.control):
+        occupied_x = np.concatenate([occupied_x, control_x])
+        occupied_lat = np.concatenate([occupied_lat, result.control["lat"].to_numpy(float)])
+    _place_legend_and_inset(
+        figure, axis, frame, (occupied_x, occupied_lat), corners, center_lat, central, theme
+    )
     axis.set_title(f"{result.config.identifier}: trackline", fontsize=_pt(theme, 10))
     return figure
 
