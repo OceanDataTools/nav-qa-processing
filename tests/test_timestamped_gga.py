@@ -74,6 +74,14 @@ def test_problems_are_recorded_not_raised():
         "f: 1 GGA without a time, skipped",
         "f: 1 GGA without a logger timestamp, skipped",
     ]
+    # Counted by reason too (#67)
+    assert result.skipped == {
+        "f": {
+            "GGA without a time": 1,
+            "GGA without a logger timestamp": 1,
+            "failed its checksum": 1,
+        }
+    }
 
 
 def test_repeated_times_are_kept_for_qc():

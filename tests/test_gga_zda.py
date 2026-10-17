@@ -77,11 +77,28 @@ def test_buffer_carries_across_files():
 def test_no_zda_is_an_error_not_an_exception():
     result = gga_zda.read([("f", [gga("120000.00")])])
     assert result.fixes == [] and "no ZDA" in result.errors[0]
+    assert result.skipped == {"f": {gga_zda.NO_ZDA_TO_DATE_IT: 1}}
 
 
 def test_invalid_zda_is_recorded_and_skipped():
     result = gga_zda.read([("f", [gga("120000.00"), nmea("GPZDA,120000.01,,,,,")])])
     assert "ZDA without a valid date" in result.errors[0]
+
+
+def test_skipped_sentences_are_counted_per_file_and_reason():
+    timeless = nmea("GPGGA,,,,,,0,00,,,M,,M,,")
+    bad = gga("120002.00")[:-2] + "00"
+    result = gga_zda.read(
+        [
+            ("a", [gga("120000.00"), timeless, timeless, zda("120000.01", 9)]),
+            ("b", [gga("120001.00"), bad, nmea("GPZDA,120001.01,,,,,"), zda("120001.02", 9)]),
+        ]
+    )
+    assert len(result.fixes) == 2
+    assert result.skipped == {
+        "a": {gga_zda.NO_TIME: 2},
+        "b": {gga_zda.NO_VALID_DATE: 1, gga_zda.FAILED_CHECKSUM: 1},
+    }
 
 
 def test_a_file_starting_after_a_long_gap_takes_its_own_zda():

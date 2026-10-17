@@ -27,7 +27,9 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `timestamped_gga.py` (each GGA dated by its line's ISO logger timestamp: OpenRVDAS, Falkor
   (too)). Both keep every valid GGA; NavManager's differences are in their docstrings.
 - `rawnav.py`: `read_fileset(paths, format_id, start, end)` -> `RawNav` (DataFrame, receiver
-  decimals, files read/skipped, errors, GGA talker IDs counted, `nmea.TALKERS` names them). It selects files by the reader's span (first to last
+  decimals, files read/skipped, errors, GGA talker IDs counted, `nmea.TALKERS` names them;
+  `skipped_lines`, the sentences each reader couldn't use per file and reason, from its
+  `Result.skipped` with `gga_zda`'s reasons, and `unread_files`, #67). It selects files by the reader's span (first to last
   ZDA, or logger timestamp), as navdatalist does.
 - `r2rnav.py`: read/write legacy r2rnav.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and

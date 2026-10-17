@@ -34,7 +34,7 @@ Recorded in `errors`, not raised, counted per file:
 import re
 from bisect import bisect_left
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
@@ -66,11 +66,27 @@ class DatedFix:
         return (self.day - _EPOCH).days * _DAY + self.gga.time.ns
 
 
+# Why a reader skipped a sentence, as Result.skipped counts them (#67)
+NO_TIME = "GGA without a time"
+NO_VALID_DATE = "ZDA without a valid date"
+NO_LOGGER_TIMESTAMP = "GGA without a logger timestamp"
+NO_ZDA_TO_DATE_IT = "GGA with no ZDA in any file to date it"
+FAILED_CHECKSUM = "failed its checksum"
+
+
 @dataclass
 class Result:
     fixes: list[DatedFix]
     errors: list[str]  # "<file>: <message>"
     rejected_checksums: dict[str, int]  # GGA and ZDA sentences, per file
+    # Sentences skipped, per file and reason (the reasons above), checksums included
+    skipped: dict[str, dict[str, int]] = field(default_factory=dict)
+
+
+def count_skipped(skipped: dict[str, dict[str, int]], name: str, reason: str, count: int) -> None:
+    if count:
+        reasons = skipped.setdefault(name, {})
+        reasons[reason] = reasons.get(reason, 0) + count
 
 
 def _zda_day(zda: ZDA) -> date | None:
@@ -158,6 +174,7 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
     zda_positions: list[int] = []
     errors: list[str] = []
     rejected: dict[str, int] = {}
+    skipped: dict[str, dict[str, int]] = {}
     position = 0  # sentence count across files
     for name, lines in files:
         timeless = undated = 0
@@ -188,11 +205,16 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
             errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")
         if undated:
             errors.append(f"{name}: {plural(undated, 'ZDA')} without a valid date, skipped")
+        count_skipped(skipped, name, NO_TIME, timeless)
+        count_skipped(skipped, name, NO_VALID_DATE, undated)
+        count_skipped(skipped, name, FAILED_CHECKSUM, rejected.get(name, 0))
 
     if not zdas:
         if fixes:
             errors.append(f"no ZDA in any file: {len(fixes)} GGA fixes can't be dated")
-        return Result([], errors, rejected)
+        for fix in fixes:
+            count_skipped(skipped, fix.source_file, NO_ZDA_TO_DATE_IT, 1)
+        return Result([], errors, rejected, skipped)
     for fix, at in zip(fixes, fix_positions, strict=True):
         following = bisect_left(zda_positions, at)
         candidates = [i for i in (following, following - 1) if 0 <= i < len(zdas)]
@@ -200,4 +222,4 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
         nearest = min(candidates, key=lambda i: _apart(zdas[i][1], fix.gga.time.ns))
         zda_day, zda_ns = zdas[nearest]
         fix.day = date_from(zda_day, zda_ns, fix.gga.time.ns)
-    return Result(fixes, errors, rejected)
+    return Result(fixes, errors, rejected, skipped)

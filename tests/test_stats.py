@@ -165,6 +165,22 @@ def test_counts_by_file():
     assert table.loc["c.txt", "status"] == stats.SKIPPED and pd.isna(table.loc["c.txt", "fixes"])
 
 
+def test_counts_by_file_show_skipped_sentences_and_unread_files():
+    nav = two_files()
+    nav.skipped_lines = {"a.txt": {"GGA without a time": 7, "failed its checksum": 2}}
+    nav.unread_files = {"d.txt": "no ZDA sentence"}
+    table = stats.counts_by_file(nav, compute(nav)).set_index("file")
+    skipped = table[stats.SKIPPED_SENTENCES]
+    assert (skipped["a.txt"], skipped["b.txt"], skipped["Total"]) == (9, 0, 9)
+    assert table.loc["d.txt", "status"] == "not read: no ZDA sentence"
+    assert list(table.index) == ["a.txt", "b.txt", "d.txt", "c.txt", "Total"]
+    reasons = stats.skipped_by_file(nav)
+    assert reasons.to_dict("records") == [
+        {"file": "a.txt", "reason": "GGA without a time", "sentences": 7},
+        {"file": "a.txt", "reason": "failed its checksum", "sentences": 2},
+    ]
+
+
 def test_gaps_longest_first_with_their_files():
     nav = two_files()  # a.txt ends at 59 s; b.txt starts at 400 s
     table = stats.gaps(nav, qc.flag(nav, Thresholds()), Thresholds())
