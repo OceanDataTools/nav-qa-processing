@@ -102,6 +102,54 @@ def test_extent_check():
     assert check.status == "n/a"
 
 
+def two_files():
+    """a.txt: a fix 40 m off (speeds and accelerations) and a no-fix record; b.txt, after a
+    gap that crosses from a.txt: a record out of sequence and a no-fix record; c.txt skipped
+    """
+    seconds = [*range(60), *range(400, 411), 409.5, *range(411, 460)]
+    lat = 32.0 + np.asarray(seconds, dtype=float) * 3.0 * METRE
+    lat[30] += 40 * METRE
+    quality = [2] * len(seconds)
+    quality[5] = quality[65] = 0
+    nav = nav_from(seconds, lat=lat, quality=quality)
+    nav.frame["source_file"] = pd.Categorical(["a.txt"] * 60 + ["b.txt"] * 61)
+    nav.files, nav.skipped_files = ["a.txt", "b.txt"], ["c.txt"]
+    return nav
+
+
+def test_counts_by_file():
+    nav = two_files()
+    s = compute(nav)
+    table = stats.counts_by_file(nav, s).set_index("file")
+    a, b, total = table.loc["a.txt"], table.loc["b.txt"], table.loc["Total"]
+    assert (a["fixes"], b["fixes"], total["fixes"]) == (60, 61, 121)
+    assert (a["Unreasonable speeds"], b["Unreasonable speeds"]) == (2, 0)
+    assert a["Unreasonable accelerations"] >= 1 and b["Unreasonable accelerations"] == 0
+    assert (a["Gaps"], b["Gaps"]) == (0, 1)  # the gap ends in b.txt
+    assert (a["Out of sequence"], b["Out of sequence"]) == (0, 1)
+    assert (a["Bad quality"], b["Bad quality"]) == (1, 1)
+    # The files' counts add up to the total, which is what the checks counted
+    columns = ["fixes", *stats.COUNTED.values()]
+    columns.remove("Outside area")
+    assert (table.loc[["a.txt", "b.txt"], columns].sum() == total[columns]).all()
+    assert total["Unreasonable speeds"] == s.unreasonable_speeds
+    assert total["Unreasonable accelerations"] == s.unreasonable_accelerations
+    assert (total["Gaps"], total["Out of sequence"]) == (s.gaps, s.out_of_sequence)
+    assert total["Flagged by QC"] == int((qc.flag(nav, Thresholds()).flags != 0).sum())
+    # Without an expected area there's no outside-area count; a skipped file has no counts
+    assert table["Outside area"].isna().all()
+    assert table.loc["c.txt", "status"] == stats.SKIPPED and pd.isna(table.loc["c.txt", "fixes"])
+
+
+def test_counts_by_file_outside_the_expected_area():
+    nav = two_files()
+    s = compute(nav, extent=Extent(-118.0, -116.0, 32.0, 32.0 + 59 * 3.0 * METRE))
+    table = stats.counts_by_file(nav, s).set_index("file")
+    assert (table.loc["a.txt", "Outside area"], table.loc["b.txt", "Outside area"]) == (0, 61)
+    check = {c.name: c for c in s.checks}["Within the expected area"]
+    assert check.value == f"{table.loc['Total', 'Outside area']} outside"
+
+
 def test_core_checks_use_thresholds():
     s = compute(nav_from([0, 1, 2, 3, 7, 8, 9]), Thresholds(min_completeness=60.0))
     assert {c.name: c.status for c in s.checks}["Completeness"] == "pass"

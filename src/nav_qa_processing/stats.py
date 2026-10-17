@@ -23,6 +23,10 @@ filter); out-of-sequence records are QC's `TIME_SEQUENCE`. The statistics:
 The core checks (pass/warn/info/n/a) compare these with `Thresholds`, whose defaults equal R2R's
 green bounds; R2R's own G/Y/R ratings belong to the R2R integration.
 
+`NavStats.counted` keeps which records each test counted, and `counts_by_file` splits the counts
+by nav file (#61). A test between two fixes (a speed, a step out of sequence, a gap) counts in
+the later fix's file, also across a file boundary; an acceleration is at a fix.
+
 Different from navqa (see docs/navmanager-differences.md, A2-A6): a count of interval slots
 replaces its accumulated "countable epochs" (whose end-of-file loop compares milliseconds with
 seconds); quality 3 (PPS) isn't bad; accelerations come from QC's definition rather than from
@@ -94,10 +98,26 @@ class NavStats(Readable):
     speed: Range  # [m s-1]
     acceleration: Range  # [m s-2], signed rate of change of speed
     checks: list[CheckResult] = field(default_factory=list)
+    # Per record of the frame: whether each test counted it, by COUNTED's keys. "outside_area"
+    # only with an expected area
+    counted: dict[str, np.ndarray] = field(default_factory=dict, repr=False, compare=False)
 
     def __str__(self) -> str:
         statuses = [check.status for check in self.checks]
         return block(f"QA statistics: {counts(statuses)}", [str(c) for c in self.checks])
+
+
+# What each test counts, by NavStats.counted's keys, as the per-file table heads them
+COUNTED = {
+    "out_of_sequence": "Out of sequence",
+    "bad_quality": "Bad quality",
+    "unreasonable_speeds": "Unreasonable speeds",
+    "unreasonable_accelerations": "Unreasonable accelerations",
+    "gaps": "Gaps",
+    "outside_area": "Outside area",
+    "flagged": "Flagged by QC",
+}
+SKIPPED = "outside the cruise window"
 
 
 def _percent(part: int, whole: int) -> float | None:
@@ -145,15 +165,42 @@ def compute(
 
     out_of_sequence = int((usable & ~in_sequence).sum())
     dated = (qc_result.flags & int(Flag.DATE_RANGE)) == 0
-    quality = f["quality"].to_numpy(dtype=float, na_value=np.nan)[dated]
+    quality_all = f["quality"].to_numpy(dtype=float, na_value=np.nan)
+    quality = quality_all[dated]
     reported = ~np.isnan(quality)
     bad = int(((quality < th.min_quality) | (quality > th.max_quality))[reported].sum())
 
     segments = geodesy.segments(t, lon, lat) if len(t) > 1 else None
-    speeds = segments.speed[~np.isnan(segments.speed)] if segments else np.array([])
-    acceleration = acceleration_at_fixes(t, lon, lat, th.accel_time_base)
-    acceleration = acceleration[~np.isnan(acceleration)]
+    all_speeds = segments.speed if segments else np.array([])
+    speeds = all_speeds[~np.isnan(all_speeds)]
+    at_fixes = acceleration_at_fixes(t, lon, lat, th.accel_time_base)
+    acceleration = at_fixes[~np.isnan(at_fixes)]
     change = acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True)
+
+    # Which records each test counted: a test between two fixes at the later one
+    records = len(f)
+    later = np.flatnonzero(in_sequence)[1:]
+
+    def at(index: np.ndarray, hits: np.ndarray) -> np.ndarray:
+        mask = np.zeros(records, dtype=bool)
+        mask[index[hits]] = True
+        return mask
+
+    with np.errstate(invalid="ignore"):
+        counted = {
+            "out_of_sequence": usable & ~in_sequence,
+            "bad_quality": dated
+            & ~np.isnan(quality_all)
+            & ((quality_all < th.min_quality) | (quality_all > th.max_quality)),
+            "unreasonable_speeds": at(later, all_speeds > th.max_speed),
+            "unreasonable_accelerations": at(np.flatnonzero(in_sequence), at_fixes > th.max_accel),
+            "gaps": at(later, steps >= th.max_gap),
+            "flagged": qc_result.flags != 0,
+        }
+    if extent is not None:
+        counted["outside_area"] = usable & _outside(
+            extent, f["lat"].to_numpy(dtype=float), f["lon"].to_numpy(dtype=float)
+        )
 
     times = f["time"][in_sequence]
     stats = NavStats(
@@ -184,16 +231,59 @@ def compute(
         altitude=_range(f["alt"].to_numpy(dtype=float)[usable]),
         speed=_range(speeds),
         acceleration=_range(change),
+        counted=counted,
     )
-    stats.checks = _checks(stats, f[usable], qc_result, th, extent)
+    stats.checks = _checks(stats, qc_result, th, extent)
     return stats
+
+
+def _outside(extent: Extent, lat: np.ndarray, lon: np.ndarray) -> np.ndarray:
+    """Per position, whether it's outside the expected area by more than EXTENT_TOLERANCE;
+    missing positions aren't
+    """
+    tolerance = EXTENT_TOLERANCE
+    with np.errstate(invalid="ignore"):
+        north_south = (lat >= extent.southernmost - tolerance) & (
+            lat <= extent.northernmost + tolerance
+        )
+        west, east = extent.westernmost - tolerance, extent.easternmost + tolerance
+        if extent.crosses_antimeridian:
+            east_west = (lon >= west) | (lon <= east)
+        else:
+            east_west = (lon >= west) & (lon <= east)
+    placed = ~(np.isnan(lat) | np.isnan(lon))
+    return placed & ~(north_south & east_west)
+
+
+def counts_by_file(nav: RawNav, stats: NavStats) -> pd.DataFrame:
+    """What each test counted, per nav file in the order read, then the files skipped as
+    outside the cruise window, then the total. Columns: file, fixes, then COUNTED's labels
+    (n/a, as missing, for the outside-area test without an expected area), and status
+    """
+    files = nav.frame["source_file"].astype(str).to_numpy()
+    rows = []
+    for name in nav.files:
+        mine = files == name
+        row = {"file": name, "fixes": int(mine.sum())}
+        for key, label in COUNTED.items():
+            mask = stats.counted.get(key)
+            row[label] = None if mask is None else int((mask & mine).sum())
+        rows.append(row | {"status": "read"})
+    total = {"file": "Total", "fixes": len(files)}
+    for key, label in COUNTED.items():
+        mask = stats.counted.get(key)
+        total[label] = None if mask is None else int(mask.sum())
+    rows += [{"file": name, "status": SKIPPED} for name in nav.skipped_files]
+    rows.append(total | {"status": ""})
+    table = pd.DataFrame(rows, columns=["file", "fixes", *COUNTED.values(), "status"])
+    return table.astype({c: "Int64" for c in ["fixes", *COUNTED.values()]})
 
 
 def _status(ok: bool | None) -> str:
     return "n/a" if ok is None else ("pass" if ok else "warn")
 
 
-def _checks(stats: NavStats, usable: pd.DataFrame, qc_result, th, extent) -> list[CheckResult]:
+def _checks(stats: NavStats, qc_result, th, extent) -> list[CheckResult]:
     def pct(value):
         return "n/a" if value is None else f"{value:.2f} %"
 
@@ -252,12 +342,7 @@ def _checks(stats: NavStats, usable: pd.DataFrame, qc_result, th, extent) -> lis
     if extent is None:
         checks.append(CheckResult("Within the expected area", "n/a", "no extent configured"))
     else:
-        inside = [
-            extent.contains(la, lo, EXTENT_TOLERANCE)
-            for la, lo in zip(usable["lat"], usable["lon"], strict=True)
-            if not (np.isnan(la) or np.isnan(lo))
-        ]
-        outside = len(inside) - sum(inside)
+        outside = int(stats.counted["outside_area"].sum())
         checks.append(
             CheckResult(
                 "Within the expected area",
