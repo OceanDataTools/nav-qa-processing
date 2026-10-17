@@ -707,7 +707,9 @@ Comparisons with R2R parse the numbers and map the units.
   feed's files and format within it) and writes the core products and reports (never R2R's)
   into an extra directory, with a `<CRUISE>_config.toml` snapshot. Its behavior matches
   sbe-qa-processing's hook: skip, chown, MD5 summary and pending-checksum handling, with pyyaml
-  as the `openvdm` extra; the commands are named as there (`openvdm`, `config-from-openvdm`).
+  as the `openvdm` extra; the commands are named as there (`openvdm`, `config-from-openvdm`,
+  `site-config`). `site-config` (`site_setup.py`, #50) prompts for the site TOML, checking the
+  nav format against the readers.
 - **R2R certificate** (`integrations/r2r/certificate.py`): the certificate's PDF page (R2R's
   catalog facts, the rating banner in the theme's G/Y/R color, the six tests with results and
   bounds as the XML writes them, the infos) and notebook cells (`run_r2r_tests`, the tables,

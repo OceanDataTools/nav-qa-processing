@@ -43,6 +43,7 @@ def test_every_argument_is_documented():
         "fetch-map-data",
         "openvdm",
         "config-from-openvdm",
+        "site-config",
         "r2r",
         "r2r run",
         "r2r config-from-catalog",

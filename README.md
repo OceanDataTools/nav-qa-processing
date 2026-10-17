@@ -56,10 +56,11 @@ area, the GNSS files and their format, and the thresholds; every field is option
 
 `nav-qa-processing --help` lists the commands, and `nav-qa-processing COMMAND --help` (or
 `nav-qa-processing r2r COMMAND --help`) documents each one. The core commands are `formats`,
-`run` and `fetch-map-data`; the [R2R commands](#r2r-commands) are a group under `r2r`.
+`run` and `fetch-map-data`; the [R2R commands](#r2r-commands) are a group under `r2r`; the
+[OpenVDM commands](#openvdm-commands) are `openvdm`, `config-from-openvdm` and `site-config`.
 
 Every command follows these conventions:
-- `-o/--output` is a directory. Commands that make a cruise TOML write
+- `-o/--output` is a directory; only `site-config` writes a single file. Commands that make a cruise TOML write
   `<OUTPUT_DIR>/<CRUISE_ID>_<FILESET_ID>.toml` (default `configs/`), or to stdout with `-o -`.
 - Existing outputs aren't overwritten without `--force`. A command checks before it does any
   work or asks R2R anything.
@@ -563,8 +564,14 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
    maps in that user's home. Leave out `--no-dev` to use the hook's `--execute-notebook`.
 2. **Add an extra directory** for the reports in OpenVDM (Configuration > Extra Directories).
    It's named `NAV_QA` by default, e.g. with destination `Products/NAV_QA`.
-3. **Write the ship's site TOML**, starting from `configs/site.example.toml`. The essentials
-   are the GNSS feed's format and a glob of its files within the collection system:
+3. **Write the ship's site TOML** with `site-config`, which prompts for each field (or by
+   hand, starting from `configs/site.example.toml`). The essentials are the GNSS feed's format
+   and a glob of its files within the collection system:
+
+   ```bash
+   cd /opt/nav-qa-processing
+   .venv/bin/nav-qa-processing site-config   # writes configs/site.toml
+   ```
 
    ```toml
    [nav]
@@ -572,7 +579,8 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
    files = "raw/POSMV_GGA-*.txt"    # within the collection system's directory
    ```
 
-   [Site TOML](#site-toml) lists every key.
+   Run it again with `--force` to change the file; its current values are the defaults. QA
+   thresholds and the theme are edited by hand. [Site TOML](#site-toml) lists every key.
 4. **Add the hook** to OpenVDM's `openvdm.yaml` (`/opt/openvdm/server/etc/openvdm.yaml` by
    default), under the collection system that logs the GNSS:
 
@@ -657,6 +665,26 @@ uv run nav-qa-processing run /path/to/cruise/OpenRVDAS -c configs/<CRUISE>.toml 
 |---|---|---|
 | `-o`, `--output OUTPUT_DIR` | `configs` | Directory for `<CRUISE_ID>.toml`, or `-` for stdout |
 | `--force` | off | Replace an existing TOML |
+
+#### `site-config`
+
+```text
+nav-qa-processing site-config [-o SITE_TOML] [--openvdm-config OPENVDM_YAML] [--force]
+```
+
+Writes the [site TOML](#site-toml) by prompting, on stderr, for each field OpenVDM doesn't
+store: the vessel name and report contact, the GNSS feed's format (one with a reader; the
+prompt lists them) and files glob, the GeoCSV attribution, the extra directory and an expected
+cruise area. Enter keeps the `[default]` and `-` clears it. It works offline. Over an existing
+file (with `--force`) its values are the defaults, and at the end of input every remaining
+field keeps its default, so with no input the file is written back unchanged. `[thresholds]`
+and `[theme]` are kept as they are.
+
+| Argument | Default | Description |
+|---|---|---|
+| `-o`, `--output SITE_TOML` | `configs/site.toml` | The site TOML to write, or `-` for stdout |
+| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml`, when it exists | From OpenVDM 2.17, its `vessel` block's name and contact aren't asked for, since the hook uses them ahead of the site TOML. Without the file, every field is asked for |
+| `--force` | off | Replace an existing site TOML, starting from its values |
 
 ### Site TOML
 

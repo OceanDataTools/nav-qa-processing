@@ -1,15 +1,16 @@
 """Command line interface: ``nav-qa-processing <command>``.
 
 Conventions shared by every command:
-- ``-o/--output`` is a directory. Commands that write a cruise TOML write
-  ``<output>/<CRUISE_ID>_<FILESET_ID>.toml``, or to stdout for ``-o -``.
+- ``-o/--output`` is a directory, except for ``site-config``, which writes one file. Commands
+  that write a cruise TOML write ``<output>/<CRUISE_ID>_<FILESET_ID>.toml``, or to stdout for
+  ``-o -``.
 - Existing outputs aren't overwritten without ``--force``; a command checks before it does any
   work or asks any server.
 - Fileset IDs are integers. ``fileset`` alone never means an ID: the directory is FILESET_DIR.
 - Arguments that take a value have an uppercase metavar, and every default is in the help.
 - An integration's commands are a group named after it (``r2r ...``), except OpenVDM's
-  (``openvdm``, ``config-from-openvdm``), which are named as in sbe-qa-processing so a ship's
-  ``openvdm.yaml`` calls both tools alike. The hook's arguments are called from installed
+  (``openvdm``, ``config-from-openvdm``, ``site-config``), which are named as in
+  sbe-qa-processing so a ship's ``openvdm.yaml`` calls both tools alike. The hook's arguments are called from installed
   ``openvdm.yaml`` files, so they keep their names. In ``openvdm`` mode every error, expected or
   not, is one line on stderr, because OpenVDM displays it; the hook replaces earlier reports
   without ``--force``.
@@ -239,6 +240,48 @@ def _config_from_openvdm(args: argparse.Namespace) -> int:
     return _write_cruise_toml(openvdm.cruise_toml(run, site_root), run.config.cruise_id, args)
 
 
+def _site_config(args: argparse.Namespace) -> int:
+    from nav_qa_processing.integrations.openvdm.hook import (
+        SiteConfig,
+        load_openvdm_yaml,
+        load_site_config,
+        site_config_to_toml,
+        vessel_settings,
+    )
+    from nav_qa_processing.integrations.openvdm.site_setup import prompt_site_config
+
+    if _refuse_overwrite(args.output, args.force):
+        return 1
+    # OpenVDM 2.17's vessel settings win over the site config's, so they aren't asked for
+    openvdm_yaml = args.openvdm_config
+    if openvdm_yaml is not None and not openvdm_yaml.exists():
+        raise OpenVDMError(f"no openvdm.yaml at {openvdm_yaml}; check --openvdm-config")
+    if openvdm_yaml is None and DEFAULT_OPENVDM_CONFIG.exists():
+        openvdm_yaml = DEFAULT_OPENVDM_CONFIG
+    elif openvdm_yaml is None:
+        # Not an error: the site TOML may be written away from the OpenVDM server
+        print(
+            f"No openvdm.yaml at {DEFAULT_OPENVDM_CONFIG}; asking for every field. If OpenVDM "
+            "2.17 is installed elsewhere, use --openvdm-config so its vessel settings aren't "
+            "asked for.\n",
+            file=sys.stderr,
+        )
+    from_openvdm = {}
+    if openvdm_yaml is not None:
+        from_openvdm = vessel_settings(load_openvdm_yaml(openvdm_yaml).get("vessel"), "").settings
+    # Re-running over an existing file starts from its values
+    existing = str(args.output) != STDOUT and args.output.exists()
+    defaults = load_site_config(args.output) if existing else SiteConfig()
+    text = site_config_to_toml(prompt_site_config(defaults, from_openvdm=from_openvdm))
+    if str(args.output) == STDOUT:
+        print(text, end="")
+        return 0
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(text)
+    print(f"wrote {args.output}", file=sys.stderr)
+    return 0
+
+
 def _r2r_run(args: argparse.Namespace) -> int:
     from nav_qa_processing import reports
     from nav_qa_processing.integrations.r2r.config import load_cruise_config
@@ -436,6 +479,37 @@ def _add_openvdm_commands(commands) -> None:
         "--force", action="store_true", help="overwrite an existing config TOML"
     )
     from_openvdm.set_defaults(handler=_config_from_openvdm)
+
+    site = commands.add_parser(
+        "site-config",
+        help="make the per-ship site TOML for the openvdm hook, by prompting for each field",
+        description=(
+            "Prompts for the per-ship settings OpenVDM doesn't store: the vessel name and "
+            "report contact (unless openvdm.yaml has them, from OpenVDM 2.17), the GNSS feed's "
+            "format and files, the GeoCSV attribution, the reports' extra directory and an "
+            "expected cruise area. Works offline. Over an existing file (with --force), its "
+            "values are the defaults."
+        ),
+    )
+    site.add_argument(
+        "-o",
+        "--output",
+        metavar="SITE_TOML",
+        type=Path,
+        default=Path("configs/site.toml"),
+        help="site TOML to write, or - for stdout (default %(default)s)",
+    )
+    site.add_argument(
+        "--openvdm-config",
+        metavar="OPENVDM_YAML",
+        type=Path,
+        help=(
+            "openvdm.yaml whose vessel settings (OpenVDM 2.17) aren't asked for again (default "
+            f"{DEFAULT_OPENVDM_CONFIG}, when it exists)"
+        ),
+    )
+    site.add_argument("--force", action="store_true", help="overwrite an existing site TOML")
+    site.set_defaults(handler=_site_config)
 
 
 def _add_r2r_commands(commands) -> None:
