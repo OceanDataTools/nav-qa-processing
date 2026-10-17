@@ -47,6 +47,7 @@ SERIES_HEIGHT = 5.4
 TIMELINE_HEIGHT, HISTOGRAMS_HEIGHT = 3.2, 6.0
 HEADING_ROOM = 0.5 * inch  # a page heading above a figure
 MAX_ERRORS = 12  # reader and manifest errors listed; the rest are counted
+MAX_GAPS = 10  # the longest gaps listed; the rest are counted
 BY_FILE_PADDING = 3  # [pt] each side of a cell in the checks-by-file table, which is crowded;
 # its columns get 2 pt more, so a word measured to fit isn't wrapped by rounding
 
@@ -419,6 +420,38 @@ def _by_file(lay: Layout, result: NavQAResult) -> Table:
     return table(lay, header, rows, widths, styles)
 
 
+def _gaps(lay: Layout, result: NavQAResult) -> list[Flowable]:
+    """The longest gaps (#65): when each started and ended, its length and the files either side"""
+    th = result.config.thresholds
+    found = stats.gaps(result.nav, result.qc, th)
+    heading = Paragraph(f"Gaps of {th.max_gap:g} s or longer", lay.subheading)
+    if found.empty:
+        return [heading, Paragraph(f"No gaps of {th.max_gap:g} s or longer.", lay.body)]
+    decimals = result.nav.decimals.get("time", 0)
+    when = lambda moment: q.ISO_TIME.format(moment, decimals)
+    rows = [
+        [
+            when(gap.start),
+            when(gap.end),
+            q.SAMPLING_INTERVAL.format(gap.length),
+            gap.file_before
+            if gap.file_before == gap.file_after
+            else f"{gap.file_before} to {gap.file_after}",
+        ]
+        for gap in found.head(MAX_GAPS).itertuples()
+    ]
+    more = len(found) - len(rows)
+    if more:
+        rows.append([f"and {more} more", "", "", ""])
+    note = "The longest first" + (f"; {len(found)} in all." if more else ".")
+    header = ["Last fix before", "First fix after", q.SAMPLING_INTERVAL.label, "Files"]
+    return [
+        heading,
+        Paragraph(note, lay.small),
+        table(lay, header, rows, [0.2, 0.2, 0.15, 0.45]),
+    ]
+
+
 def _products(lay: Layout, result: NavQAResult) -> Table:
     rows = [
         [geocsv.file_name(result.config.stem, product), q.FIXES.format(len(frame))]
@@ -454,6 +487,8 @@ def _figures(lay: Layout, result: NavQAResult, svgs: dict[str, Path]) -> list[Fl
     return [
         PageBreak(),
         *_qc(lay, result),
+        Spacer(1, 10),
+        KeepTogether(_gaps(lay, result)),
         Spacer(1, 10),
         KeepTogether(
             [

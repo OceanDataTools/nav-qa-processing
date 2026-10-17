@@ -23,6 +23,9 @@ filter); out-of-sequence records are QC's `TIME_SEQUENCE`. The statistics:
 The core checks (pass/warn/info/n/a) compare these with `Thresholds`, whose defaults equal R2R's
 green bounds; R2R's own G/Y/R ratings belong to the R2R integration.
 
+`gaps` lists the gaps (#65): when each started and ended, how long it was and the files either
+side, the longest first; the same steps the gap statistics count.
+
 `NavStats.counted` keeps which records each test counted, and `counts_by_file` splits the counts
 by nav file (#61). A test between two fixes (a speed, a step out of sequence, a gap) counts in
 the later fix's file, also across a file boundary; an acceleration is at a fix.
@@ -235,6 +238,30 @@ def compute(
     )
     stats.checks = _checks(stats, qc_result, th, extent)
     return stats
+
+
+def gaps(nav: RawNav, qc_result: QCResult, thresholds: Thresholds) -> pd.DataFrame:
+    """Every step of `max_gap` or longer between in-sequence usable records, the longest first
+    (ties in time order). Columns: start (the last fix before), end (the first fix after),
+    length [s], file_before and file_after
+    """
+    f = nav.frame
+    usable = (qc_result.flags & int(UNUSABLE)) == 0
+    index = np.flatnonzero(usable & ((qc_result.flags & int(Flag.TIME_SEQUENCE)) == 0))
+    steps = np.diff(geodesy.epoch_seconds(f["time"].iloc[index]))
+    long = np.flatnonzero(steps >= thresholds.max_gap)
+    before, after = index[long], index[long + 1]
+    files = f["source_file"].astype(str).to_numpy() if "source_file" in f else None
+    table = pd.DataFrame(
+        {
+            "start": f["time"].iloc[before].to_numpy(),
+            "end": f["time"].iloc[after].to_numpy(),
+            "length": steps[long],
+            "file_before": files[before] if files is not None else "",
+            "file_after": files[after] if files is not None else "",
+        }
+    )
+    return table.sort_values("length", ascending=False, kind="stable").reset_index(drop=True)
 
 
 def _outside(extent: Extent, lat: np.ndarray, lon: np.ndarray) -> np.ndarray:

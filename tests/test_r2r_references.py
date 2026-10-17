@@ -128,6 +128,16 @@ def test_sp2220_no_fix():
     assert r2r_rating == "R"
     assert r2r_tests["PercentRecordsWithBadQualityIndicator"][0] == "R"
     assert r2r_tests["PercentCompleteness"] == ("R", 33.99)
+    # The gaps (#65): 59, the longest 28.4 h, from 09-22 into 09-23
+    found = stats.gaps(run.result.nav, run.result.qc, run.result.config.thresholds)
+    assert len(found) == run.result.stats.gaps == 59
+    longest = found.iloc[0]
+    assert longest["length"] == run.result.stats.longest_gap == 102_103.5
+    assert (longest["file_before"], longest["file_after"]) == (
+        "abx-two-rx-1_20220922000000.raw",
+        "abx-two-rx-1_20220923000000.raw",
+    )
+    assert found["length"].is_monotonic_decreasing
 
 
 def test_fkt230417_nav33():
