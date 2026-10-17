@@ -17,15 +17,17 @@ from nav_qa_processing.qa import NavQAResult
 from nav_qa_processing.theme import DEFAULT_THEME, Theme, resolve_theme
 
 
-def report_paths(output: Path, cruise_id: str) -> dict[str, Path]:
-    """What write_reports writes: the products by name, and "plots", the figures' directory"""
+def report_paths(output: Path, stem: str) -> dict[str, Path]:
+    """What write_reports writes for a config's `stem` (the cruise ID, and a non-primary feed's
+    name): the products by name, and "plots", the figures' directory
+    """
     paths = {
-        name: Path(output) / geocsv.file_name(cruise_id, product)
+        name: Path(output) / geocsv.file_name(stem, product)
         for name, product in geocsv.PRODUCTS.items()
     }
-    paths["plots"] = Path(output) / f"{cruise_id}_plots"
-    paths["pdf"] = Path(output) / f"{cruise_id}_qa_report.pdf"
-    paths["notebook"] = Path(output) / f"{cruise_id}_qa.ipynb"
+    paths["plots"] = Path(output) / f"{stem}_plots"
+    paths["pdf"] = Path(output) / f"{stem}_qa_report.pdf"
+    paths["notebook"] = Path(output) / f"{stem}_qa.ipynb"
     return paths
 
 
@@ -86,10 +88,11 @@ def write_reports(
             result.nav.decimals,
             source or result.source,
             created=result.finished,
+            stem=result.config.stem,
         )
         for name, frame in frames.items()
     ]
-    paths = report_paths(output, result.config.cruise_id)
+    paths = report_paths(output, result.config.stem)
     svgs = write_figures(result, paths["plots"], theme)
     written += svgs.values()
     written.append(write_pdf(result, paths["pdf"], svgs, pdf_front, pdf_subject, theme))

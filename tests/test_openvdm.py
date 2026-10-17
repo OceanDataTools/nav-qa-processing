@@ -66,6 +66,10 @@ def cruise_config(base_dir: Path, cruise_id="SP2613", extent: dict | None = None
     }
 
 
+def nav33(**changes) -> openvdm.SiteFeed:
+    return openvdm.SiteFeed(format="nav33", **changes)
+
+
 def site_config(tmp_path, text=SITE) -> Path:
     path = tmp_path / "site.toml"
     path.write_text(text)
@@ -169,7 +173,7 @@ def test_resolve_paths_and_metadata(tmp_path):
 
 
 def test_resolve_extent_fallbacks(tmp_path):
-    site = openvdm.SiteConfig(nav_format="nav33", extent=Extent(-120, -110, 30, 35))
+    site = openvdm.SiteConfig(feeds=[nav33()], extent=Extent(-120, -110, 30, 35))
     run = openvdm.resolve(cruise_config(tmp_path), site, "OpenRVDAS")
     assert run.extent_source == "site config" and run.config.extent == site.extent
     run = openvdm.resolve(cruise_config(tmp_path), openvdm.SiteConfig(), "OpenRVDAS")
@@ -268,7 +272,7 @@ def test_site_config_round_trips(tmp_path):
 
 def test_resolve_passes_the_site_device_to_the_snapshot(tmp_path):
     device = NavDevice(make="Applanix", model="POS MV", location="main lab")
-    site = openvdm.SiteConfig(nav_format="nav33", nav_device=device)
+    site = openvdm.SiteConfig(feeds=[nav33(device=device)])
     run = openvdm.resolve(cruise_config(tmp_path), site, "OpenRVDAS")
     snapshot = tmp_path / "snapshot.toml"
     snapshot.write_text(openvdm.cruise_toml(run, "http://openvdm/"))
@@ -276,7 +280,7 @@ def test_resolve_passes_the_site_device_to_the_snapshot(tmp_path):
 
 
 def test_resolve_passes_the_site_theme_to_the_snapshot(tmp_path):
-    site = openvdm.SiteConfig(nav_format="nav33", theme={"page_size": "A4"})
+    site = openvdm.SiteConfig(feeds=[nav33()], theme={"page_size": "A4"})
     run = openvdm.resolve(cruise_config(tmp_path), site, "OpenRVDAS")
     snapshot = tmp_path / "snapshot.toml"
     snapshot.write_text(openvdm.cruise_toml(run, "http://openvdm/"))
@@ -551,7 +555,7 @@ def test_without_pyyaml(tmp_path, monkeypatch, capsys):
 
 def test_the_example_site_config_loads():
     site = openvdm.load_site_config(Path(__file__).parents[1] / "configs/site.example.toml")
-    assert (site.nav_format, site.nav_files) == ("nav33", "raw/POSMV_GGA-*.txt")
+    assert (site.primary.format, site.primary.files) == ("nav33", "raw/POSMV_GGA-*.txt")
     assert site.output_extra_directory == "NAV_QA" and site.extent is None
 
 
@@ -655,3 +659,107 @@ def test_without_a_way_to_set_the_extent_it_is_checked(
     assert api_state["posts"] == []
     if how != "OpenVDM 2.16":
         assert "Within the expected area: 0 outside" in out  # OpenVDM's cruiseExtent
+
+
+# Several position sensors (#58) ----------------------------------------------------------------
+
+FEEDS = """[[nav]]
+name = "posmv"
+primary = true
+transfer = "OpenRVDAS"
+format = "nav33"
+files = "raw/POSMV_GGA-*.txt"
+
+[[nav]]
+name = "seapath"
+transfer = "OpenRVDAS"
+format = "nav33"
+files = "raw/SEAPATH_GGA-*.txt"
+[nav.device]
+model = "Seapath 380"
+
+[[nav]]
+name = "ctdgps"
+transfer = "CTD"
+format = "nav33"
+files = "gps/*.txt"
+"""
+
+
+@pytest.fixture
+def two_feeds(openvdm_api, tmp_path, monkeypatch):
+    """The hook's arguments, with a key, over a cruise logging a POS MV and a Seapath"""
+    monkeypatch.setattr(openvdm.subprocess, "run", FakeRun())
+    site_root, cruise_dir = openvdm_api
+    (posmv,) = openrvdas(cruise_dir / "OpenRVDAS")
+    seapath = posmv.with_name(posmv.name.replace("POSMV", "SEAPATH"))
+    seapath.write_text(posmv.read_text())
+    config = openvdm_yaml(tmp_path, site_root)
+    site = str(site_config(tmp_path, FEEDS))
+    hook = ["openvdm", "OpenRVDAS", "--openvdm-config", str(config), "--site-config", site]
+    return hook, cruise_dir / "Products/NAV_QA", seapath
+
+
+def test_feeds_load_with_their_transfers(tmp_path):
+    site = openvdm.load_site_config(site_config(tmp_path, FEEDS))
+    assert [(f.name, f.primary, f.transfer) for f in site.feeds] == [
+        ("posmv", True, "OpenRVDAS"),
+        ("seapath", False, "OpenRVDAS"),
+        ("ctdgps", False, "CTD"),
+    ]
+    assert [f.name for f in site.feeds_for("OpenRVDAS")] == ["posmv", "seapath"]
+    assert [f.name for f in site.feeds_for("XBT")] == []
+    text = openvdm.site_config_to_toml(site)
+    assert text.count("\n[[nav]]\n") == 3
+    assert openvdm.load_site_config(site_config(tmp_path, text)) == site
+
+
+def test_hook_assesses_each_feed_of_its_transfer(two_feeds, api_state, capsys):
+    hook, output, _ = two_feeds
+    assert main(hook) == 0
+    out = capsys.readouterr().out
+    names = {p.name for p in output.iterdir()}
+    assert {"SP2613_bestres.geoCSV", "SP2613_config.toml", "SP2613_qa_report.pdf"} <= names
+    assert {"SP2613_seapath_bestres.geoCSV", "SP2613_seapath_config.toml"} <= names
+    assert not any("ctdgps" in name for name in names)  # another transfer's feed
+    # Only the primary sets cruiseExtent; the Seapath is checked against it
+    assert len(api_state["posts"]) == 1
+    assert "SP2613_seapath: " in out and "cruise extent from the primary feed" in out
+    assert out.count("Within the expected area: 0 outside") == 1
+    snapshot = load_config(output / "SP2613_seapath_config.toml")
+    assert (snapshot.stem, snapshot.nav_primary) == ("SP2613_seapath", False)
+    assert snapshot.nav_device == NavDevice(model="Seapath 380")
+
+
+def test_hook_runs_only_the_feeds_with_changed_files(two_feeds, api_state):
+    hook, output, seapath = two_feeds
+    assert main([*hook, f"--changed-files=raw/{seapath.name}"]) == 0
+    names = {p.name for p in output.iterdir()}
+    assert "SP2613_seapath_bestres.geoCSV" in names and "SP2613_bestres.geoCSV" not in names
+    assert api_state["posts"] == []  # the primary didn't run
+
+
+def test_a_failing_feed_does_not_stop_the_others(two_feeds, tmp_path, api_state, capsys):
+    hook, output, _ = two_feeds
+    broken = FEEDS.replace(
+        'name = "seapath"\ntransfer = "OpenRVDAS"\nformat = "nav33"',
+        'name = "seapath"\ntransfer = "OpenRVDAS"\nformat = "nav99"',
+    )
+    site_config(tmp_path, broken)
+    assert main(hook) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("nav-qa-processing: OpenVDMError: 1 of 2 feeds failed: seapath: ")
+    assert err.count("\n") == 1
+    assert "SP2613_bestres.geoCSV" in {p.name for p in output.iterdir()}
+    assert len(api_state["posts"]) == 1  # the primary still set the extent
+
+
+def test_config_from_openvdm_writes_each_feed(two_feeds, tmp_path, capsys):
+    hook, _, _ = two_feeds
+    args = ["config-from-openvdm", *hook[1:]]
+    out = tmp_path / "configs"
+    assert main([*args, "-o", str(out)]) == 0
+    assert {p.name for p in out.iterdir()} == {"SP2613.toml", "SP2613_seapath.toml"}
+    assert load_config(out / "SP2613_seapath.toml").stem == "SP2613_seapath"
+    assert main([*args, "-o", "-"]) == 1
+    assert "several feeds (posmv, seapath): give -o OUTPUT_DIR" in capsys.readouterr().err

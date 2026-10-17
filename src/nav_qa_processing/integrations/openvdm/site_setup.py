@@ -12,8 +12,8 @@ from dataclasses import dataclass, field, replace
 from typing import TextIO
 
 from nav_qa_processing import formats
-from nav_qa_processing.config import Extent, NavDevice
-from nav_qa_processing.integrations.openvdm.hook import SiteConfig
+from nav_qa_processing.config import NAV_NAME, Extent, NavDevice
+from nav_qa_processing.integrations.openvdm.hook import SiteConfig, SiteFeed
 
 CLEAR = "-"
 
@@ -75,21 +75,18 @@ def _degrees(limit: float, required: bool = False) -> Callable[[str], str | None
     return check
 
 
-def _ask_nav(prompt: Prompter, defaults: SiteConfig) -> tuple[str, str, NavDevice]:
-    prompt.say("\nThe primary GNSS feed. Formats with a reader:")
-    for format_id, spec in sorted(formats.all_formats().items()):
-        if spec.supported:
-            prompt.say(f"  {format_id}  {spec.definition.title}")
-    nav_format = prompt.ask("  nav format", defaults.nav_format, _nav_format)
+def _ask_feed(prompt: Prompter, default: SiteFeed) -> SiteFeed:
+    """A feed's format, files, device and transfer, starting from default"""
+    nav_format = prompt.ask("  nav format", default.format, _nav_format)
     nav_files = prompt.ask(
         "  glob of its files within the collection system's directory, e.g. "
         "raw/POSMV_GGA-*.txt (blank: every file)",
-        defaults.nav_files,
+        default.files,
     )
     prompt.say("  The receiver or INS that logs it, for the reports (each may be left blank):")
     device = NavDevice(
         **{
-            name: prompt.ask(f"    {label}", getattr(defaults.nav_device, name))
+            name: prompt.ask(f"    {label}", getattr(default.device, name))
             for name, label in (
                 ("make", "make (e.g. Applanix)"),
                 ("model", "model (e.g. POS MV)"),
@@ -98,7 +95,56 @@ def _ask_nav(prompt: Prompter, defaults: SiteConfig) -> tuple[str, str, NavDevic
             )
         }
     )
-    return nav_format, nav_files, device
+    transfer = prompt.ask(
+        "  the collection system transfer it's in, e.g. OpenRVDAS (blank: any the hook runs for)",
+        default.transfer,
+    )
+    return replace(default, format=nav_format, files=nav_files, device=device, transfer=transfer)
+
+
+def _name_check(taken: set[str], required: bool = True) -> Callable[[str], str | None]:
+    def check(text: str) -> str | None:
+        if not text:
+            return "required" if required else None
+        if not NAV_NAME.fullmatch(text):
+            return "use letters, digits, _ and -"
+        return f"{text} is taken" if text in taken else None
+
+    return check
+
+
+def _ask_feeds(prompt: Prompter, defaults: SiteConfig) -> list[SiteFeed]:
+    prompt.say("\nThe primary GNSS feed. Formats with a reader:")
+    for format_id, spec in sorted(formats.all_formats().items()):
+        if spec.supported:
+            prompt.say(f"  {format_id}  {spec.definition.title}")
+    primary = replace(_ask_feed(prompt, defaults.primary), primary=True)
+    prompt.say(
+        "\nOther position sensors (e.g. a second INS or a backup GPS), each assessed with its "
+        "own reports named <CRUISE>_<name>_...: a name for each, blank to finish, - to drop "
+        "one already here."
+    )
+    others: list[SiteFeed] = []
+    taken = {primary.name} - {""}
+    for default in [*defaults.feeds[1:], None]:
+        while True:
+            name = prompt.ask(
+                "  sensor name (e.g. seapath)",
+                default.name if default else "",
+                _name_check(taken, required=False),
+            )
+            if not name:
+                break
+            taken.add(name)
+            others.append(
+                replace(_ask_feed(prompt, default or SiteFeed()), name=name, primary=False)
+            )
+            if default is not None:  # an existing sensor: one name; new ones: until blank
+                break
+    if others and not primary.name:
+        name = prompt.ask("  a name for the primary feed too (e.g. posmv)", "", _name_check(taken))
+        primary = replace(primary, name=name)
+    return [primary, *others]
 
 
 def _ask_extent(prompt: Prompter, default: Extent | None) -> Extent | None:
@@ -161,7 +207,7 @@ def prompt_site_config(
         contact_institution=ask("contact_institution", "Contact institution for the QA report"),
         contact_email=ask("contact_email", "Contact email", _email),
     )
-    site.nav_format, site.nav_files, site.nav_device = _ask_nav(prompt, defaults)
+    site.feeds = _ask_feeds(prompt, defaults)
     site.attribution = prompt.ask(
         "\nGeoCSV products' attribution (e.g. R/V Roger Revelle, Scripps Institution of "
         "Oceanography)",

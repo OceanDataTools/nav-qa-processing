@@ -89,7 +89,7 @@ Without `ID`, lists R2R's raw navigation format IDs (`nav1` … `nav33`, `uhdas`
 #### `run`
 
 ```text
-nav-qa-processing run [-c CONFIG_TOML] [-f FORMAT_ID] [-o OUTPUT_DIR] [--force]
+nav-qa-processing run [-c CONFIG_TOML] [-f FORMAT_ID] [--nav NAME] [-o OUTPUT_DIR] [--force]
                       [--theme THEME_TOML] [--execute-notebook] FILESET_DIR
 ```
 
@@ -100,7 +100,8 @@ and writes the three products, the figures and the PDF report.
 |---|---|---|
 | `FILESET_DIR` | required | A directory of GNSS files, or a BagIt bag (`bagit.txt`, `manifest-md5.txt` and the files under `data/`). `.gz` and `.bz2` files are read as they are |
 | `-c`, `--config CONFIG_TOML` | none | A [config TOML](#config-toml). Without one, the products are named after `FILESET_DIR` |
-| `-f`, `--format FORMAT_ID` | the config's `[nav] format` | The GNSS files' format (see `formats`). Needed when the config doesn't set it |
+| `-f`, `--format FORMAT_ID` | the config's `[nav] format` | The GNSS files' format (see `formats`). Needed when the config doesn't set it. With several feeds, only with `--nav` |
+| `--nav NAME` | every feed | With a config listing several position sensors (`[[nav]]`), run only the one of this name |
 | `-o`, `--output OUTPUT_DIR` | `output` | Directory for the products, created if needed |
 | `--force` | off | Replace existing products and reports; without it, `run` stops if any of them exists |
 | `--theme THEME_TOML` | none | A [theme](#themes) file for the PDF, figures and notebook; the config's `[theme]` applies on top |
@@ -108,7 +109,8 @@ and writes the three products, the figures and the PDF report.
 
 It writes `<CRUISE>_bestres.geoCSV`, `<CRUISE>_1min.geoCSV` and `<CRUISE>_control.geoCSV`,
 and the figures as SVGs in `<CRUISE>_plots/`, where `<CRUISE>` is the config's `[cruise] id`, or
-the fileset directory's name:
+the fileset directory's name. With several position sensors, every output of a feed other than
+the primary also carries the feed's name, e.g. `<CRUISE>_seapath_bestres.geoCSV`:
 
 | Figure | Shows |
 |---|---|
@@ -236,6 +238,7 @@ max_accel = 1.0
 | `[nav]` | `format` | The GNSS files' format ID (see `formats`). Required, here or as `run -f` |
 | | `files` | A glob of the GNSS files within the fileset. Default: every file in the data directory |
 | `[nav.device]` | `make`, `model`, `serial_number`, `location` | The receiver or INS that logged the feed, shown in the reports' title block with the GGA talker IDs found in the data (e.g. GN, a multi-constellation receiver; IN, an INS). All optional. In an R2R cruise TOML it defaults to R2R's `[fileset.device]` (make ID, model name, location) |
+| `[[nav]]` | `name`, `primary`, and the keys above | Several position sensors, e.g. a POS MV and a Seapath: one `[[nav]]` table each, with its own `format`, `files` and `[nav.device]`. Each needs a `name` (letters, digits, `_`, `-`); one has `primary = true`, else the first is. `run` assesses each; the others' outputs are named `<CRUISE>_<NAME>_…`. R2R's cruise TOMLs have one feed |
 | `[provenance]` | `contact_institution`, `contact_email` | The reports' contact |
 | `[geocsv]` | `attribution` | GeoCSV `attribution` |
 | `[thresholds]` | see below | QC and the QA checks |
@@ -552,7 +555,8 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
   With `--site-root` instead of `--openvdm-config`, they come from the copy in the cruise's
   `ovdmConfig.json`.
 - **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the primary
-  GNSS feed, or their format, so the ship's site TOML says (`[nav] format` and `files`).
+  GNSS feed, or their format, so the ship's site TOML says (`[nav] format` and `files`). A ship
+  logging several position sensors lists each as a `[[nav]]` table.
 
 1. **Install** this project with the `openvdm` extra (pyyaml, to read `openvdm.yaml`) somewhere
    OpenVDM's worker can run it. It has its own environment, not OpenVDM's venv. Fetch the map
@@ -607,8 +611,12 @@ postHookCommands:
 ```
 
 The hook:
-- **skips** transfers whose new or updated files include none matching `[nav] files`. Use the
-  `--changed-files={newFiles}` form, so an empty list isn't dropped;
+- **assesses each feed of the transfer:** the site TOML's `[nav]`, or each `[[nav]]` whose
+  `transfer` is this one or that has none, the primary first. A non-primary feed's outputs
+  carry its name (`<CRUISE>_seapath_…`);
+- **skips** feeds whose new or updated files include none matching their `files`, and
+  transfers with no such feed. Use the `--changed-files={newFiles}` form, so an empty list
+  isn't dropped;
 - reads the cruise's nav files from the transfer's directory, within OpenVDM's cruise dates (an
   open-ended cruise ends today, UTC);
 - **writes into the extra directory**, replacing earlier ones: the three GeoCSV products, the
@@ -633,7 +641,10 @@ The hook:
   `workerApiKey` (or with `--site-root`), or before OpenVDM 2.17, it checks them against
   OpenVDM's `cruiseExtent`, else the site TOML's `[extent]`; without either, the area check is
   n/a;
-- exits non-zero with a one-line message on failure, which OpenVDM shows.
+- with several feeds, sets `cruiseExtent` from the primary only, and checks the others against
+  the primary's track when it ran too, else OpenVDM's `cruiseExtent`;
+- exits non-zero with a one-line message on failure, which OpenVDM shows. One feed's failure
+  doesn't stop the others; the message lists each failed feed.
 
 ### OpenVDM commands
 
@@ -682,7 +693,7 @@ uv run nav-qa-processing run /path/to/cruise/OpenRVDAS -c configs/<CRUISE>.toml 
 
 | Argument | Default | Description |
 |---|---|---|
-| `-o`, `--output OUTPUT_DIR` | `configs` | Directory for `<CRUISE_ID>.toml`, or `-` for stdout |
+| `-o`, `--output OUTPUT_DIR` | `configs` | Directory for `<CRUISE_ID>.toml` (and `<CRUISE_ID>_<NAME>.toml` for each other feed of the transfer), or `-` for stdout with one feed |
 | `--force` | off | Replace an existing TOML |
 
 #### `site-config`
@@ -693,8 +704,8 @@ nav-qa-processing site-config [-o SITE_TOML] [--openvdm-config OPENVDM_YAML] [--
 
 Writes the [site TOML](#site-toml) by prompting, on stderr, for each field OpenVDM doesn't
 store: the vessel name and report contact, the GNSS feed's format (one with a reader; the
-prompt lists them), files glob and device (make, model, serial number, location), the GeoCSV
-attribution, the extra directory and an expected
+prompt lists them), files glob, device (make, model, serial number, location) and transfer, any
+other position sensors (a name each, then the same; `-` drops one), the GeoCSV attribution, the extra directory and an expected
 cruise area. Enter keeps the `[default]` and `-` clears it. It works offline. Over an existing
 file (with `--force`) its values are the defaults, and at the end of input every remaining
 field keeps its default, so with no input the file is written back unchanged. `[thresholds]`
@@ -717,6 +728,7 @@ The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
 | `[nav]` | `format` | required | The GNSS feed's format ID (`nav-qa-processing formats`), e.g. `nav33` for OpenRVDAS's ISO timestamp + GGA |
 | `[nav]` | `files` | every file | A glob of the GNSS feed's files within the collection system's directory, e.g. `raw/POSMV_GGA-*.txt`. Also what `--changed-files` is matched against |
 | `[nav.device]` | `make`, `model`, `serial_number`, `location` | blank | The receiver or INS, for the reports, as in a [config TOML](#config-toml) |
+| `[[nav]]` | `name`, `primary`, `transfer`, and the keys above | one feed | Several position sensors, as in a [config TOML](#config-toml). `transfer` names the collection system transfer a feed is in; the hook runs the feeds of its `TRANSFER` and those without one |
 | `[extent]` | `westernmost`, `easternmost`, `southernmost`, `northernmost` | none | The expected cruise area, used when the hook doesn't set OpenVDM's `cruiseExtent` and OpenVDM has none. westernmost > easternmost crosses the antimeridian |
 | `[openvdm]` | `output_extra_directory` | `NAV_QA` | The OpenVDM extra directory the reports go into |
 | `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.contact` wins |

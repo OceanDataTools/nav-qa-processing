@@ -43,11 +43,34 @@ A config TOML looks like (see "Configuration TOMLs" in docs/architecture.md)::
     [theme]                       # the reports' look (theme.py); over a --theme file
     page_size = "A4"
 
-Tables and keys only the integrations use (R2R's IDs and ports, the site TOML's [openvdm]) are
-ignored. Threshold defaults are NavManager's (`include/globals.inc.php`, `navtools.inc.php`,
+A ship logging several position sensors lists them as `[[nav]]` tables, each with a `name`
+(letters, digits, `_` and `-`) and the same keys, one of them `primary = true` (else the
+first)::
+
+    [[nav]]
+    name = "posmv"
+    primary = true
+    format = "nav33"
+    files = "raw/POSMV_GGA-*.txt"
+    [nav.device]
+    model = "POS MV"
+
+    [[nav]]
+    name = "seapath"
+    format = "nav33"
+    files = "raw/SEAPATH_GGA-*.txt"
+
+A QAConfig is one feed (`load_config(path, nav=NAME)`, the primary by default; `load_configs`,
+each). The primary's products and reports are named after the cruise, the others' after the
+cruise and the feed (`QAConfig.stem`: `<CRUISE>_seapath_bestres.geoCSV`, ...; #58). A single
+`[nav]` table is the primary unless it says `primary = false` (a non-primary feed's snapshot).
+
+Tables and keys only the integrations use (R2R's IDs and ports, the site TOML's [openvdm], a
+feed's `transfer`) are ignored. Threshold defaults are NavManager's (`include/globals.inc.php`, `navtools.inc.php`,
 `navqc.inc.php`) except where noted.
 """
 
+import re
 import tomllib
 from dataclasses import dataclass, field, fields, replace
 from datetime import date, datetime
@@ -231,6 +254,10 @@ class QAConfig(Readable):
     nav_format: str = ""
     nav_files: str = ""
     nav_device: NavDevice = field(default_factory=NavDevice)
+    # Which feed, when the config lists several ([[nav]]); a non-primary feed's outputs carry
+    # its name
+    nav_name: str = ""
+    nav_primary: bool = True
     # Checksum manifest for a plain directory (e.g. OpenVDM's MD5 summary): "<md5> <path>" lines,
     # with paths relative to the manifest's directory. A BagIt bag uses its own manifest-md5.txt
     manifest_path: Path | None = None
@@ -239,9 +266,18 @@ class QAConfig(Readable):
     theme: dict = field(default_factory=dict)
 
     @property
+    def stem(self) -> str:
+        """The products' and reports' file name prefix: the cruise ID, and a non-primary feed's
+        name
+        """
+        if self.nav_primary or not self.nav_name:
+            return self.cruise_id
+        return f"{self.cruise_id}_{self.nav_name}"
+
+    @property
     def identifier(self) -> str:
-        """The products' and reports' file name prefix"""
-        return self.cruise_id
+        """The reports' title"""
+        return self.stem
 
     def __str__(self) -> str:
         """The config as TOML, as load_config reads it"""
@@ -266,26 +302,96 @@ def thresholds_from_table(table: dict) -> Thresholds:
     return Thresholds(**values)
 
 
-def load_config(path: Path | str) -> QAConfig:
-    """A config TOML. Tables and keys only the integrations use are ignored"""
+def load_config(path: Path | str, nav: str | None = None) -> QAConfig:
+    """A config TOML, for the feed named nav (the primary by default). Tables and keys only the
+    integrations use are ignored
+    """
     with open(path, "rb") as file:
         data = tomllib.load(file)
-    return _config(data, Path(path).parent, str(path))
+    return _select(_configs(data, Path(path).parent, str(path)), nav, str(path))
 
 
-def loads_config(text: str) -> QAConfig:
+def load_configs(path: Path | str) -> list[QAConfig]:
+    """A config TOML's feeds, each as a config: the primary first, then the others in order"""
+    with open(path, "rb") as file:
+        data = tomllib.load(file)
+    return _configs(data, Path(path).parent, str(path))
+
+
+def loads_config(text: str, nav: str | None = None) -> QAConfig:
     """A config TOML's text, e.g. `config_to_toml`'s; relative paths are relative to the
     working directory
     """
-    return _config(tomllib.loads(text), Path.cwd(), "config")
+    return _select(_configs(tomllib.loads(text), Path.cwd(), "config"), nav, "config")
+
+
+def _select(configs: list[QAConfig], nav: str | None, where: str) -> QAConfig:
+    if nav is None:
+        return configs[0]
+    for config in configs:
+        if config.nav_name == nav:
+            return config
+    names = ", ".join(c.nav_name for c in configs if c.nav_name) or "none"
+    raise ValueError(f"{where}: no [[nav]] named {nav!r}; its feeds: {names}")
+
+
+NAV_NAME = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def nav_tables(data: dict, where: str) -> list[dict]:
+    """The [nav] table or [[nav]] tables, checked, with "primary" set on each: the primary
+    first, then the others in order
+    """
+    nav = data.get("nav", {})
+    tables = [dict(t) for t in nav] if isinstance(nav, list) else [dict(nav)]
+    if not tables:
+        tables = [{}]
+    names = [t.get("name", "") for t in tables]
+    for name in names:
+        if name and not NAV_NAME.fullmatch(name):
+            raise ValueError(f"{where}: [nav] name {name!r}: use letters, digits, _ and -")
+    if len(tables) > 1:
+        if not all(names):
+            raise ValueError(f"{where}: each [[nav]] needs a name when there are several")
+        repeated = sorted({n for n in names if names.count(n) > 1})
+        if repeated:
+            raise ValueError(f"{where}: [[nav]] names repeated: {', '.join(repeated)}")
+        primaries = [t for t in tables if t.get("primary", False)]
+        if len(primaries) > 1:
+            listed = ", ".join(t["name"] for t in primaries)
+            raise ValueError(f"{where}: more than one primary [[nav]]: {listed}")
+        primary = primaries[0] if primaries else tables[0]
+        for table in tables:
+            table["primary"] = table is primary
+        tables.sort(key=lambda t: not t["primary"])  # stable: the others keep their order
+    else:
+        tables[0]["primary"] = bool(tables[0].get("primary", True))
+        if not tables[0]["primary"] and not names[0]:
+            raise ValueError(f"{where}: a [nav] with primary = false needs a name")
+    return tables
+
+
+def _configs(data: dict, base: Path, where: str) -> list[QAConfig]:
+    shared = _config(data, base, where)
+    return [
+        replace(
+            shared,
+            nav_format=nav.get("format", ""),
+            nav_files=nav.get("files", ""),
+            nav_device=nav_device_from_table(nav.get("device", {}), where),
+            nav_name=nav.get("name", ""),
+            nav_primary=nav["primary"],
+        )
+        for nav in nav_tables(data, where)
+    ]
 
 
 def _config(data: dict, base: Path, where: str) -> QAConfig:
+    """Everything but the feed"""
     from nav_qa_processing.theme import theme_table  # theme.py imports this module
 
     cruise = data.get("cruise", {})
     fileset = data.get("fileset", {})
-    nav = data.get("nav", {})
     provenance = data.get("provenance", {})
     manifest = fileset.get("manifest")
     return QAConfig(
@@ -302,9 +408,6 @@ def _config(data: dict, base: Path, where: str) -> QAConfig:
         cruise_doi=cruise.get("doi", ""),
         fileset_doi=fileset.get("doi", ""),
         attribution=data.get("geocsv", {}).get("attribution", ""),
-        nav_format=nav.get("format", ""),
-        nav_files=nav.get("files", ""),
-        nav_device=nav_device_from_table(nav.get("device", {}), where),
         manifest_path=(base / manifest).resolve() if manifest else None,
         thresholds=thresholds_from_table(data.get("thresholds", {})),
         theme=theme_table(data.get("theme", {}), base, where),
@@ -340,14 +443,24 @@ def config_to_toml(config: QAConfig) -> str:
     if config.manifest_path:
         fileset["manifest"] = str(config.manifest_path)
     lines += _table("fileset", fileset)
-    lines += _table("nav", {"format": config.nav_format, "files": config.nav_files})
-    lines += nav_device_toml(config.nav_device)
+    lines += nav_toml(config)
     provenance = {k: getattr(config, k) for k in ("contact_institution", "contact_email")}
     lines += _table("provenance", provenance)
     lines += _table("geocsv", {"attribution": config.attribution})
     lines += thresholds_toml(config.thresholds)
     lines += theme_toml(config.theme)
     return "\n".join(lines) + "\n"
+
+
+def nav_toml(config: QAConfig) -> list[str]:
+    """The feed's [nav] table (with its name, and primary = false for a non-primary feed) and
+    [nav.device], or nothing
+    """
+    nav = {"name": config.nav_name, "format": config.nav_format, "files": config.nav_files}
+    lines = _table("nav", nav)
+    if not config.nav_primary:
+        lines += ["primary = false"]
+    return lines + nav_device_toml(config.nav_device)
 
 
 def nav_device_from_table(table: dict, where: str) -> NavDevice:
