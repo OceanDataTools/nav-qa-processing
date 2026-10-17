@@ -207,6 +207,22 @@ def test_counts_by_file_outside_the_expected_area():
     assert check.value == f"{table.loc['Total', 'Outside area']} outside"
 
 
+@pytest.mark.parametrize(
+    "statuses, expected",
+    [
+        (["pass", "pass", "info"], ("pass", "All 2 checks pass.")),
+        (["pass", "n/a", "info"], ("pass", "1 of 2 checks passes. n/a: C1.")),
+        (["warn", "pass", "info"], ("warn", "1 of 2 checks warns: C0 v0.")),
+        (["warn", "warn", "n/a"], ("warn", "2 of 3 checks warn: C0 v0; C1 v1. n/a: C2.")),
+        (["n/a", "info"], ("n/a", "No check could be made. n/a: C0.")),
+    ],
+)
+def test_verdict(statuses, expected):
+    s = compute(nav_from(range(5)))
+    s.checks = [stats.CheckResult(f"C{i}", st, f"v{i}") for i, st in enumerate(statuses)]
+    assert s.verdict == expected
+
+
 def test_core_checks_use_thresholds():
     s = compute(nav_from([0, 1, 2, 3, 7, 8, 9]), Thresholds(min_completeness=60.0))
     assert {c.name: c.status for c in s.checks}["Completeness"] == "pass"
