@@ -40,6 +40,7 @@ def test_the_report(tmp_path):
     assert "Statistics" in first and "Most common time between fixes [s]" in first
     assert "TEST_bestres.geoCSV" in first
     assert "Quality control" in text[1] and "Coverage, gaps and flags" in text[1]
+    assert "Gaps of 300 s or longer" in text[1] and "401.000" in text[1]  # 499 s to 900 s
     assert "acceleration" in text[1] and "Invalid GGA fix" in text[1]
     for page, heading in zip(
         text[2:], ("Trackline", "Speed and acceleration", "Sampling and fix quality"), strict=True

@@ -141,6 +141,23 @@ def test_counts_by_file():
     assert table.loc["c.txt", "status"] == stats.SKIPPED and pd.isna(table.loc["c.txt", "fixes"])
 
 
+def test_gaps_longest_first_with_their_files():
+    nav = two_files()  # a.txt ends at 59 s; b.txt starts at 400 s
+    table = stats.gaps(nav, qc.flag(nav, Thresholds()), Thresholds())
+    assert len(table) == 1 == compute(nav).gaps
+    gap = table.iloc[0]
+    assert gap["length"] == 341.0 and (gap["file_before"], gap["file_after"]) == ("a.txt", "b.txt")
+    assert gap["start"] == START + pd.Timedelta(seconds=59)
+    assert gap["end"] == START + pd.Timedelta(seconds=400)
+    # Several: the longest first, ties in time order
+    nav = nav_from([0, 1, 400, 401, 1100, 1101, 1800])
+    lengths = stats.gaps(nav, qc.flag(nav, Thresholds()), Thresholds())["length"].tolist()
+    assert lengths == [699.0, 699.0, 399.0]
+    starts = stats.gaps(nav, qc.flag(nav, Thresholds()), Thresholds())["start"].tolist()
+    assert starts[0] < starts[1]
+    assert stats.gaps(nav_from(range(10)), qc.flag(nav_from(range(10))), Thresholds()).empty
+
+
 def test_counts_by_file_outside_the_expected_area():
     nav = two_files()
     s = compute(nav, extent=Extent(-118.0, -116.0, 32.0, 32.0 + 59 * 3.0 * METRE))

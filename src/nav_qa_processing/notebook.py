@@ -127,6 +127,11 @@ def build_notebook(
             "counted in the file of the fix that ends it."
         ),
         new_code_cell("display(stats.counts_by_file(result.nav, result.stats))"),
+        new_markdown_cell(
+            "### Gaps\n\nThe steps of `max_gap` or longer between fixes, the longest first, "
+            "with the files either side."
+        ),
+        new_code_cell("display(stats.gaps(result.nav, result.qc, result.config.thresholds))"),
         new_markdown_cell("## Statistics"),
         new_code_cell(
             "s = result.stats\n"
