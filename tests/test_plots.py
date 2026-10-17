@@ -1,6 +1,7 @@
 """The report figures (#37), on small synthetic filesets, with the map layers offline."""
 
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 
 import matplotlib
 
@@ -108,6 +109,77 @@ def test_track_map_across_the_antimeridian(tmp_path):
     axis = plots.track_map(result).axes[0]
     west, east, _, _ = axis.get_extent(ccrs.PlateCarree(central_longitude=180))
     assert east - west < 1  # [degree] not the whole globe
+
+
+def loop(tmp_path, width: float, height: float, lon0=-117.3, lat0=32.6):
+    """A ship going round a width x height [degree] box at 10 m s-1, one fix every 10 s,
+    so the track runs along every edge of the map, as FKt230417's does round Puerto Rico
+    """
+    corners = [(0, 0), (width, 0), (width, height), (0, height), (0, 0)]
+    fixes, seconds = [], 0
+    for (x0, y0), (x1, y1) in pairwise(corners):
+        metres = np.hypot((x1 - x0) * np.cos(np.radians(lat0)), y1 - y0) / METRE
+        for f in np.linspace(0, 1, int(metres // 100), endpoint=False):
+            fixes.append((seconds, lon0 + x0 + f * (x1 - x0), lat0 + y0 + f * (y1 - y0), 2))
+            seconds += 10
+    config = QAConfig(cruise_id="LOOP", nav_format="nav29")
+    return run_qa(fileset(tmp_path, fixes), config)
+
+
+def diagonal(tmp_path):
+    """A transit from the south-west corner of the map to the north-east, leaving two corners
+    clear
+    """
+    fixes = [(10 * i, -117.3 + i * 0.001, 32.6 + i * 0.0005, 2) for i in range(200)]
+    return run_qa(fileset(tmp_path, fixes), QAConfig(cruise_id="DIAG", nav_format="nav29"))
+
+
+def covered(figure, result) -> int:
+    """How many fixes the legend (when on the map) and the world inset are drawn over"""
+    figure.canvas.draw()
+    axis = figure.axes[0]
+    best = result.bestres
+    projected = axis.projection.transform_points(
+        ccrs.PlateCarree(), best["lon"].to_numpy(float), best["lat"].to_numpy(float)
+    )
+    display = axis.transData.transform(projected[:, :2])
+    boxes = [inset.get_window_extent() for inset in axis.child_axes]
+    if axis.get_legend() is not None:
+        boxes.append(axis.get_legend().get_window_extent())
+    x, y = display[:, 0], display[:, 1]
+    return sum(int(((x >= b.x0) & (x <= b.x1) & (y >= b.y0) & (y <= b.y1)).sum()) for b in boxes)
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda tmp_path: loop(tmp_path, 0.3, 0.1),  # wide, like FKt230417
+        lambda tmp_path: loop(tmp_path, 0.05, 0.15),  # tall
+        diagonal,
+        cruise,
+    ],
+    ids=["wide loop", "tall loop", "diagonal", "northward"],
+)
+def test_the_legend_and_inset_cover_no_fix(tmp_path, make):
+    result = make(tmp_path)
+    figure = plots.track_map(result)
+    assert covered(figure, result) == 0
+    # The legend is on the map or below it, with every entry
+    legend = figure.axes[0].get_legend() or figure.legends[0]
+    assert [t.get_text() for t in legend.get_texts()] == labels(figure.axes[0])
+
+
+def test_a_map_with_clear_corners_keeps_the_inset_and_legend_on_it(tmp_path):
+    for result in (diagonal(tmp_path / "diagonal"), cruise(tmp_path / "cruise")):
+        figure = plots.track_map(result)
+        axis = figure.axes[0]
+        assert axis.get_legend() is not None and not figure.legends
+        assert len(axis.child_axes) == 1
+
+
+def test_a_track_round_the_map_moves_the_legend_below_it(tmp_path):
+    figure = plots.track_map(loop(tmp_path, 0.3, 0.1))
+    assert figure.axes[0].get_legend() is None and len(figure.legends) == 1
 
 
 def test_speed_and_acceleration(tmp_path):

@@ -105,7 +105,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `fetch-map-data`; a missing layer is drawn without (ported from sbe-qa-processing).
 - `plots.py`: `track_map`, `speed_and_acceleration`, `timeline`, `histograms` (`FIGURES`), each
   `(result, theme) -> Figure`; labels from `quantities.py`; long series reduced for drawing.
-  `QCResult.steps` gives the position steps' times for the map.
+  `QCResult.steps` gives the position steps' times for the map. The map's legend and inset
+  are placed after a layout pass, where they cover no fix (#59; `_place_legend_and_inset`).
 - `pdf_report.py`: `write_pdf(result, path, svgs, front=None, subject, theme)` (ReportLab +
   svglib): title block, checks, statistics, products; QC with the timeline; map, series,
   histograms. `Layout` (theme made concrete) and `FrontPages`, through which integrations add
