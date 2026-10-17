@@ -128,6 +128,11 @@ def test_sp2220_no_fix():
     assert r2r_rating == "R"
     assert r2r_tests["PercentRecordsWithBadQualityIndicator"][0] == "R"
     assert r2r_tests["PercentCompleteness"] == ("R", 33.99)
+    # Over the fixes that pass QC (#66), the receiver's junk is gone
+    s = run.result.stats
+    assert (s.hdop.maximum, s.good.hdop.maximum) == (999.9, 47.2)
+    assert s.speed.maximum > 6000 and s.good.speed.maximum < 70
+    assert s.good.records == 58_307
     # The gaps (#65): 59, the longest 28.4 h, from 09-22 into 09-23
     found = stats.gaps(run.result.nav, run.result.qc, run.result.config.thresholds)
     assert len(found) == run.result.stats.gaps == 59

@@ -53,7 +53,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   core checks (`CheckResult`: pass/warn/info/n/a against `Thresholds`). In `NavQAResult.stats`.
   `NavStats.counted` keeps which records each check counted; `counts_by_file` splits them by
   nav file for the PDF's and notebook's "Checks by file" (#61). `gaps(nav, qc_result,
-  thresholds)` lists the gaps, longest first, with their files (#65).
+  thresholds)` lists the gaps, longest first, with their files (#65). `NavStats.good`
+  (`GoodFixes`) has the ranges over the fixes that pass QC, beside navqa's pre-QC ones (#66).
 - `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...);
   `tests/test_boundaries.py` keeps core from importing `integrations/`.
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's

@@ -126,7 +126,7 @@ It also writes `<CRUISE>_qa_report.pdf`, which embeds the SVGs as vector drawing
 
 | Page | Contents |
 |---|---|
-| 1 | The title block (cruise, vessel, dates, expected area, contact, the fileset, its nav files and format, versions), every check with its status, the checks by file (what each check counted in each nav file read, the files skipped as outside the cruise window, and the total), the statistics (first and last fix, intervals, satellite, HDOP, altitude, speed and acceleration ranges) and the products |
+| 1 | The title block (cruise, vessel, dates, expected area, contact, the fileset, its nav files and format, versions), every check with its status, the checks by file (what each check counted in each nav file read, the files skipped as outside the cruise window, and the total), the statistics (first and last fix, intervals, satellite, HDOP, altitude, speed and acceleration ranges), over every record as R2R reports them and over the fixes that pass QC and the products |
 | 2 | Quality control: records flagged by flag, QC's notes (raised limits, position steps), reader and manifest errors (the first 12, then a count), the gaps of `max_gap` or longer (the 10 longest, with their start, end, length and the files either side, then a count), and the coverage timeline |
 | 3–5 | The trackline map; speed and acceleration; sampling and fix quality |
 

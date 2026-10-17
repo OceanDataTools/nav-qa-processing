@@ -37,7 +37,8 @@ def test_the_report(tmp_path):
     for check in result.stats.checks:
         assert check.name in first
     assert "Checks by file" in first and "nav.txt" in first and "Total" in first
-    assert "Statistics" in first and "Most common time between fixes [s]" in first
+    assert "Statistics" in first and "Most common time between" in " ".join(first.split())
+    assert "All records, as R2R reports them" in first and "Fixes that pass QC" in first
     assert "TEST_bestres.geoCSV" in first
     assert "Quality control" in text[1] and "Coverage, gaps and flags" in text[1]
     assert "Gaps of 300 s or longer" in text[1] and "401.000" in text[1]  # 499 s to 900 s
