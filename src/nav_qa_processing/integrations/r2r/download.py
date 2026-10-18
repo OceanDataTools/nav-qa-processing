@@ -15,12 +15,18 @@ import io
 import logging
 import re
 import tarfile
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from nav_qa_processing.integrations.r2r.catalog import R2RError, fetch_r2r_records, qa_report_url
+from nav_qa_processing.integrations.r2r.catalog import (
+    R2RError,
+    fetch_r2r_records,
+    http_error,
+    qa_report_url,
+)
 from nav_qa_processing.network import reaching
 
 logger = logging.getLogger(__name__)
@@ -45,14 +51,14 @@ def build_opener() -> urllib.request.OpenerDirector:
     )
 
 
-def fetch(opener, url: str) -> tuple[str, bytes]:
-    """The final URL after redirects, and the body"""
+def fetch(opener, url: str, what: str = "R2R's fileset download") -> tuple[str, bytes]:
+    """The final URL after redirects, and the body. An HTTP error is an R2RError naming `what`"""
     logger.debug("GET %s", url)
-    with (
-        reaching("R2R's fileset download", url),
-        opener.open(url, timeout=DOWNLOAD_TIMEOUT) as response,
-    ):
-        return response.geturl(), response.read()
+    try:
+        with reaching(what, url), opener.open(url, timeout=DOWNLOAD_TIMEOUT) as response:
+            return response.geturl(), response.read()
+    except urllib.error.HTTPError as error:
+        raise http_error(error, what, url) from error
 
 
 def _is_child(href: str) -> bool:
@@ -103,9 +109,11 @@ def extract_bag(archive: bytes, destination: Path) -> int:
     return count
 
 
-def download_bag(opener, url: str, destination: Path) -> tuple[str, int]:
+def download_bag(
+    opener, url: str, destination: Path, what: str = "R2R's fileset download"
+) -> tuple[str, int]:
     """The bag at url into destination: its final URL and the number of files"""
-    final_url, body = fetch(opener, url)
+    final_url, body = fetch(opener, url, what)
     if body.lstrip().startswith(b"ERROR"):
         # R2R lists a download URL for some filesets that aren't actually online
         raise R2RError(f"{final_url}: {body.decode(errors='replace').strip()}")
@@ -119,7 +127,7 @@ def download_qa_report(opener, fileset_id: int | str, destination: Path) -> Path
     url = qa_report_url(fileset_id)
     if url is None:
         return None
-    _, body = fetch(opener, url)
+    _, body = fetch(opener, url, "R2R's QA report")
     # R2R answers missing files with 200 and an "ERROR: ..." body
     if not body.lstrip().startswith(b"<?xml"):
         return None
@@ -139,16 +147,23 @@ def download_fileset(cruise_id: str, fileset_id: int | str, destination: Path) -
         raise R2RError(f"{cruise_id} fileset {fileset_id} isn't released for download")
     opener = build_opener()
     bag_url, count = download_bag(opener, filesets[0]["download_url"], destination)
-    download = Download(count, bag_url, download_qa_report(opener, fileset_id, destination))
-
-    products = [
-        p
-        for p in fetch_r2r_records("product", cruise_id=cruise_id)
-        if p.get("product_type") == "r2rnav"
-    ]
-    if products:
-        _, download.product_files = download_bag(
-            opener, products[0]["url"], destination / PRODUCTS
-        )
-        download.productset_id = str(products[0].get("productset_id", ""))
+    try:
+        download = Download(count, bag_url, download_qa_report(opener, fileset_id, destination))
+        products = [
+            p
+            for p in fetch_r2r_records("product", cruise_id=cruise_id)
+            if p.get("product_type") == "r2rnav"
+        ]
+        if products:
+            _, download.product_files = download_bag(
+                opener, products[0]["url"], destination / PRODUCTS, "R2R's product bag"
+            )
+            download.productset_id = str(products[0].get("productset_id", ""))
+    except (R2RError, OSError) as error:  # OSError: NetworkError
+        # The raw files are in; say what's missing and how to fetch it (#101)
+        raise R2RError(
+            f"{count} raw files are in {destination}, but R2R's QA report or products aren't: "
+            f"{error}. Run again with --force to fetch them",
+            getattr(error, "status", None),
+        ) from error
     return download

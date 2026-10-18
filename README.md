@@ -419,6 +419,9 @@ nav-qa-processing r2r fetch-fileset [-o OUTPUT_DIR] [--force] CRUISE_ID FILESET_
 Downloads a released R2R GNSS fileset (a BagIt bag) into
 `<OUTPUT_DIR>/<CRUISE_ID>_<FILESET_ID>_gnss/`, with R2R's QA report beside it as
 `r2r_qa.2.0.xml` and R2R's r2rnav product bag (the three `.geoCSV` files) in `products/`.
+When R2R answers with an HTTP error (e.g. 503 while its service is down), the command says
+which download failed in one line and exits 1. If the raw files arrived but the QA report or
+products didn't, it says so: run it again with `--force` to fetch them.
 
 | Argument | Default | Description |
 |---|---|---|
