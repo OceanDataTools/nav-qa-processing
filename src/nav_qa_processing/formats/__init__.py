@@ -8,6 +8,7 @@ share a reader (most are "some line prefix plus NMEA GGA + ZDA") differ only in 
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 
 from nav_qa_processing.formats import catalog, gga_zda, timestamped_gga
 
@@ -26,9 +27,18 @@ class Reader:
 
 GGA_ZDA = Reader(gga_zda.read, gga_zda.span, "ZDA sentence", "GGA/ZDA")
 TIMESTAMPED_GGA = Reader(timestamped_gga.read, timestamped_gga.span, "logger timestamp", "GGA")
+SCS_GGA = Reader(
+    partial(timestamped_gga.read, stamp=timestamped_gga.scs_time),
+    partial(timestamped_gga.span, stamp=timestamped_gga.scs_time),
+    "logger timestamp",
+    "GGA",
+)
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
+    "nav1": GGA_ZDA,  # bare NMEA (#81)
+    "nav2": SCS_GGA,  # NOAA SCS: logger date and time, then GGA (#81)
+    "nav24": GGA_ZDA,  # Sikuliaq: logger ID and ISO timestamp, then NMEA (#81)
     "nav29": GGA_ZDA,
     "nav33": TIMESTAMPED_GGA,
 }

@@ -4,11 +4,13 @@ system = "Shipboard logger"
 file_type = "ASCII text: whitespace-separated prefix, then one NMEA sentence"
 vessels = ["Sikuliaq"]
 sentences = ["ZDA", "GGA", "RMC", "VTG", "GST", "HDT", "GLL", "PSXN"]
+r2r_formats = [100103]
 position = "GGA"
 time = "GGA time of day, dated by ZDA"
 description = "Each line is a logger ID, an ISO 8601 UTC timestamp and one NMEA sentence. Lines starting with # are header comments describing the platform and cruise."
 notes = [
   "Seen with a C-Nav 3050 receiver (logger gnss_cnav) and a Seapath (ins_seapath_position).",
+  "R2R format 100103 (\"C-Nav3050 on Sikuliaq\") is matched to this ID by layout; R2R's format page cites only C-Nav3050.txt. R2R files Sikuliaq's Seapath 380+ filesets under it too (e.g. SKQ202516S, fileset 165743: ins_seapath_position, with ZDA, GGA, GLL, VTG, RMC, HDT and PSXN at 1 Hz).",
 ]
 references = ["www.nmea.org"]
 examples = [

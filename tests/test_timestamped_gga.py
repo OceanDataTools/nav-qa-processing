@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 
+from nav_qa_processing import formats
 from nav_qa_processing.formats import timestamped_gga
 from nav_qa_processing.formats.nmea import checksum
 
@@ -104,3 +105,40 @@ def test_a_files_span_is_its_first_and_last_timestamp():
         "2026-07-10T01:00:00.500000+00:00",
     )
     assert timestamped_gga.span(["no timestamps here"]) is None
+
+
+# -- nav2: NOAA SCS, the logger's MM/DD/YYYY,hh:mm:ss.sss (#81) --
+
+
+def scs(stamp: str, hhmmss: str) -> str:
+    gga = nmea(f"GPGGA,{hhmmss},4129.5473,N,07125.1176,W,2,10,1.5,15.9,M,,M,,")
+    return f"{stamp},{gga}"
+
+
+def test_scs_time():
+    found = timestamped_gga.scs_time(
+        "08/19/2025,12:37:31.377,$GPGGA,123730,4129.5473,N,07125.1176,W,2,10,1.5,15.9,M,,M,,*7A"
+    )
+    assert found == (date(2025, 8, 19), (12 * 3600 + 37 * 60 + 31.377) * 10**9)
+    assert timestamped_gga.scs_time("13/19/2025,12:37:31.377,$GPGGA,") is None  # no month 13
+    assert timestamped_gga.scs_time("2025-08-19T12:37:31Z,$GPGGA,") is None  # nav33's
+
+
+def test_nav2_lines_are_dated_by_their_scs_timestamps():
+    """EN735's logger runs a second or two after its Furuno's GGA times: a GGA for 23:59:59
+    logged at 00:00:01 the next day is dated the day before
+    """
+    lines = [scs("08/19/2025,23:59:59.377", "235958"), scs("08/20/2025,00:00:01.020", "235959")]
+    lines.append(scs("08/20/2025,00:00:02.010", "000000"))
+    result = formats.get("nav2").reader.read([("GPS-Furuno-GGA_20250820-000000.Raw", lines)])
+    assert [(f.day, f.gga.time.seconds) for f in result.fixes] == [
+        (date(2025, 8, 19), 86398.0),
+        (date(2025, 8, 19), 86399.0),
+        (date(2025, 8, 20), 0.0),
+    ]
+    assert result.errors == []
+    first, last = formats.get("nav2").reader.span(lines)
+    assert (first.isoformat(), last.isoformat()) == (
+        "2025-08-19T23:59:59.377000+00:00",
+        "2025-08-20T00:00:02.010000+00:00",
+    )

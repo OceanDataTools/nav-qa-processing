@@ -6,7 +6,7 @@ import pytest
 from conftest import DATA, FIXTURES
 from test_gga_zda import gga, zda
 
-from nav_qa_processing import r2rnav, rawnav
+from nav_qa_processing import geocsv, r2rnav, rawnav
 
 SP2613 = DATA / "SP2613_169851_gnss"
 FETCH = "uv run nav-qa-processing r2r fetch-fileset SP2613 169851"
@@ -128,4 +128,21 @@ def test_sp2424_records_match_r2r_bestres_plus_the_final_fix():
     assert nav.errors == []
     assert len(nav.frame) == len(r2r) + 1 == 150_925
     assert nav.frame["time"].iloc[-1] == pd.Timestamp("2024-11-04T03:16:44.50Z")
+    _compare(nav, r2r)
+
+
+def test_rr1802_nav1_records_match_r2r_bestres():
+    """Revelle's raw NMEA (nav1, Furuno GP-150): 28,527 records equal R2R's bestres, record for
+    record (#81). R2R has no QA 2.0 report for this fileset
+    """
+    directory = DATA / "RR1802_132277_gnss"
+    path = directory / "products" / "data" / "RR1802_bestres.geoCSV"
+    if not path.exists():
+        pytest.skip(
+            "RR1802 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset RR1802 132277"
+        )
+    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav1")
+    r2r = geocsv.read(path).records  # with its 292 flagged records
+    assert nav.errors == [] and nav.talkers == {"GP": 28_527}
+    assert len(nav.frame) == len(r2r) == 28_527
     _compare(nav, r2r)

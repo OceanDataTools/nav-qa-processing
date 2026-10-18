@@ -1,0 +1,49 @@
+# From R2R's catalog, 2026-10-18
+[cruise]
+id = "RR1802"
+name = "Sea Trials"
+pi = "Kelety, Zoltan"
+vessel_id = "33RR"
+vessel_name = "Roger Revelle"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+depart_date = 2018-02-27
+arrive_date = 2018-02-27
+doi = "doi:10.7284/908049"
+
+[cruise.extent]
+westernmost = -122.8363
+easternmost = -122.725113
+southernmost = 45.562717
+northernmost = 45.981228
+
+[cruise.depart_port]
+name = "Portland"
+port_id = "100100"
+
+[cruise.arrive_port]
+name = "Portland"
+port_id = "100100"
+
+[fileset]
+id = "132277"
+doi = "doi:10.7284/132277"
+format_id = "100010"
+
+[fileset.device]
+id = "100464"
+make_id = "com.furuno"
+model_id = "100146"
+model_name = "GP-150"
+
+[nav]
+format = "nav1"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

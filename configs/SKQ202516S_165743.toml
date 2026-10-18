@@ -1,0 +1,61 @@
+# From R2R's catalog, 2026-10-18
+[cruise]
+id = "SKQ202516S"
+name = "Near-Trench Community Geodetic Experiment"
+pi = "Newman, Andrew"
+vessel_id = "33BI"
+vessel_name = "Sikuliaq"
+operator_id = "edu.uaf"
+scheduler_id = "org.unols"
+date_issued = "2025-09-16"
+date_modified = "2025-10-20T04:22:36Z"
+depart_date = 2025-08-30
+arrive_date = 2025-09-07
+doi = "doi:10.7284/911012"
+
+[cruise.extent]
+westernmost = -168.38932598
+easternmost = -149.3551163
+southernmost = 53.1192678
+northernmost = 64.49418123
+
+[cruise.depart_port]
+name = "Nome"
+port_id = "100090"
+country_id = "us"
+state_id = "ak"
+longitude = -165.41667
+latitude = 64.48333
+
+[cruise.arrive_port]
+name = "Seward"
+port_id = "100060"
+country_id = "us"
+state_id = "ak"
+longitude = -149.43333
+latitude = 60.1
+
+[fileset]
+id = "165743"
+doi = "doi:10.7284/165743"
+date_created = "2025-09-25"
+format_id = "100103"
+format_alias = "skq_cnav"
+
+[fileset.device]
+id = "101278"
+make_id = "com.kongsberg"
+model_id = "100376"
+model_name = "Seapath 380+"
+
+[nav]
+format = "nav24"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

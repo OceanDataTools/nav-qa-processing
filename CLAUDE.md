@@ -21,11 +21,13 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `formats/catalog.py` loads them and `nav-qa-processing formats [ID]` prints them. Add or fix a
   format's description there, not in code.
 - `formats/__init__.py`: the registry. `READERS` maps format IDs to a `Reader` (`read`, and
-  `span`: a file's first and last time, to select and order files by): so far `nav29`
-  (`GGA_ZDA`) and `nav33` (`TIMESTAMPED_GGA`); `get(id)` refuses formats without one.
-  `nmea.py` (sentences, checksum, GGA, ZDA); `gga_zda.py` (each GGA dated by the nearest ZDA);
-  `timestamped_gga.py` (each GGA dated by its line's ISO logger timestamp: OpenRVDAS, Falkor
-  (too)). Both keep every valid GGA; NavManager's differences are in their docstrings.
+  `span`: a file's first and last time, to select and order files by): so far `nav1`,
+  `nav24` and `nav29` (`GGA_ZDA`), `nav33` (`TIMESTAMPED_GGA`) and `nav2` (`SCS_GGA`, #81);
+  `get(id)` refuses formats without one. `nmea.py` (sentences, checksum, GGA, ZDA);
+  `gga_zda.py` (each GGA dated by the nearest ZDA); `timestamped_gga.py` (each GGA dated by
+  its line's logger timestamp: `iso_time` for OpenRVDAS and Falkor (too), `scs_time` for NOAA
+  SCS's `MM/DD/YYYY,hh:mm:ss.sss`). Both keep every valid GGA; NavManager's differences are in
+  their docstrings.
 - `rawnav.py`: `read_fileset(paths, format_id, start, end)` -> `RawNav` (DataFrame, receiver
   decimals, files read/skipped, errors, GGA talker IDs counted, `nmea.TALKERS` names them;
   `skipped_lines`, the sentences each reader couldn't use per file and reason, from its
@@ -277,7 +279,8 @@ nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G). Others: S
 fixes), SP2503 (rated R: completeness, gap), and for the tests R2R rates Y or R (#26): RR2406
 (sentences split across logger lines), RR2212 (files out of order), SP2220 (no fix); FKt230417
 (fileset 157454, Falkor (too)'s POS/MV, an INS fileset: nav33, rated G; R2R lacks its 0A–0F
-checksums, R1); see
+checksums, R1); and one per new reader (#81): RR1802 (nav1, record for record; no QA 2.0
+report), EN735 (nav2, G) and SKQ202516S (nav24, Sikuliaq's Seapath, G); see
 `tests/fixtures/README.md` and `tests/test_r2r_references.py`.
 
 ## Porting rules

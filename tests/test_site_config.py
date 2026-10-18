@@ -73,8 +73,8 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
     )
     prompts = capsys.readouterr().err
     assert "not an email address" in prompts
-    assert "required: one of nav29, nav33" in prompts
-    assert "no reader for nav99: one of nav29, nav33" in prompts
+    assert "required: one of nav1, nav2, nav24, nav29, nav33" in prompts
+    assert "no reader for nav99: one of nav1, nav2, nav24, nav29, nav33" in prompts
     assert "nav33  ISO timestamp, then GGA" in prompts  # the formats with a reader are listed
     assert "outside ±90" in prompts and "southernmost must be <= northernmost" in prompts
     assert "R2R" not in prompts

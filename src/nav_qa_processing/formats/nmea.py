@@ -3,8 +3,9 @@
 Behavior ported from NavManager's nmeatools (observed, not copied):
 - A line can hold a partial sentence followed by a complete one after a stream interruption.
   Only the text from the last `$` is used.
-- A sentence without a checksum is accepted if it has every field of its kind (`FIELDS`), so a
-  sentence cut short (e.g. by a logger splitting it across lines) isn't read as a short one.
+- A sentence without a checksum is accepted if it has every field of its kind but optional
+  trailing ones (`FIELDS`), so a sentence cut short (e.g. by a logger splitting it across
+  lines) isn't read as a short one.
   A sentence with a checksum is accepted only when it matches, compared by value: `*0A`, `*0a`
   and a nonstandard one-digit `*A` are all 0x0A. NavManager compares unpadded hex with PHP's
   loose `==`, so it rejects every correct checksum from `*0A` to `*0F` (`*00`–`*09` compare as
@@ -20,8 +21,9 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
 from dataclasses import dataclass
 
 # The number of fields, address included, of a complete sentence: one without a checksum and
-# with fewer has been cut short
-FIELDS = {"GGA": 15, "ZDA": 7}
+# with fewer has been cut short. A GGA's last two (DGPS age and station) are optional: nav1's
+# documented sample, without a checksum, ends at the geoid separation's unit (#81)
+FIELDS = {"GGA": 13, "ZDA": 7}
 
 
 @dataclass(frozen=True)

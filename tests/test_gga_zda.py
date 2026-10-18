@@ -3,6 +3,7 @@ from itertools import pairwise
 
 import pytest
 
+from nav_qa_processing import formats
 from nav_qa_processing.formats import gga_zda
 from nav_qa_processing.formats.nmea import checksum
 
@@ -144,3 +145,48 @@ def test_a_split_sentence_isnt_joined_with_the_next_sentence():
 def test_a_zda_outside_the_gps_era_is_skipped():
     result = gga_zda.read([("f", [nmea("GPZDA,000000.00,31,05,0002,00,00"), gga("000001.00")])])
     assert result.fixes == [] and "ZDA without a valid date" in result.errors[0]
+
+
+# -- nav1 and nav24 read the same way (#81) --
+
+
+def test_nav1_bare_nmea_without_checksums():
+    """Melville's and Revelle's raw NMEA; checksums may be missing, and RR1802's file opens
+    with the tail of a cut-off sentence
+    """
+    lines = [
+        "SrJ:",
+        "b12243.6025,W,D,9,2.1   ,18,,,*32",
+        "$GPZDA,235600,24,05,2009,00,00*42",
+        "$GPGGA,235601,2600.4311,N,12229.8443,E,2,7,0.4,45,M,,M",
+        "$GPVTG,336.3,T,340.2,M,1.5,N,2.8",
+        "$GPZDA,235601,24,05,2009,00,00*43",
+        "$GPGGA,235602,2600.4315,N,12229.8441,E,2,7,0.4,45,M,,M",
+    ]
+    result = formats.get("nav1").reader.read([("gp150_20090524235600.raw", lines)])
+    assert [(f.day, f.gga.time.seconds) for f in result.fixes] == [
+        (date(2009, 5, 24), 86161.0),
+        (date(2009, 5, 24), 86162.0),
+    ]
+    assert result.errors == [] and result.rejected_checksums == {}
+
+
+def test_nav24_sikuliaq_lines():
+    """Logger ID, ISO timestamp and sentence, tab-separated, after `#` header lines; the ZDA
+    dates the GGA, not the logger's timestamp
+    """
+    lines = [
+        "# Platform:",
+        "#   Name: R/V Sikuliaq",
+        "ins_seapath_position\t2025-08-30T00:00:00.0009Z\t$GPZDA,235959.97,29,08,2025,,*6F",
+        (
+            "ins_seapath_position\t2025-08-30T00:00:00.0874Z\t$GPGGA,235959.97,6429.644114,N,"
+            "16526.297784,W,2,09,0.9,-0.32,M,7.66,M,0.8,1022*44"
+        ),
+        "ins_seapath_position\t2025-08-30T00:00:00.3082Z\t$PSXN,20,0,0,0,0*3B",
+    ]
+    result = formats.get("nav24").reader.read([("ins_seapath_position.20250830T0000Z", lines)])
+    (fix,) = result.fixes
+    assert (fix.day, fix.gga.time.seconds) == (date(2025, 8, 29), 86399.97)
+    assert fix.gga.lat == pytest.approx(64 + 29.644114 / 60)
+    assert result.errors == []
