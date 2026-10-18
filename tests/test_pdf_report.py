@@ -44,7 +44,8 @@ def test_the_report(tmp_path):
     assert "All records, as R2R reports them" in first and "Fixes that pass QC" in first
     assert "TEST_bestres.geoCSV" in first
     assert "Quality control" in text[1] and "Coverage, gaps and flags" in text[1]
-    assert "Gaps of 300 s or longer" in text[1] and "401.000" in text[1]  # 499 s to 900 s
+    # 499 s to 900 s, as hh:mm:ss (#73)
+    assert "Gaps of 300 s (00:05:00) or longer" in text[1] and "00:06:41.000" in text[1]
     assert "acceleration" in text[1] and "Invalid GGA fix" in text[1]
     for page, heading in zip(
         text[2:], ("Trackline", "Speed and acceleration", "Sampling and fix quality"), strict=True

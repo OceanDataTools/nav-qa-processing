@@ -136,7 +136,12 @@ def build_notebook(
             "### Gaps\n\nThe steps of `max_gap` or longer between fixes, the longest first, "
             "with the files either side."
         ),
-        new_code_cell("display(stats.gaps(result.nav, result.qc, result.config.thresholds))"),
+        new_code_cell(
+            "gaps = stats.gaps(result.nav, result.qc, result.config.thresholds)\n"
+            "# The length in seconds, and as hh:mm:ss\n"
+            'gaps.insert(3, "hh:mm:ss", gaps["length"].map(q.SAMPLING_INTERVAL.format_duration))\n'
+            "display(gaps)"
+        ),
         new_markdown_cell("## Statistics"),
         new_code_cell(
             "s = result.stats\n"
@@ -158,7 +163,7 @@ def build_notebook(
             "print(q.FIXES.label, q.FIXES.format(s.records))\n"
             'print(q.FIXES.label, "that pass QC", q.FIXES.format(s.good.records))\n'
             "print(q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval))\n"
-            "print(q.LONGEST_GAP.label, q.LONGEST_GAP.format(s.longest_gap))"
+            "print(q.LONGEST_GAP.clock_label, q.LONGEST_GAP.format_duration(s.longest_gap))"
         ),
         new_markdown_cell(
             "## Quality control\n\n"

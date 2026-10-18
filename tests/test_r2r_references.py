@@ -17,9 +17,10 @@ import numpy as np
 import pytest
 from conftest import CONFIGS, DATA
 
-from nav_qa_processing import geocsv, stats
+from nav_qa_processing import geocsv, pdf_report, stats
 from nav_qa_processing.integrations.r2r.config import load_cruise_config
 from nav_qa_processing.integrations.r2r.reports import run_r2r
+from nav_qa_processing.integrations.r2r.xml_report import R2R_NAMESPACE, build_qa_xml
 
 TESTS = [
     "PercentCompleteness",
@@ -131,7 +132,8 @@ def test_sp2220_no_fix():
     # The checks in a line (#68)
     status, line = run.result.stats.verdict
     assert status == "warn" and line == (
-        "4 of 7 checks warn: Completeness 6.02 %; Longest gap 102103.500 s; Bad quality "
+        "4 of 7 checks warn: Completeness 6.02 %; Longest gap 28:21:43.500 (102103.500 s); Bad "
+        "quality "
         "indicator 82.61 %; Within the expected area 3 outside."
     )
     # What the reader skipped (#67): every GGA without a time and ZDA without a date, and
@@ -156,6 +158,16 @@ def test_sp2220_no_fix():
         "abx-two-rx-1_20220923000000.raw",
     )
     assert found["length"].is_monotonic_decreasing
+    # Shown as hh:mm:ss in the PDF's statistics and gaps table (#73); R2R's XML keeps seconds
+    lay = pdf_report.layout()
+    cells = lambda table: [getattr(c, "text", c) for row in table._cellvalues for c in row]
+    assert "28:21:43.500" in cells(pdf_report._statistics(lay, run.result))
+    assert "28:21:43.500" in cells(pdf_report._gaps(lay, run.result)[-1])
+    xml = build_qa_xml(run.result, run.r2r).getroot()
+    epoch = next(
+        t for t in xml.iter(f"{{{R2R_NAMESPACE}}}test") if t.get("name") == "LongestGapEpoch"
+    )
+    assert epoch.findtext(f"{{{R2R_NAMESPACE}}}test_result") == "102103.500"
 
 
 def test_fkt230417_nav33():
