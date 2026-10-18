@@ -113,6 +113,11 @@ def test_rr2212_files_out_of_order():
     # the transit from Moss Landing, flagged by R2R, is outside R2R's extent
     extent = load_cruise_config(CONFIGS / "RR2212_151339.toml").extent  # R2R's catalog
     assert run.result.nav.frame["lat"].max() > extent.northernmost + 2
+    # Over water (#79): Oakland's inner harbor is land at 1:10m, up to 1.44 km in; within the
+    # tolerance
+    over_water = next(c for c in run.result.stats.checks if c.name == "Over water")
+    assert over_water.status == "pass" and "374 within 2000 m of the coast" in over_water.detail
+    assert round(np.nanmax(run.result.stats.inland)) == 1438
 
 
 def test_sp2220_no_fix():
@@ -132,7 +137,7 @@ def test_sp2220_no_fix():
     # The checks in a line (#68)
     status, line = run.result.stats.verdict
     assert status == "warn" and line == (
-        "4 of 7 checks warn: Completeness 6.02 %; Longest gap 28:21:43.500 (102103.500 s); Bad "
+        "4 of 8 checks warn: Completeness 6.02 %; Longest gap 28:21:43.500 (102103.500 s); Bad "
         "quality "
         "indicator 82.61 %; Within the expected area 3 outside."
     )
@@ -225,3 +230,6 @@ def test_fkt230417_nav33():
     )
     assert (total["Bad quality"], total["Gaps"]) == (s.bad_quality, s.gaps) == (8, 2)
     assert by_file.loc["FKt230417_posmv_gga-2023-04-27.txt", "Flagged by QC"] == 283
+    # Over water (#79): alongside in San Juan, which is land at 1:10m, for 30 minutes
+    over_water = next(c for c in s.checks if c.name == "Over water")
+    assert over_water.status == "pass" and "1835 within 2000 m of the coast" in over_water.detail

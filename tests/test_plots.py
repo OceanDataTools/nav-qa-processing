@@ -262,6 +262,16 @@ def test_flag_counts_match_the_qc_table(tmp_path):
     assert not any(label.startswith("Flagged: position") for label in found)
 
 
+def test_fixes_over_land_are_ringed(tmp_path):
+    """The over-water check's fixes (#79), marked on the map with its count"""
+    result = cruise(tmp_path)
+    over = np.zeros(len(result.bestres), dtype=bool)
+    over[100:110] = True
+    result.stats.counted["over_land"] = over
+    found = labels(plots.track_map(result).axes[0])
+    assert "Over land (10)" in found
+
+
 def test_histograms(tmp_path):
     figure = plots.histograms(cruise(tmp_path))
     x_labels = [axis.get_xlabel() for axis in figure.axes]

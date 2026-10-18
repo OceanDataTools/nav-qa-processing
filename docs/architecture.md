@@ -397,6 +397,7 @@ src/nav_qa_processing/
   pdf_report.py     ReportLab PDF embedding the SVGs; integrations add `front` pages
   plots.py          one matplotlib Figure per function
   maps.py           cartopy trackline map with Natural Earth; degrades without coastlines
+  land.py           Natural Earth's land under the fixes, for the "Over water" check
   notebook.py       nbformat notebook that re-runs the assessment; NotebookExtras
   network.py        reaching(service, url): unreachable servers become a one-line NetworkError
   readable.py       Readable: results and configs print as short text in Python and Jupyter
@@ -741,6 +742,18 @@ Comparisons with R2R parse the numbers and map the units.
   `write_qa_xml`), added through core's `front` pages and `NotebookExtras`. The notebook names
   its XML by its own run time, as `r2r run` does; `--execute-notebook` leaves the cell that
   writes the reports unrun, so a run writes one XML.
+
+**Over water (#79).** A research vessel's fixes are never over land, so a core check counts the
+usable records more than `land_tolerance` (2000 m) inside Natural Earth's 1:10m land less its
+lakes, the layers the map draws and `fetch-map-data` caches (`land.py`). The coastline is
+coarse in harbors: on RR2212 (Oakland's inner harbor, under way), RR2406 (Morehead City's
+channel) and FKt230417 (alongside in San Juan), 374, 120 and 1,835 fixes lie up to 1,438 m,
+147 m and 728 m inside it; the other references have none. Hence the tolerance, and a check
+rather than a QC flag: the coastline is too coarse to drop fixes from the products by. The
+check's detail says how many fixes were over land within the tolerance. The nearest coast is
+found with longitudes scaled by cos(latitude) at the window's middle, then measured
+geodesically. Without the map data the check is n/a. NavManager has no such check, and R2R's
+XML doesn't change.
 
 ### Validation strategy
 

@@ -114,7 +114,7 @@ the primary also carries the feed's name, e.g. `<CRUISE>_seapath_bestres.geoCSV`
 
 | Figure | Shows |
 |---|---|
-| `track_map.svg` | The good track over coastlines, broken at gaps of `max_gap` or longer between good fixes, which are drawn faint and dashed (a stretch too small to show as a line at the map's scale is a dot), flagged fixes by QC flag (each under its first flag; the legend gives the QC table's count and how many are drawn), the 1min control points, the start and end, QC's position steps (smaller when there are many) and the expected area, with a world inset. The legend and inset never cover the track: with no clear place on the map, the legend goes below it and the inset is left out. Polar stereographic beyond 70°, and whole across the antimeridian |
+| `track_map.svg` | The good track over coastlines, broken at gaps of `max_gap` or longer between good fixes, which are drawn faint and dashed (a stretch too small to show as a line at the map's scale is a dot), flagged fixes by QC flag (each under its first flag; the legend gives the QC table's count and how many are drawn), the 1min control points, the start and end, QC's position steps (smaller when there are many), the fixes the "Over water" check counts over land (ringed) and the expected area, with a world inset. The legend and inset never cover the track: with no clear place on the map, the legend goes below it and the inset is left out. Polar stereographic beyond 70°, and whole across the antimeridian |
 | `speed_acceleration.svg` | Speed over ground and the acceleration QC tests, at the good fixes, against time, with `max_speed` and QC's acceleration limit |
 | `timeline.svg` | When there are fixes, the gaps of `max_gap` or longer, and the flagged fixes by flag. Each record is marked once, under its first flag; a row gives the QC table's count and how many of its records are in the rows above |
 | `histograms.svg` | The time between fixes, satellites, HDOP and GGA quality (invalid qualities in the secondary color) |
@@ -126,7 +126,7 @@ It also writes `<CRUISE>_qa_report.pdf`, which embeds the SVGs as vector drawing
 
 | Page | Contents |
 |---|---|
-| 1 | The title block (cruise, vessel, dates, expected area, contact, the fileset, its nav files and format, versions) and the checks in a line on the worst status's color (e.g. "2 of 7 checks warn: Completeness 47.34 %; Longest gap 13:30:25.500 (48625.500 s)."), every check with its status, the checks by file (what each check counted in each nav file read and the sentences the reader couldn't use, the files it couldn't read, those skipped as outside the cruise window, and the total), the statistics (first and last fix, intervals (the longest gap as hh:mm:ss), satellite, HDOP, altitude, speed and acceleration ranges), over every record as R2R reports them and over the fixes that pass QC and the products |
+| 1 | The title block (cruise, vessel, dates, expected area, contact, the fileset, its nav files and format, versions) and the checks in a line on the worst status's color (e.g. "2 of 8 checks warn: Completeness 47.34 %; Longest gap 13:30:25.500 (48625.500 s)."), every check with its status, the checks by file (what each check counted in each nav file read and the sentences the reader couldn't use, the files it couldn't read, those skipped as outside the cruise window, and the total), the statistics (first and last fix, intervals (the longest gap as hh:mm:ss), satellite, HDOP, altitude, speed and acceleration ranges), over every record as R2R reports them and over the fixes that pass QC and the products |
 | 2 | Quality control: records flagged by flag, QC's notes (raised limits, position steps), reader and manifest errors (the first 12, then a count), the gaps of `max_gap` or longer (the 10 longest, with their start, end, length as hh:mm:ss and the files either side, then a count), and the coverage timeline |
 | 3–5 | The trackline map; speed and acceleration; sampling and fix quality |
 
@@ -147,7 +147,8 @@ nav-qa-processing fetch-map-data
 
 Downloads the Natural Earth layers the trackline map uses (1:10m land, lakes and coastlines,
 and the 1:110m world for the inset, about 27 MB) into cartopy's data directory, so the map has
-coastlines offline, e.g. at sea. Without them, the map is drawn without coastlines and says so.
+coastlines offline, e.g. at sea. Without them, the map is drawn without coastlines and says so,
+and the "Over water" check, which uses the same land and lakes, is n/a.
 It takes no arguments.
 
 ### Opening the notebook
@@ -256,6 +257,7 @@ max_accel = 1.0
 | `max_bad_quality` | `5.0` [%] | Check: records with a bad GGA quality indicator, of those reporting one |
 | `max_unreasonable_speeds` | `5.0` [%] | Check: unreasonable speeds |
 | `max_unreasonable_accelerations` | `5.0` [%] | Check: unreasonable accelerations |
+| `land_tolerance` | `2000.0` [m] | Check "Over water": a fix farther than this inside Natural Earth's 1:10m coastline is over land. Harbors and channels the coastline draws as land lie within it (RR2212's Oakland inner harbor: up to 1,438 m) |
 | `max_accel` | `1.0` [m s-2] | QC and QA: the horizontal acceleration limit |
 | `accel_time_base` | `2.0` [s] | QC and QA: acceleration at a fix uses velocities over at least this long before and after it, so GNSS noise at high sample rates isn't flagged |
 | `max_reach_speed` | `25.0` [m s-1] | QC: a fix the ship couldn't have reached from the track at this speed (plus `reach_tolerance`) is flagged unreachable, e.g. a jump to near 0, 0 or minutes at a wrong position. Far above any ship's speed: not a speed limit |

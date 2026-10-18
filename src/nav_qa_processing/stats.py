@@ -26,6 +26,10 @@ filter); out-of-sequence records are QC's `TIME_SEQUENCE`. The statistics:
 The core checks (pass/warn/info/n/a) compare these with `Thresholds`, whose defaults equal R2R's
 green bounds; R2R's own G/Y/R ratings belong to the R2R integration.
 
+- **Over water** (#79): with the land under the track (`land.Land`), each usable record's
+  distance inside the coastline; over land beyond `land_tolerance`. Without it (no map data),
+  the check is n/a.
+
 `gaps` lists the gaps (#65): when each started and ended, how long it was and the files either
 side, the longest first; the same steps the gap statistics count.
 
@@ -41,6 +45,7 @@ scalar speeds between every pair of records.
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -51,6 +56,9 @@ from nav_qa_processing.config import Extent, Thresholds
 from nav_qa_processing.qc import Flag, QCResult, acceleration_at_fixes
 from nav_qa_processing.rawnav import RawNav
 from nav_qa_processing.readable import Readable, block, counts, status_line
+
+if TYPE_CHECKING:
+    from nav_qa_processing.land import Land
 
 UNUSABLE = Flag.DATE_RANGE | Flag.POSITION | Flag.NULL_ISLAND
 # [degree] about 11 cm: R2R's catalog rounds its cruise extent (the track's own) to 6 to 10
@@ -121,8 +129,11 @@ class NavStats(Readable):
     checks: list[CheckResult] = field(default_factory=list)
     good: GoodFixes | None = None
     # Per record of the frame: whether each test counted it, by COUNTED's keys. "outside_area"
-    # only with an expected area
+    # only with an expected area, "over_land" only with the land
     counted: dict[str, np.ndarray] = field(default_factory=dict, repr=False, compare=False)
+    # Per record: its distance inside the coastline [m], 0 at sea, NaN for a record the stats
+    # don't use or without a position; None without the land (#79)
+    inland: np.ndarray | None = field(default=None, repr=False, compare=False)
 
     @property
     def verdict(self) -> tuple[str, str]:
@@ -161,6 +172,7 @@ COUNTED = {
     "unreasonable_accelerations": "Unreasonable accelerations",
     "gaps": "Gaps",
     "outside_area": "Outside area",
+    "over_land": "Over land",
     "flagged": "Flagged by QC",
 }
 SKIPPED = "outside the cruise window"
@@ -190,7 +202,11 @@ def modal_interval(steps: np.ndarray) -> float | None:
 
 
 def compute(
-    nav: RawNav, qc_result: QCResult, thresholds: Thresholds, extent: Extent | None = None
+    nav: RawNav,
+    qc_result: QCResult,
+    thresholds: Thresholds,
+    extent: Extent | None = None,
+    land: "Land | None" = None,
 ) -> NavStats:
     th = thresholds
     f = nav.frame
@@ -249,6 +265,12 @@ def compute(
             extent, f["lat"].to_numpy(dtype=float), f["lon"].to_numpy(dtype=float)
         )
 
+    inland = None
+    if land is not None:
+        inland = np.where(usable, land.inland(f["lon"], f["lat"]), np.nan)
+        with np.errstate(invalid="ignore"):
+            counted["over_land"] = inland > th.land_tolerance
+
     times = f["time"][in_sequence]
     stats = NavStats(
         records=n,
@@ -280,6 +302,7 @@ def compute(
         acceleration=_range(change),
         good=_good_fixes(f, t_all, qc_result, th),
         counted=counted,
+        inland=inland,
     )
     stats.checks = _checks(stats, qc_result, th, extent)
     return stats
@@ -462,9 +485,28 @@ def _checks(stats: NavStats, qc_result, th, extent) -> list[CheckResult]:
                 str(extent),
             )
         )
+    checks.append(_over_water(stats, th))
     flagged = int((qc_result.flags != 0).sum())
     by_flag = ", ".join(
         f"{f.name.lower()} {qc_result.count(f)}" for f in Flag if qc_result.count(f)
     )
     checks.append(CheckResult("Fixes flagged by QC", "info", str(flagged), by_flag))
     return checks
+
+
+def _over_water(stats: NavStats, th) -> CheckResult:
+    """No usable fix more than `land_tolerance` inside the coastline (#79)"""
+    name = "Over water"
+    if stats.inland is None:
+        return CheckResult(name, "n/a", "no coastline data", "run fetch-map-data")
+    over = int(stats.counted["over_land"].sum())
+    with np.errstate(invalid="ignore"):
+        ashore = int((stats.inland > 0).sum())
+    tolerance = f"{q.DISTANCE.format(th.land_tolerance)} {q.DISTANCE.unit}"
+    detail = [f"more than {tolerance} inside Natural Earth's 1:10m coastline"]
+    if over:
+        deepest = float(np.nanmax(stats.inland))
+        detail.append(f"up to {q.DISTANCE.format(deepest)} {q.DISTANCE.unit} inland")
+    if ashore > over:
+        detail.append(f"{ashore - over} within {tolerance} of the coast (harbors)")
+    return CheckResult(name, _status(over == 0), f"{over} over land", "; ".join(detail))

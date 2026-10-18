@@ -4,7 +4,8 @@
 - `track_map`: the good track over coastlines, flagged fixes by QC flag, the 1min control
   points, the start and end, QC's position steps and the expected area, with a world inset.
   The track breaks at gaps of `max_gap` or longer between good fixes, drawn faint and dashed;
-  a stretch too small to show as a line at the map's scale is drawn as a dot (#70).
+  a stretch too small to show as a line at the map's scale is drawn as a dot (#70). Fixes over
+  land beyond `land_tolerance` are ringed (#79).
   The legend and inset go where they cover no fix or marker: the legend below the map when
   there's no such place on it, and the inset left out when there's none;
 - `speed_and_acceleration`: speed over ground and the acceleration QC tests, against time, with
@@ -583,6 +584,22 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
             zorder=5,
         )
 
+    over_land = result.stats.counted.get("over_land")
+    ashore = np.array([], dtype=int)
+    if over_land is not None and over_land.any():
+        ashore = _thin(np.flatnonzero(over_land & placed))
+        axis.scatter(
+            x[ashore],
+            lat[ashore],
+            s=28,
+            facecolors="none",
+            edgecolors=colors.secondary,
+            linewidths=0.9,
+            label=f"Over land ({q.COUNT.format(int(over_land.sum()))})",
+            transform=frame,
+            zorder=5.5,
+        )
+
     if result.qc.steps:
         good_seconds = geodesy.epoch_seconds(best["time"][track])
         at = np.clip(
@@ -635,7 +652,7 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
     on_track = np.flatnonzero(track)
     on_track = on_track[:: max(1, len(on_track) // OCCUPIED_TRACK_POINTS)]
     flagged = _thin(np.flatnonzero(~good & placed))
-    marked = [on_track, flagged, ends[:1], ends[-1:]]
+    marked = [on_track, flagged, ashore, ends[:1], ends[-1:]]
     if result.qc.steps:
         marked.append(step_index)
     occupied = np.concatenate(marked).astype(int)
