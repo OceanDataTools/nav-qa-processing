@@ -205,3 +205,53 @@ def test_records_match_r2r_bestres(name, format_id, records):
     assert nav.errors == []
     assert len(nav.frame) == len(r2r) == records
     _compare(nav, r2r)
+
+
+def _wecoma(name):
+    cruise, fileset = name.split("_")
+    directory = DATA / f"{name}_gnss"
+    path = directory / "products" / "data" / f"{cruise}_bestres.geoCSV"
+    if not path.exists():
+        pytest.skip(
+            f"{cruise} not downloaded; run: uv run nav-qa-processing r2r fetch-fileset "
+            f"{cruise} {fileset}"
+        )
+    return directory, geocsv.read(path).records
+
+
+def test_w1108a_nav15_records_match_r2r_bestres():
+    """Wecoma's Ashtech ADU5 (nav15: DATA, ISO timestamp, quoted GGA): 50,678 records equal to
+    R2R's within R2R's own window, which its 2012 QA report gives as 08:00Z to 07:59:59Z, the
+    Pacific day (#88)
+    """
+    directory, r2r = _wecoma("W1108A_105073")
+    start = datetime(2011, 8, 6, 8, tzinfo=UTC)
+    nav = rawnav.read_fileset(
+        sorted((directory / "data").iterdir()), "nav15", start, start + pd.Timedelta(days=1)
+    )
+    assert nav.errors == []
+    assert len(nav.frame) == len(r2r) == 50_678
+    _compare(nav, r2r)
+
+
+def test_w1109b_r2r_dates_seventeen_minutes_a_day_early():
+    """W1109B (sentences unquoted from September 2011): the same 68,302 records as R2R's, but
+    R2R dates 1,017 of them, 09-15 00:00:00 to 00:16:56, on 09-14, while the logger ran behind
+    the GPS (R12); it flags them out of sequence
+    """
+    directory, r2r = _wecoma("W1109B_105076")
+    start = datetime(2011, 9, 14, 8, tzinfo=UTC)
+    nav = rawnav.read_fileset(
+        sorted((directory / "data").iterdir()), "nav15", start, start + pd.Timedelta(days=1)
+    )
+    ours = nav.frame["time"]
+    theirs = r2r["iso_time"]
+    assert len(ours) == len(theirs) == 68_302
+    moved = ~ours.isin(theirs)
+    assert int(moved.sum()) == 1_017
+    assert (ours[moved].min(), ours[moved].max()) == (
+        pd.Timestamp("2011-09-15T00:00:00Z"),
+        pd.Timestamp("2011-09-15T00:16:56Z"),
+    )
+    assert ours[moved].sub(pd.Timedelta(days=1)).isin(theirs).all()
+    assert r2r.loc[~theirs.isin(ours), "flagged"].all()

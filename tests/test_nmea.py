@@ -75,3 +75,12 @@ def test_coordinates_need_a_hemisphere():
     """NavManager reads a missing hemisphere as N or E: RR2406's truncated fixes at 83°E"""
     g = GGA.from_fields(["$GPGGA", "123519", "2558.9137", "", "08312.6472", "", "1", "08"])
     assert g.lat is None and g.lon is None
+
+
+def test_a_quoted_sentence_is_read_without_its_quotes():
+    """OSU's DAS logs each sentence in double quotes (nav15)"""
+    sentence = parse_sentence(
+        'DATA, 2011-04-11T00:00:00.819Z, "$GPVTG,000.0,T,342.6,M,000.0,N,0000.1,K*7C"'
+    )
+    assert sentence is not None and sentence.kind == "VTG"
+    assert has_checksum('"$GPVTG,000.0,T,342.6,M,000.0,N,0000.1,K*7C"')

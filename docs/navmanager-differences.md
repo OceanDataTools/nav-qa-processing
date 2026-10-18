@@ -33,6 +33,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R9 | navcopy nav33, nav02 | The last fix of the cruise dropped | FKt230417, EN735: the final fix | Every fix kept (#48, #81) |
 | R10 | navcopy nav33, nav02 | A GGA repeating the previous one's time of day dropped, keeping the later | EN735: 5 records | Kept; QC flags the repeat (#81) |
 | R11 | nmeatools | An empty numeric GGA field read as 0 | HLY08TD: 2 records with HDOP 0 (flagged by both) | Missing (`NAN`) |
+| R12 | R2R's run, nav15 | GGAs logged before the logger's clock reached their time dated a day early | W1109B: 1,017 fixes, flagged out of sequence | Each GGA dated by its line's timestamp (#88) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -148,6 +149,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Evidence:** HLY08TD (nav12, Healy's POS/MV): two GGAs with an empty HDOP, written by R2R as 0.0; QC flags both records here too (`tests/test_rawnav.py`, #81).
 - **Why (confirmed in code):** PHP casts an empty string to 0.
 - **Effect:** an HDOP of 0, impossible for a fix, in R2R's bestres; the records are flagged either way.
+
+### R12. W1109B: seventeen minutes dated a day early
+
+- **R2R:** in W1109B's bestres (nav15, Wecoma, 2011), the fixes from 2011-09-15 00:00:00 to 00:16:56 are dated 2011-09-14, after 09-14 23:59:59, and flagged. Their positions are at sea, while the true 09-14 00:00 fixes (outside R2R's window) are at the Newport dock.
+- **Here:** each GGA is dated by its own line's timestamp, the date nearest it (`timestamped_gga.osu_time`), so they are 09-15.
+- **Evidence:** across midnight the logger ran 0.2–0.4 s behind the GPS (GGA 000000.00 logged at 23:59:59.569 on 09-14), until 00:16:57, when it moved ahead (GGA 001657.00 logged at 00:16:57.043). The 1,017 misdated fixes are exactly those whose GGA time was later than the logger's (`tests/test_rawnav.py`, #88).
+- **Why (suspected):** a rule dating a GGA later than the logger's time to the day before, as `parse_nav12()`'s branch without ZDA does. The master branch's nav15 code has no such rule (it carries the logger's date through a buffer), so R2R's 2012 run likely used an earlier version.
+- **Effect:** 17 minutes of a cruise dated a day early and flagged out of sequence in R2R's bestres.
 
 ## Geodesy and speed/course (navtools, navsogcog)
 
@@ -367,6 +376,7 @@ acceleration results differ (A5).
 
 ## Not NavManager: R2R's catalog and the data
 
+- R2R's 2012 QA reports for Wecoma (W1108A, W1109B) give the data window it used as `data_starttime` 08:00Z to `data_endtime` 07:59:59Z the next day: the Pacific (PST) day of the cruise dates, not the UTC day this package takes from them. Within that window their records match (#88).
 - R2R files Healy's 2016–2025 GNSS logs under format 100010 ("raw NMEA: GGA + ZDA", nav01), though most have nav29's timestamped layouts.
 - NBP2410's receiver dates are 1024 weeks early (GPS week-number rollover): its ZDA and RMC say 2005-03-13 on 2024-10-27. A reader that dates fixes from RMC (NavManager's nav30/nav32 path) would put the cruise in 2005; not yet checked against R2R's products.
 - Point Sur's UDAS files drop the Ashtech differential column from 2011, shifting later columns.

@@ -73,9 +73,11 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
     )
     prompts = capsys.readouterr().err
     assert "not an email address" in prompts
-    assert "required: one of nav01, nav02, nav12, nav20, nav24, nav25, nav29, nav33" in prompts
     assert (
-        "no reader for nav99: one of nav01, nav02, nav12, nav20, nav24, nav25, nav29, nav33"
+        "required: one of nav01, nav02, nav12, nav15, nav20, nav24, nav25, nav29, nav33" in prompts
+    )
+    assert (
+        "no reader for nav99: one of nav01, nav02, nav12, nav15, nav20, nav24, nav25, nav29, nav33"
         in prompts
     )
     assert "nav33  ISO timestamp, then GGA" in prompts  # the formats with a reader are listed

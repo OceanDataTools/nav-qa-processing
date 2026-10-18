@@ -35,12 +35,19 @@ SCS_GGA = Reader(
     "GGA",
 )
 ZDA_OR_STAMP = Reader(zda_or_stamp.read, zda_or_stamp.span, "ZDA or logger timestamp", "GGA/ZDA")
+OSU_GGA = Reader(
+    partial(timestamped_gga.read, stamp=timestamped_gga.osu_time),
+    partial(timestamped_gga.span, stamp=timestamped_gga.osu_time),
+    "logger timestamp",
+    "GGA",
+)
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
     "nav01": GGA_ZDA,  # bare NMEA (#81)
     "nav02": SCS_GGA,  # NOAA SCS: logger date and time, then GGA (#81)
     "nav12": ZDA_OR_STAMP,  # device ID, year:day-of-year timestamp, NMEA; ZDA when logged
+    "nav15": OSU_GGA,  # OSU DAS: DATA, ISO timestamp, quoted GGA
     "nav20": GGA_ZDA,  # NAV tag, logger date and time, device tag, then NMEA (Knorr)
     "nav24": GGA_ZDA,  # Sikuliaq: logger ID and ISO timestamp, then NMEA (#81)
     "nav25": GGA_ZDA,  # Healy's Seapath: logger ID, ISO timestamp, NMEA, comma-separated

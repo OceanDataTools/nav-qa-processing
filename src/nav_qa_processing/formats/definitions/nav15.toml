@@ -8,6 +8,10 @@ r2r_formats = [100046]
 position = "GGA"
 time = "GGA time of day, dated by the logger timestamp"
 description = "Header records describe the vessel, cruise and data source. Data records are DATA, an ISO 8601 UTC timestamp, and one quoted NMEA sentence."
+notes = [
+  "From September 2011 the sentence isn't quoted (W1109B, fileset 105076, file gnss_adu5_starboardsuite.20110914T000000.csv): DATA, 2011-09-14T00:00:00.078Z, $GPGGA,…",
+  "R2R also files Wecoma's 2009–2010 OregonState SUDS filesets under 100046, but they are nav19's layout (W1004B, fileset 103337).",
+]
 references = ["www.nmea.org"]
 examples = [
   "DATA, 2011-04-11T00:00:00.158Z, \"$GPGGA,000000,4437.5473,N,12402.7120,W,2,11,0.8,8.5,M,-21.8,M,,*70\"",
