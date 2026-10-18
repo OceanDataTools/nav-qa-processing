@@ -94,6 +94,19 @@ def test_fix_validity_needs_quality_and_satellites():
     assert flagged(nav)[0] == {}
 
 
+def test_a_quality_without_satellites_is_still_judged():
+    """GLL (nav27) gives a quality but no satellites or HDOP: a quality-0 fix is flagged (Q9;
+    NavManager checks the fix only with both)
+    """
+    nav = track(
+        5,
+        quality=pd.array([1, 1, 0, 1, 1], dtype="Int64"),
+        nsat=pd.array([None] * 5, dtype="Int64"),
+        hdop=np.full(5, np.nan),
+    )
+    assert flagged(nav)[0] == {2: Flag.BAD_FIX}
+
+
 def test_altitude_when_reported():
     nav = track(5)
     nav.frame.loc[1, "alt"] = -500.0

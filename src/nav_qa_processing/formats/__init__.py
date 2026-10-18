@@ -50,6 +50,7 @@ OSU_GGA = Reader(
 FILE_STAMP_GGA = Reader(
     file_stamp.read, file_stamp.span, "date in the file name", "GGA", named=True
 )
+GLL_ZDA = Reader(partial(gga_zda.read, kind="GLL"), gga_zda.span, "ZDA sentence", "GLL/ZDA")
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
@@ -61,6 +62,7 @@ READERS: dict[str, Reader] = {
     "nav22": FILE_STAMP_GGA,  # bare NMEA with no date: the file name's YYYYMMDDhhmmss
     "nav24": GGA_ZDA,  # Sikuliaq: logger ID and ISO timestamp, then NMEA (#81)
     "nav25": GGA_ZDA,  # Healy's Seapath: logger ID, ISO timestamp, NMEA, comma-separated
+    "nav27": GLL_ZDA,  # Sproul: bare NMEA with GLL, not GGA, dated by ZDA
     "nav29": GGA_ZDA,
     "nav33": TIMESTAMPED_GGA,
 }

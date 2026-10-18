@@ -10,8 +10,8 @@ products and of SOG/COG. The rules, in the order they run:
    - `NULL_ISLAND`: position exactly 0, 0 (NavManager only when also at 00:00:00);
    - `POSITION`: longitude or latitude missing, or outside [-180, 180) and [-90, 90];
    - `BAD_FIX`: GGA quality outside [min_quality, max_quality], fewer than min_satellites or
-     more than max_satellites, or HDOP of 0 or over max_hdop. Only checked when quality and
-     satellite count are reported (RMC-only formats have neither); HDOP only when reported;
+     more than max_satellites, or HDOP of 0 or over max_hdop. Each is checked when its field
+     is reported: GLL (nav27) gives a quality but no satellites or HDOP, RMC neither;
    - `ALTITUDE`: |altitude| ≥ max_altitude, when reported.
 2. `TIME_SEQUENCE`: a time not after the last in-sequence time, or more than
    `max_time_step_days`
@@ -206,11 +206,12 @@ def _bad_fix(f: pd.DataFrame, th: Thresholds) -> np.ndarray:
     quality = f["quality"].to_numpy(dtype=float, na_value=np.nan)
     nsat = f["nsat"].to_numpy(dtype=float, na_value=np.nan)
     hdop = f["hdop"].to_numpy(dtype=float)
-    reported = ~np.isnan(quality) & ~np.isnan(nsat)
-    bad = (quality < th.min_quality) | (quality > th.max_quality)
-    bad |= (nsat < th.min_satellites) | (nsat > th.max_satellites)
-    bad |= (hdop == 0) | (hdop > th.max_hdop)  # NaN HDOP compares False
-    return reported & bad
+    # A missing field compares False, so each criterion applies only where it's reported
+    with np.errstate(invalid="ignore"):
+        bad = (quality < th.min_quality) | (quality > th.max_quality)
+        bad |= (nsat < th.min_satellites) | (nsat > th.max_satellites)
+        bad |= (hdop == 0) | (hdop > th.max_hdop)
+    return bad
 
 
 def _out_of_sequence(t: np.ndarray, th: Thresholds) -> np.ndarray:

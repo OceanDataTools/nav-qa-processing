@@ -231,3 +231,23 @@ def test_logger_prefixes_before_gga_and_zda(format_id, lines, expected):
     result = formats.get(format_id).reader.read([("f", lines)])
     assert [(f.day, f.gga.time.seconds) for f in result.fixes] == expected
     assert result.errors == [] and result.rejected_checksums == {}
+
+
+def test_nav27_gll_dated_by_zda():
+    """Sproul's GP-90 logged GLL, not GGA (SP1531): GLL gives the fix, ZDA the date"""
+    lines = [
+        "$GPDTM,W84,,00.0000,N,00.0000,E,,W84*41",
+        "$GPGLL,3241.7854,N,11709.3193,W,000001.00,A,A*76",
+        "$GPVTG,321.5,T,308.9,M,0.0,N,0.0,K,A*24",
+        "$GPZDA,000001.00,09,12,2015,-08,00*4E",
+        "$GPGBS,000001.00,,,,,,,*6E",
+    ]
+    result = formats.get("nav27").reader.read([("gp90_20151209000000.raw", lines)])
+    (fix,) = result.fixes
+    assert (fix.day, fix.gga.time.seconds, fix.gga.quality) == (date(2015, 12, 9), 1.0, 1)
+    assert fix.gga.nsat is None and fix.gga.hdop is None and fix.gga.alt is None
+    assert result.errors == [] and result.rejected_checksums == {}
+    # a GLL without a time is skipped and counted as such
+    timeless = nmea("GPGLL,3241.7854,N,11709.3193,W,,A,A")
+    result = formats.get("nav27").reader.read([("f", [timeless, lines[3]])])
+    assert result.skipped == {"f": {"GLL without a time": 1}}

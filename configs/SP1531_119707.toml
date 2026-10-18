@@ -1,0 +1,49 @@
+# From R2R's catalog, 2026-10-18
+[cruise]
+id = "SP1531"
+name = "SIO 277 Student Cruise (Deep-sea Biology)"
+pi = "Hazard, Joel"
+vessel_id = "32QU"
+vessel_name = "Robert Gordon Sproul"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+depart_date = 2015-12-08
+arrive_date = 2015-12-09
+doi = "doi:10.7284/906577"
+
+[cruise.extent]
+westernmost = -117.494758
+easternmost = -117.154827
+southernmost = 32.617532
+northernmost = 32.946788
+
+[cruise.depart_port]
+name = "San Diego"
+port_id = "100055"
+
+[cruise.arrive_port]
+name = "San Diego"
+port_id = "100055"
+
+[fileset]
+id = "119707"
+doi = "doi:10.7284/119707"
+format_id = "100140"
+
+[fileset.device]
+id = "100475"
+make_id = "com.furuno"
+model_id = "100054"
+model_name = "GP-90D"
+
+[nav]
+format = "nav27"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

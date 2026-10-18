@@ -35,6 +35,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R11 | nmeatools | An empty numeric GGA field read as 0 | HLY08TD: 2 records with HDOP 0 (flagged by both) | Missing (`NAN`) |
 | R12 | R2R's run, nav15 | GGAs logged before the logger's clock reached their time dated a day early | W1109B: 1,017 fixes, flagged out of sequence | Each GGA dated by its line's timestamp (#88) |
 | R13 | navcopy nav22 | Every GGA of a file dated by its name's date | NH1209: a file of 09-23's fixes named 20120924000000 dated a day late (R2R made no products from it) | Nearest the name's time, then the fix before (#90) |
+| R14 | navcopy nav27 | GLL's fix quality from its status alone (A 1, V 0) | A differential GLL written as quality 1 (none in SP1531, all mode A) | From the mode indicator when present (#92) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -48,6 +49,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | Q6 | navqc | Null island only at 00:00:00 | 0,0 fixes at other times kept | Any time (#7) |
 | Q7 | navqc | Stale-repeat decisions near the 0.25 m/s threshold | R2R-only flags: SP1925 94, RR1802 208, EN735 1,765 | Documented (#10, #81) |
 | Q8 | navqc | No rule for fixes the ship couldn't reach (only an exact 0,0 at midnight, Q6) | A long stretch at a wrong position stays in the products (FKt230417: 283 fixes 650 m off for 4.7 min) | Reachability rule at 25 m s-1, longest reachable chain (#47) |
+| Q9 | navqc | The fix judged only when quality and satellites are both reported | nav27 (GLL, no satellites): SP1531's quality-0 fix not flagged | Each criterion where its field is reported (#92) |
 | P1 | navsample | Nearest record to each whole minute, with a skewed window and ring-buffer gaps | 1min misses nodes at buffer wraps and after the last fix | Nearest within half an interval (#8) |
 | P2 | NavControl | Committed tolerance 0.1°, R2R uses 0.01° | None (R2R runs 0.01°) | shapely at 0.01° (#8) |
 | F1 | R2R GeoCSV | Inconsistent units and long names, trimmed numbers | Header text and number formats | Standardized text (#9) |
@@ -167,6 +169,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Why (confirmed in code):** the file's name date is assigned to every GGA, and a file named after its first fix is assumed.
 - **Effect:** none on R2R's products, which don't use these feeds; a nav22 file named after midnight but starting before it would be dated a day late.
 
+### R14. nav27: GLL's fix quality from its status alone
+
+- **NavManager:** the nav27 case (`navcopy.inc.php`, ~line 3131) writes quality 1 for GLL status A, 0 for V, `NAN` otherwise, and `NAN` for satellites, HDOP and altitude.
+- **Here:** the quality comes from GLL's NMEA 2.3 mode indicator when present (A 1, D 2, E 6, M 7, S 8, N 0), else from the status as NavManager reads it (`nmea.GLL.quality`); satellites, HDOP and altitude are missing too.
+- **Evidence:** SP1531's GLLs are all mode A (and one N, status V), so both write the same qualities, record for record (`tests/test_rawnav.py`, #92).
+- **Why (confirmed in code):** NavManager's GLL class doesn't read the mode field.
+- **Effect:** a differential (D) or dead-reckoning (E) GLL fix would be written as quality 1.
+
 ## Geodesy and speed/course (navtools, navsogcog)
 
 ### G1. Hand-written Vincenty
@@ -262,6 +272,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Evidence:** FKt230417 (Falkor (too)'s Applanix POS/MV, fileset 157454, rated G): at 2023-04-27 08:57:19.5 the longitude jumps about 650 m west (latitude unbroken), drifts there for 4.7 min, and comes back at 09:02:01.5–02.5. Those 283 fixes are flagged here; R2R flags none of them. The first version of the rule walked from the largest segment and trusted each next one within reach: the fix at 09:02:01.5 is within reach of the track before the jump (2 km in 283 s) but not of the track after it, so the walk rejected the rest of the cruise, 794,663 fixes. Hence the longest chain (`tests/test_qc.py`, with FKt230417's pattern). None of the seven earlier references has such a fix: the largest speed between successive good fixes is 4.8–8.1 m s-1, except in SP2220, whose degraded fixes jump 12–77 m in 0.5 s (up to 154 m s-1); the tolerance leaves those to the acceleration rule, so they flag nothing new. Synthetic tracks show the rule: a 3-minute stretch 50 km off, a jump near 0,0, a bad first fix.
 - **Why (suspected):** NavManager produced post-cruise products, where an analyst could review the track; the OpenVDM hook sets OpenVDM's cruise extent from the fixes that pass QC, unattended at sea (#1).
 - **Effect:** such fixes would be in R2R's bestres, 1min and control as good, and stretch any extent computed from them.
+
+### Q9. A fix is judged only when quality and satellites are both reported
+
+- **NavManager:** `navqc` calls `valid_gga_fix` only when the record's quality and satellite count are both present (`$qual !== "NAN" && $nsat !== "NAN"`, `include/navqc.inc.php`, ~line 290).
+- **Here:** each criterion applies where its field is reported (`qc._bad_fix`): a quality outside 1–5 is bad with or without a satellite count.
+- **Evidence:** SP1531 (nav27, GLL): its one GLL with mode N (quality 0) is unflagged in R2R's bestres and flagged `BAD_FIX` here (`tests/test_qc.py`, #92). With GGA, NavManager still catches a quality-0 fix with empty satellites, because it reads the empty field as 0 (R11): FKt230417's 8 such POS/MV GGAs, which this package also left unflagged until #92 required both fields too.
+- **Why (confirmed in code):** the guard was written for RMC formats, which report neither; GLL reports a quality but no satellites.
+- **Effect:** invalid GLL fixes stay unflagged in R2R's products.
 
 ## Products (navsample, NavControl)
 
