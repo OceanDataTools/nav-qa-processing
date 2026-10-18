@@ -26,6 +26,8 @@ from nav_qa_processing.formats.gga_zda import (
     Result,
     count_skipped,
     date_from,
+    has_star,
+    report_cut_short,
     sentences,
 )
 from nav_qa_processing.formats.nmea import GGA, parse_sentence
@@ -66,11 +68,13 @@ def _dated(name: str, lines: list[str], kind: str) -> tuple[list[DatedFix], int,
     fixes: list[DatedFix] = []
     pending: list[DatedFix] = []  # GGAs before the file's first clock sentence
     last = None
-    timeless = rejected = 0
+    timeless = rejected = cut = 0
     for number, text in sentences(lines):
         sentence = parse_sentence(text)
         if sentence is None:
-            rejected += "GGA" in text
+            if "GGA" in text:
+                rejected += has_star(text)
+                cut += not has_star(text)
             continue
         if sentence.fields[0].endswith(kind):  # $PYRTM or $UNIXD
             found = clock(sentence.fields, year)
@@ -92,7 +96,7 @@ def _dated(name: str, lines: list[str], kind: str) -> tuple[list[DatedFix], int,
         else:
             fix.day = date_from(*last, gga.time.ns)
         fixes.append(fix)
-    return [f for f in fixes if f.day is not None], timeless, len(pending), rejected
+    return [f for f in fixes if f.day is not None], timeless, len(pending), rejected, cut
 
 
 def span(
@@ -115,7 +119,7 @@ def read(files: list[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
     """
     result = Result([], [], {}, {})
     for name, lines in files:
-        fixes, timeless, unclocked, rejected = _dated(name, lines, kind)
+        fixes, timeless, unclocked, rejected, cut = _dated(name, lines, kind)
         result.fixes += fixes
         if timeless:
             result.errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")
@@ -128,4 +132,5 @@ def read(files: list[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
         count_skipped(result.skipped, name, NO_TIME, timeless)
         count_skipped(result.skipped, name, NO_CLOCK.replace("clock", kind), unclocked)
         count_skipped(result.skipped, name, FAILED_CHECKSUM, rejected)
+        report_cut_short(result.errors, result.skipped, name, cut)
     return result

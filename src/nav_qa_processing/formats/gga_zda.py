@@ -75,6 +75,20 @@ NO_VALID_DATE = "ZDA without a valid date"
 NO_LOGGER_TIMESTAMP = "GGA without a logger timestamp"
 NO_ZDA_TO_DATE_IT = "GGA with no ZDA in any file to date it"
 FAILED_CHECKSUM = "failed its checksum"
+CUT_SHORT = "cut short (no checksum, too few fields)"
+
+
+def has_star(text: str) -> bool:
+    """Whether a sentence that couldn't be read had a checksum (so it failed it), or was cut
+    short without one (#99 review)
+    """
+    return "*" in text
+
+
+def report_cut_short(errors: list[str], skipped: dict, name: str, count: int) -> None:
+    if count:
+        errors.append(f"{name}: {plural(count, 'sentence')} cut short, skipped")
+    count_skipped(skipped, name, CUT_SHORT, count)
 
 
 @dataclass
@@ -151,7 +165,9 @@ def sentences(lines: list[str]) -> Iterator[tuple[int, str]]:
 
 
 def span(lines: list[str]) -> tuple[datetime, datetime] | None:
-    """The first and last valid ZDA times in a file, to select and order files by"""
+    """The first and last valid ZDA times in a file, to select and order files by. Valid as
+    `read` takes them: a year in YEARS and a real date (#99 review)
+    """
     times = []
     for line in lines:
         if "ZDA" not in line:
@@ -160,12 +176,11 @@ def span(lines: list[str]) -> tuple[datetime, datetime] | None:
         if sentence is None or sentence.kind != "ZDA":
             continue
         zda = ZDA.from_fields(sentence.fields)
-        try:
-            day = datetime(zda.year, zda.month, zda.day, tzinfo=UTC)
-        except (TypeError, ValueError):
+        zda_day = _zda_day(zda)
+        if zda_day is None or zda.time is None:
             continue
-        if zda.time is not None:
-            times.append(day + pd.Timedelta(zda.time.ns, "ns").to_pytimedelta())
+        day = datetime(zda_day.year, zda_day.month, zda_day.day, tzinfo=UTC)
+        times.append(day + pd.Timedelta(zda.time.ns, "ns").to_pytimedelta())
     return (times[0], times[-1]) if times else None
 
 
@@ -183,12 +198,15 @@ def read(files: list[tuple[str, list[str]]], kind: str = "GGA") -> Result:
     skipped: dict[str, dict[str, int]] = {}
     position = 0  # sentence count across files
     for name, lines in files:
-        timeless = undated = 0
+        timeless = undated = cut = 0
         for number, line in sentences(lines):
             sentence = parse_sentence(line)
             if sentence is None:
                 if kind in line or "ZDA" in line:  # only the sentences this reader uses
-                    rejected[name] = rejected.get(name, 0) + 1
+                    if has_star(line):
+                        rejected[name] = rejected.get(name, 0) + 1
+                    else:
+                        cut += 1
                 continue
             position += 1
             match sentence.kind:
@@ -218,6 +236,7 @@ def read(files: list[tuple[str, list[str]]], kind: str = "GGA") -> Result:
         count_skipped(skipped, name, reason(NO_TIME), timeless)
         count_skipped(skipped, name, NO_VALID_DATE, undated)
         count_skipped(skipped, name, FAILED_CHECKSUM, rejected.get(name, 0))
+        report_cut_short(errors, skipped, name, cut)
 
     if not zdas:
         if fixes:

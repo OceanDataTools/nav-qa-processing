@@ -43,6 +43,8 @@ from nav_qa_processing.formats.gga_zda import (
     Result,
     count_skipped,
     date_from,
+    has_star,
+    report_cut_short,
     sentences,
 )
 from nav_qa_processing.formats.nmea import GGA, RMC, parse_sentence
@@ -121,13 +123,16 @@ def read(files: list[tuple[str, list[str]]], stamp: Stamp = iso_time, kind: str 
     rejected: dict[str, int] = {}
     skipped: dict[str, dict[str, int]] = {}
     for name, lines in files:
-        timeless = unstamped = 0
+        timeless = unstamped = cut = 0
         misdated: dict[int, int] = {}  # RMC date minus the fix's [days] -> RMCs
         for number, text in sentences(lines):
             sentence = parse_sentence(text)
             if sentence is None:
                 if kind in text:  # only the sentence this reader uses
-                    rejected[name] = rejected.get(name, 0) + 1
+                    if has_star(text):
+                        rejected[name] = rejected.get(name, 0) + 1
+                    else:
+                        cut += 1
                 continue
             if sentence.kind != kind:
                 continue
@@ -159,4 +164,5 @@ def read(files: list[tuple[str, list[str]]], stamp: Stamp = iso_time, kind: str 
         count_skipped(skipped, name, reason(NO_TIME), timeless)
         count_skipped(skipped, name, reason(NO_LOGGER_TIMESTAMP), unstamped)
         count_skipped(skipped, name, FAILED_CHECKSUM, rejected.get(name, 0))
+        report_cut_short(errors, skipped, name, cut)
     return Result(fixes, errors, rejected, skipped)

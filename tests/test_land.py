@@ -78,3 +78,24 @@ def test_no_positions_no_land():
     found = land.load([np.nan], [np.nan])
     assert found is not None and found.geometry.is_empty
     assert np.isnan(found.inland([np.nan], [np.nan])[0])
+
+
+def test_the_window_edge_is_not_coast():
+    """The layers are clipped to a window round the fixes; its edges aren't coast. A fix 0.05°
+    from the window's east edge is ~100 km from the real coast at 0.9° N, not 5.6 km (#79
+    review)
+    """
+    window = (-1.0, 1.0, -1.0, 1.0)
+    land_ = Land(shapely.box(-1, -1, 1, 0.9), window=window)
+    assert land_.inland([0.95], [0.0])[0] == pytest.approx(99_500, rel=1e-2)
+    # all land in the window: the edge is a lower bound, far beyond max_inland
+    landlocked = Land(shapely.box(-1, -1, 1, 1), window=window)
+    assert landlocked.inland([0.0], [0.0])[0] > 100_000
+
+
+def test_lines_left_by_clipping_dont_break_the_land():
+    """Clipping can leave a line where a polygon touches the window: polygons only (#79 review)"""
+    collection = shapely.GeometryCollection(
+        [shapely.box(-1, -1, 1, 1), shapely.LineString([(1, 1), (2, 2)])]
+    )
+    assert Land(collection).inland([0.0], [0.5])[0] == pytest.approx(55_300, rel=1e-3)

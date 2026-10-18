@@ -63,3 +63,21 @@ def test_bh10_17():
     assert int(frame["quality"].isna().sum()) == 6_299 and (frame["quality"].dropna() == 1).all()
     assert (frame["time"].diff().dropna().dt.total_seconds() > 0).all()
     assert -92.1 < frame["lon"].min() and frame["lon"].max() < -89.8
+
+
+def test_cut_short_sentences_are_not_checksum_failures():
+    """A GLL cut before its longitude has no checksum to fail: it's counted as cut short; one
+    whose checksum is wrong failed it (#99 review)
+    """
+    from nav_qa_processing.formats.gga_zda import CUT_SHORT, FAILED_CHECKSUM
+
+    result = read(
+        [
+            "09/16/2010,13:12:09.546,$GPGLL,4646.622,N,0920",
+            "09/16/2010,13:12:19.640,$GPGLL,4646.570,N,09203.984,W,131219.00,A*00",
+        ]
+    )
+    name = "NEMA-Serial_20100916-131207.Raw"
+    assert result.skipped == {name: {CUT_SHORT: 1, FAILED_CHECKSUM: 1}}
+    assert result.rejected_checksums == {name: 1}
+    assert f"{name}: 1 sentence cut short, skipped" in result.errors

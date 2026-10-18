@@ -65,7 +65,10 @@ def http_error(error: urllib.error.HTTPError, what: str, url: str) -> R2RError:
     )
 
 
-def _get(url: str, service: str = "R2R") -> bytes:
+def _get(url: str, service: str = "R2R", what: str = "R2R's catalog") -> bytes:
+    """url's body; an HTTP error is an R2RError naming `what`, an unreachable server a
+    NetworkError naming `service`
+    """
     logger.debug("GET %s", url)
     try:
         with (
@@ -74,7 +77,7 @@ def _get(url: str, service: str = "R2R") -> bytes:
         ):
             return response.read()
     except urllib.error.HTTPError as error:
-        raise http_error(error, f"{service}'s catalog", url) from error
+        raise http_error(error, what, url) from error
 
 
 def fetch_r2r_records(endpoint: str, **query) -> list[dict]:
@@ -287,8 +290,11 @@ def config_from_r2r_catalog(
     device = fetch_device(vessel, str(fileset["device_id"])) if fileset.get("device_id") else {}
     config = config_from_r2r_api(cruise, fileset, device)
     if use_qa_report and (url := qa_report_url(fileset_id)):
+        # An HTTP error fetching it is raised (#101 review): a config silently without the
+        # report's port coordinates, format alias and catalog dates would look complete
+        body = _get(url, what="R2R's QA report")
         try:
-            report = config_from_qa_report(_get(url, "R2R's QA report"))
+            report = config_from_qa_report(body)
         except (R2RError, ET.ParseError):
             return config  # an older report without filesetinfo, or not XML
         config = fill_missing(config, report)

@@ -29,7 +29,9 @@ from nav_qa_processing.config import Extent
 
 logger = logging.getLogger(__name__)
 
-MARGIN = 0.5  # [degree] around the positions, so the nearest coast is in the window
+# [degree of latitude] around the positions, so the nearest coast is in the window; widened in
+# longitude by 1/cos(latitude), so it's as far east and west as north and south
+MARGIN = 0.5
 
 
 @dataclass(frozen=True)
@@ -44,22 +46,33 @@ class Land:
     central: float = 0.0
     x_scale: float = 1.0
     rivers: BaseGeometry | None = None
+    # (west, east, south, north) the layers were clipped to, relative to `central`: its edges
+    # aren't coast (#79 review)
+    window: tuple[float, float, float, float] | None = None
     plane: BaseGeometry = field(init=False, repr=False, compare=False)
     water: BaseGeometry = field(init=False, repr=False, compare=False)  # coasts and rivers
+    edge: BaseGeometry | None = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
         flat = lambda g: scale(g, xfact=self.x_scale, yfact=1.0, origin=(0, 0))
-        plane = flat(self.geometry)
+        plane = flat(polygons(self.geometry))
         shapely.prepare(plane)
         water = plane.boundary
+        edge = None
+        if self.window is not None:
+            west, east, south, north = self.window
+            edge = flat(shapely.box(west, south, east, north)).exterior
+            water = water.difference(edge.buffer(1e-9))
         if self.rivers is not None and not self.rivers.is_empty:
             water = shapely.union(water, flat(self.rivers))
         object.__setattr__(self, "plane", plane)
         object.__setattr__(self, "water", water)
+        object.__setattr__(self, "edge", edge)
 
     def inland(self, lon, lat) -> np.ndarray:
         """Each position's geodesic distance on land to the nearest coast or river centerline
-        [m], 0 at sea, NaN without a position
+        [m], 0 at sea, NaN without a position. With no coast or river in the window, the
+        distance to the window's edge: a lower bound, beyond `MARGIN`
         """
         lon = np.asarray(lon, dtype=float)
         lat = np.asarray(lat, dtype=float)
@@ -72,7 +85,11 @@ class Land:
         inside = shapely.contains(self.plane, points)
         if inside.any():
             # shortest_line runs from the water to the point
-            ends = shapely.get_coordinates(shapely.shortest_line(self.water, points[inside]))
+            nearest = self.water if not self.water.is_empty else self.edge
+            if nearest is None or nearest.is_empty:  # no window given and no coast: unmeasured
+                result[index[inside]] = np.nan
+                return result
+            ends = shapely.get_coordinates(shapely.shortest_line(nearest, points[inside]))
             water = ends.reshape(-1, 2, 2)[:, 0]
             k = index[inside]
             water_lon = water[:, 0] / self.x_scale + self.central
@@ -94,9 +111,11 @@ def load(lon, lat) -> Land | None:
     if extent.crosses_antimeridian:
         east += 360.0
     central = (west + east) / 2
+    poleward = max(abs(extent.southernmost), abs(extent.northernmost)) + MARGIN
+    wide = MARGIN / max(np.cos(np.radians(min(poleward, 89.0))), 0.05)
     window = (
-        west - MARGIN,
-        east + MARGIN,
+        west - wide,
+        east + wide,
         max(extent.southernmost - MARGIN, -90.0),
         min(extent.northernmost + MARGIN, 90.0),
     )
@@ -116,4 +135,18 @@ def load(lon, lat) -> Land | None:
         central,
         max(np.cos(np.radians(middle)), 0.05),
         shapely.union_all(rivers) if rivers else None,
+        (window[0] - central, window[1] - central, window[2], window[3]),
     )
+
+
+def polygons(geometry: BaseGeometry) -> BaseGeometry:
+    """The polygons of a geometry: clipping a layer to the window can leave lines or points
+    where a polygon only touches its edge, and a collection with them has no boundary (#79
+    review)
+    """
+    parts = [
+        part
+        for part in shapely.get_parts(geometry)
+        if part.geom_type in ("Polygon", "MultiPolygon") and not part.is_empty
+    ]
+    return shapely.union_all(parts) if parts else shapely.Polygon()

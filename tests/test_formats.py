@@ -118,3 +118,13 @@ def test_a_config_with_a_one_digit_id_still_loads():
 def test_the_formats_command_takes_a_one_digit_id(capsys):
     assert main(["formats", "nav2"]) == 0
     assert "nav02" in capsys.readouterr().out
+
+
+def test_a_numeric_format_is_an_unknown_format_not_a_crash():
+    """`format = 29` in a TOML: one line, not a traceback (#83 review)"""
+    from nav_qa_processing.config import loads_config
+
+    assert catalog.canonical_id(29) == "29"
+    config = loads_config("[nav]\nformat = 29\n")
+    with pytest.raises(ValueError, match="nav format '29' is unknown"):
+        formats.get(config.nav_format)
