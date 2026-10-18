@@ -3,6 +3,8 @@
 
 - `track_map`: the good track over coastlines, flagged fixes by QC flag, the 1min control
   points, the start and end, QC's position steps and the expected area, with a world inset.
+  The track breaks at gaps of `max_gap` or longer between good fixes, drawn faint and dashed;
+  a stretch too small to show as a line at the map's scale is drawn as a dot (#70).
   The legend and inset go where they cover no fix or marker: the legend below the map when
   there's no such place on it, and the inset left out when there's none;
 - `speed_and_acceleration`: speed over ground and the acceleration QC tests, against time, with
@@ -19,6 +21,7 @@ shown.
 import textwrap
 from collections.abc import Iterator
 from contextlib import contextmanager
+from itertools import pairwise
 from pathlib import Path
 
 import cartopy.crs as ccrs
@@ -46,6 +49,9 @@ TRACK_POINTS = 4000  # about how many vertices the simplified track line keeps
 TIME_BINS = 1500  # bins of the min/max envelopes against time
 MAX_MARKERS = 3000  # flagged fixes drawn per flag; the legend gives the full count
 OCCUPIED_TRACK_POINTS = 20_000  # track fixes a legend or the inset is checked against
+DOT_SPAN = 1 / 150  # a stretch of track smaller than this part of the view is drawn as a dot
+FEW_STEPS = 20  # up to this many position steps are drawn full size, more ever smaller
+GAP_POINTS = 20  # points along each gap a legend or the inset is checked against
 QUALITY_NAMES = {
     0: "invalid",
     1: "GPS",
@@ -380,23 +386,33 @@ def _map_height(view, projection) -> float:
     return float(np.clip(FIGURE_WIDTH * 0.9 * height / width + 0.8, *MAP_HEIGHTS))
 
 
-def _track_line(x: np.ndarray, lat: np.ndarray, times: np.ndarray, max_gap: float, view):
-    """The track as lines (lists of x, lat) broken at gaps and simplified for drawing"""
-    if len(x) < 2:
-        return []
+def _track_pieces(x: np.ndarray, lat: np.ndarray, times: np.ndarray, max_gap: float, view):
+    """The track broken at gaps, simplified for drawing: (lines, dots, gaps), where lines are
+    (x, lat) arrays, dots the (x, lat) of each stretch too small to show as a line, and gaps
+    the ((x, lat), (x, lat)) ends of each break
+    """
+    if not len(x):
+        return [], [], []
     steps = np.diff(times) / np.timedelta64(1, "s")
     pieces = np.split(np.arange(len(x)), np.flatnonzero(steps >= max_gap) + 1)
-    tolerance = max(view[1] - view[0], view[3] - view[2]) / TRACK_POINTS
-    lines = []
+    span = max(view[1] - view[0], view[3] - view[2])
+    tolerance = span / TRACK_POINTS
+    lines, dots = [], []
     for piece in pieces:
+        px, plat = x[piece], lat[piece]
+        if max(np.ptp(px), np.ptp(plat)) < span * DOT_SPAN:
+            middle = piece[len(piece) // 2]
+            dots.append((x[middle], lat[middle]))
         if len(piece) < 2:
             continue
-        line = shapely.simplify(
-            shapely.LineString(np.column_stack([x[piece], lat[piece]])), tolerance
-        )
+        line = shapely.simplify(shapely.LineString(np.column_stack([px, plat])), tolerance)
         coords = np.asarray(line.coords)
         lines.append((coords[:, 0], coords[:, 1]))
-    return lines
+    gaps = [
+        ((x[before[-1]], lat[before[-1]]), (x[after[0]], lat[after[0]]))
+        for before, after in pairwise(pieces)
+    ]
+    return lines, dots, gaps
 
 
 def track_map(result: NavQAResult, theme: Theme = DEFAULT_THEME) -> Figure:
@@ -497,9 +513,8 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
 
     track = good & placed
     max_gap = result.config.thresholds.max_gap
-    for i, (line_x, line_lat) in enumerate(
-        _track_line(x[track], lat[track], times[track], max_gap, view)
-    ):
+    lines, dots, gaps = _track_pieces(x[track], lat[track], times[track], max_gap, view)
+    for i, (line_x, line_lat) in enumerate(lines):
         axis.plot(
             line_x,
             line_lat,
@@ -508,6 +523,30 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
             label=f"Track ({q.FIXES.format(int(track.sum()))} good fixes)" if i == 0 else None,
             transform=frame,
             zorder=3,
+        )
+    if dots:
+        axis.scatter(
+            *np.transpose(dots),
+            s=6,
+            color=colors.primary,
+            linewidths=0,
+            label=None if lines else f"Track ({q.FIXES.format(int(track.sum()))} good fixes)",
+            transform=frame,
+            zorder=3,
+        )
+    if gaps:
+        # One dashed line through every gap, each closed off with a NaN
+        through = np.array([[*a, *b, np.nan, np.nan] for a, b in gaps]).reshape(-1, 2)
+        axis.plot(
+            through[:, 0],
+            through[:, 1],
+            color=colors.primary,
+            linewidth=0.7,
+            linestyle=(0, (3, 2)),
+            alpha=0.5,
+            label=f"Gaps of {max_gap:g} s or longer ({q.COUNT.format(len(gaps))})",
+            transform=frame,
+            zorder=2.5,
         )
     if len(result.control):
         control_x = unwrap(result.control["lon"].to_numpy(dtype=float)) - center_lon
@@ -552,13 +591,15 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
             len(good_seconds) - 1,
         )
         step_index = np.flatnonzero(track)[at]
+        # Smaller the more there are, so they don't hide the track (#70)
+        scale = min(1.0, np.sqrt(FEW_STEPS / len(step_index)))
         axis.scatter(
             x[step_index],
             lat[step_index],
             marker="x",
-            s=30,
+            s=30 * max(scale, 0.3),
             color="0.15",
-            linewidths=0.9,
+            linewidths=0.9 * max(scale, 0.6),
             label=f"Position steps ({len(result.qc.steps)})",
             transform=frame,
             zorder=6,
@@ -599,6 +640,11 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
         marked.append(step_index)
     occupied = np.concatenate(marked).astype(int)
     occupied_x, occupied_lat = x[occupied], lat[occupied]
+    if gaps:
+        along = np.linspace(0, 1, GAP_POINTS)[:, None]
+        gap_points = np.concatenate([np.add(a, np.subtract(b, a) * along) for a, b in gaps])
+        occupied_x = np.concatenate([occupied_x, gap_points[:, 0]])
+        occupied_lat = np.concatenate([occupied_lat, gap_points[:, 1]])
     if len(result.control):
         occupied_x = np.concatenate([occupied_x, control_x])
         occupied_lat = np.concatenate([occupied_lat, result.control["lat"].to_numpy(float)])
