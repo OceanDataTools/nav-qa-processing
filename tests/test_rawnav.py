@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import DATA, FIXTURES
+from conftest import CONFIGS, DATA, FIXTURES
 from test_gga_zda import gga, zda
 
 from nav_qa_processing import geocsv, r2rnav, rawnav
@@ -146,3 +146,24 @@ def test_rr1802_nav1_records_match_r2r_bestres():
     assert nav.errors == [] and nav.talkers == {"GP": 28_527}
     assert len(nav.frame) == len(r2r) == 28_527
     _compare(nav, r2r)
+
+
+def test_rr1802_is_over_water_at_portland():
+    """Swan Island on the Willamette, and a run down to the Columbia: land in Natural Earth's
+    polygons, on the water by its river centerlines and the 3000 m tolerance (#85)
+    """
+    from nav_qa_processing.fileset import load_fileset
+    from nav_qa_processing.integrations.r2r.config import load_cruise_config
+    from nav_qa_processing.qa import run_qa
+
+    directory = DATA / "RR1802_132277_gnss"
+    if not (directory / "data").is_dir():
+        pytest.skip(
+            "RR1802 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset RR1802 132277"
+        )
+    result = run_qa(load_fileset(directory), load_cruise_config(CONFIGS / "RR1802_132277.toml"))
+    if result.stats.inland is None:
+        pytest.skip("no Natural Earth data; run: uv run nav-qa-processing fetch-map-data")
+    check = next(c for c in result.stats.checks if c.name == "Over water")
+    assert (check.status, check.value) == ("pass", "0 over land")
+    assert 2600 < np.nanmax(result.stats.inland) < 2700

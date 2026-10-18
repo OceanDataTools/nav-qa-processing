@@ -744,7 +744,7 @@ Comparisons with R2R parse the numbers and map the units.
   writes the reports unrun, so a run writes one XML.
 
 **Over water (#79).** A research vessel's fixes are never over land, so a core check counts the
-usable records more than `land_tolerance` (2000 m) inside Natural Earth's 1:10m land less its
+usable records more than `land_tolerance` (3000 m, #85) inside Natural Earth's 1:10m land less its
 lakes, the layers the map draws and `fetch-map-data` caches (`land.py`). The coastline is
 coarse in harbors: on RR2212 (Oakland's inner harbor, under way), RR2406 (Morehead City's
 channel) and FKt230417 (alongside in San Juan), 374, 120 and 1,835 fixes lie up to 1,438 m,
@@ -754,6 +754,13 @@ check's detail says how many fixes were over land within the tolerance. The near
 found with longitudes scaled by cos(latitude) at the window's middle, then measured
 geodesically. Without the map data the check is n/a. NavManager has no such check, and R2R's
 XML doesn't change.
+
+Ports up rivers aren't water in those polygons (#85): RR1802 at Portland's Swan Island on the
+Willamette came out 43 km inland, KN220-02 on Charleston's Cooper River 2.5 km. Natural Earth's
+1:10m river centerlines count as water too, so a fix's distance is to the nearest coast or
+centerline. The centerlines are generalized: RR1802's run down the Willamette, under way at
+5 m s-1, is up to 2.63 km from its line, so the tolerance is 3000 m, not the 2000 m the harbors
+alone suggested. Without the rivers layer, the check uses land and lakes.
 
 ### Validation strategy
 

@@ -26,7 +26,11 @@ def test_land_across_the_antimeridian():
 
 
 def test_load_takes_the_lakes_out(monkeypatch):
-    layers = {"land": [shapely.box(-1, -1, 1, 1)], "lakes": [shapely.box(-0.5, -0.5, 0.5, 0.5)]}
+    layers = {
+        "land": [shapely.box(-1, -1, 1, 1)],
+        "lakes": [shapely.box(-0.5, -0.5, 0.5, 0.5)],
+        "rivers_lake_centerlines": [],
+    }
     monkeypatch.setattr(
         maps,
         "clipped_geometries",
@@ -36,6 +40,25 @@ def test_load_takes_the_lakes_out(monkeypatch):
     assert found is not None and found.central == pytest.approx(0.4)
     inland = found.inland([0.0, 0.8], [0.0, 0.0])
     assert inland[0] == 0.0 and inland[1] > 0  # on the lake, and on land
+
+
+def test_a_river_is_water_too():
+    """A dock up a river the land polygons don't draw (#85: RR1802 on the Willamette): the
+    distance is to the river's centerline, not the coast
+    """
+    river = shapely.LineString([(0.0, -1.5), (0.0, 0.5)])  # from the sea into the island
+    island = Land(shapely.box(-1, -1, 1, 1), rivers=river)
+    inland = island.inland([0.01, 0.5], [0.0, 0.0])
+    assert inland[0] == pytest.approx(1_113, rel=1e-2)  # 0.01° from the river
+    assert inland[1] == pytest.approx(55_660, rel=1e-3)  # nearer the river than the coast
+
+
+def test_without_the_rivers_layer_land_and_lakes_still_count(monkeypatch):
+    layers = {"land": [shapely.box(-1, -1, 1, 1)], "lakes": [], "rivers_lake_centerlines": None}
+    monkeypatch.setattr(maps, "clipped_geometries", lambda c, name, *a: layers[name])
+    found = land.load([0.0], [0.0])
+    assert found is not None and found.rivers is None
+    assert found.inland([0.0], [0.0])[0] > 100_000
 
 
 def test_without_map_data_there_is_no_land(monkeypatch):

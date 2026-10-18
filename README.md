@@ -257,7 +257,7 @@ max_accel = 1.0
 | `max_bad_quality` | `5.0` [%] | Check: records with a bad GGA quality indicator, of those reporting one |
 | `max_unreasonable_speeds` | `5.0` [%] | Check: unreasonable speeds |
 | `max_unreasonable_accelerations` | `5.0` [%] | Check: unreasonable accelerations |
-| `land_tolerance` | `2000.0` [m] | Check "Over water": a fix farther than this inside Natural Earth's 1:10m coastline is over land. Harbors and channels the coastline draws as land lie within it (RR2212's Oakland inner harbor: up to 1,438 m) |
+| `land_tolerance` | `3000.0` [m] | Check "Over water": a fix on land farther than this from Natural Earth's 1:10m coasts and river centerlines is over land. Harbors the coastline draws as land (RR2212's Oakland inner harbor: up to 1,438 m) and rivers whose generalized centerline runs off a ship under way (RR1802 on the Willamette: up to 2,630 m) lie within it |
 | `max_accel` | `1.0` [m s-2] | QC and QA: the horizontal acceleration limit |
 | `accel_time_base` | `2.0` [s] | QC and QA: acceleration at a fix uses velocities over at least this long before and after it, so GNSS noise at high sample rates isn't flagged |
 | `max_reach_speed` | `25.0` [m s-1] | QC: a fix the ship couldn't have reached from the track at this speed (plus `reach_tolerance`) is flagged unreachable, e.g. a jump to near 0, 0 or minutes at a wrong position. Far above any ship's speed: not a speed limit |
