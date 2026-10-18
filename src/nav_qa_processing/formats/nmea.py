@@ -1,4 +1,4 @@
-"""NMEA 0183 sentence parsing: checksum, GGA and ZDA.
+"""NMEA 0183 sentence parsing: checksum, GGA, GLL and ZDA.
 
 Behavior ported from NavManager's nmeatools (observed, not copied):
 - A line can hold a partial sentence followed by a complete one after a stream interruption.
@@ -15,6 +15,9 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
   east. NavManager reads it as positive, so RR2406's truncated GGAs put the ship at 83°E.
 - Positions keep the receiver's precision: a coordinate with n decimal minutes is reported
   with n + 2 decimal degrees (`lat_decimals`, `lon_decimals`). Times keep their decimals too.
+- A GLL (nav27) is read as a GGA without satellites, HDOP or altitude, its fix quality from the
+  mode indicator (A 1, D 2, E 6, …) or, without one, its status (A 1, V 0), as NavManager reads
+  the status. NavManager ignores the mode, so it writes a differential fix as quality 1.
 - Empty numeric GGA fields parse as missing here. NavManager turns them into 0, which QC
   then flags. That mapping belongs to the r2rnav parity layer, not the parser.
 """
@@ -24,7 +27,7 @@ from dataclasses import dataclass
 # The number of fields, address included, of a complete sentence: one without a checksum and
 # with fewer has been cut short. A GGA's last two (DGPS age and station) are optional: nav01's
 # documented sample, without a checksum, ends at the geoid separation's unit (#81)
-FIELDS = {"GGA": 13, "ZDA": 7}
+FIELDS = {"GGA": 13, "ZDA": 7, "GLL": 7}
 
 
 @dataclass(frozen=True)
@@ -182,6 +185,67 @@ class GGA:
             alt=_float(f[9]),
             alt_decimals=decimals(f[9]),
             talker=f[0].lstrip("$!")[:-3],
+        )
+
+
+# GLL's mode indicator (NMEA 2.3) as GGA's fix quality: autonomous, differential, estimated
+# (dead reckoning), manual, simulator, not valid
+GLL_MODE_QUALITY = {"A": 1, "D": 2, "E": 6, "M": 7, "S": 8, "N": 0}
+
+
+@dataclass(frozen=True)
+class GLL:
+    """Geographic position, latitude and longitude, with its time and status. Missing fields are
+    None. `status` is A (valid) or V (not valid); `mode` (NMEA 2.3) as GLL_MODE_QUALITY
+    """
+
+    time: TimeOfDay | None
+    lat: float | None  # [degrees_north]
+    lon: float | None  # [degrees_east]
+    lat_decimals: int
+    lon_decimals: int
+    status: str
+    mode: str
+    talker: str = ""
+
+    @classmethod
+    def from_fields(cls, f: list[str]) -> "GLL":
+        f = f + [""] * (8 - len(f))
+        return cls(
+            time=TimeOfDay.parse(f[5]),
+            lat=_degrees(f[1], f[2], "S", "N"),
+            lon=_degrees(f[3], f[4], "W", "E"),
+            lat_decimals=decimals(f[1]) + 2,
+            lon_decimals=decimals(f[3]) + 2,
+            status=f[6].strip().upper(),
+            mode=f[7].strip().upper(),
+            talker=f[0].lstrip("$!")[:-3],
+        )
+
+    @property
+    def quality(self) -> int | None:
+        """GGA's fix quality from the mode indicator, or without one from the status (A 1, V 0)
+        as NavManager reads it; None when neither says
+        """
+        if self.mode in GLL_MODE_QUALITY:
+            return GLL_MODE_QUALITY[self.mode]
+        return {"A": 1, "V": 0}.get(self.status)
+
+    def as_gga(self) -> GGA:
+        """The fix as a GGA without satellites, HDOP or altitude, which GLL doesn't report"""
+        return GGA(
+            time=self.time,
+            lat=self.lat,
+            lon=self.lon,
+            lat_decimals=self.lat_decimals,
+            lon_decimals=self.lon_decimals,
+            quality=self.quality,
+            nsat=None,
+            hdop=None,
+            hdop_decimals=0,
+            alt=None,
+            alt_decimals=0,
+            talker=self.talker,
         )
 
 

@@ -179,6 +179,7 @@ def test_rr1802_is_over_water_at_portland():
         ("KN220-02_114491", "nav20", 227_436),  # Knorr's C-Nav 2000, 2014
         ("HLY08TD_110937", "nav12", 363_486),  # Healy's POS/MV, gzipped, with ZDA
         ("MGL1509_122372", "nav12", 601_027),  # Langseth's C-Nav 3050: no ZDA, logger time
+        ("SP1531_119707", "nav27", 93_417),  # Sproul's GP-90: GLL, not GGA (quality from GLL)
     ],
 )
 def test_records_match_r2r_bestres(name, format_id, records):

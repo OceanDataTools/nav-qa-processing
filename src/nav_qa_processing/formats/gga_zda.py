@@ -39,7 +39,7 @@ from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 
-from nav_qa_processing.formats.nmea import GGA, ZDA, has_checksum, parse_sentence, unquoted
+from nav_qa_processing.formats.nmea import GGA, GLL, ZDA, has_checksum, parse_sentence, unquoted
 from nav_qa_processing.readable import plural
 
 _DAY = 86_400 * 10**9  # [ns]
@@ -166,8 +166,11 @@ def span(lines: list[str]) -> tuple[datetime, datetime] | None:
     return (times[0], times[-1]) if times else None
 
 
-def read(files: list[tuple[str, list[str]]]) -> Result:
-    """Dated GGA fixes from `files`, each (name, lines), in the order given"""
+def read(files: list[tuple[str, list[str]]], kind: str = "GGA") -> Result:
+    """Dated fixes from `files`, each (name, lines), in the order given: from GGA sentences, or
+    with `kind` GLL from GLL (nav27, without satellites, HDOP or altitude)
+    """
+    reason = lambda text: text.replace("GGA", kind)
     fixes: list[DatedFix] = []
     fix_positions: list[int] = []
     zdas: list[tuple[date, int]] = []  # (date, time of day [ns])
@@ -181,13 +184,17 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
         for number, line in sentences(lines):
             sentence = parse_sentence(line)
             if sentence is None:
-                if "GGA" in line or "ZDA" in line:  # only the sentences this reader uses
+                if kind in line or "ZDA" in line:  # only the sentences this reader uses
                     rejected[name] = rejected.get(name, 0) + 1
                 continue
             position += 1
             match sentence.kind:
-                case "GGA":
-                    gga = GGA.from_fields(sentence.fields)
+                case "GGA" | "GLL" if sentence.kind == kind:
+                    gga = (
+                        GGA.from_fields(sentence.fields)
+                        if kind == "GGA"
+                        else GLL.from_fields(sentence.fields).as_gga()
+                    )
                     if gga.time is None:
                         timeless += 1
                         continue
@@ -202,18 +209,18 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
                     zdas.append((day, zda.time.ns))
                     zda_positions.append(position)
         if timeless:
-            errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")
+            errors.append(f"{name}: {plural(timeless, kind)} without a time, skipped")
         if undated:
             errors.append(f"{name}: {plural(undated, 'ZDA')} without a valid date, skipped")
-        count_skipped(skipped, name, NO_TIME, timeless)
+        count_skipped(skipped, name, reason(NO_TIME), timeless)
         count_skipped(skipped, name, NO_VALID_DATE, undated)
         count_skipped(skipped, name, FAILED_CHECKSUM, rejected.get(name, 0))
 
     if not zdas:
         if fixes:
-            errors.append(f"no ZDA in any file: {len(fixes)} GGA fixes can't be dated")
+            errors.append(f"no ZDA in any file: {len(fixes)} {kind} fixes can't be dated")
         for fix in fixes:
-            count_skipped(skipped, fix.source_file, NO_ZDA_TO_DATE_IT, 1)
+            count_skipped(skipped, fix.source_file, reason(NO_ZDA_TO_DATE_IT), 1)
         return Result([], errors, rejected, skipped)
     for fix, at in zip(fixes, fix_positions, strict=True):
         following = bisect_left(zda_positions, at)

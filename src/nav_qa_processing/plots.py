@@ -815,6 +815,22 @@ def histograms(result: NavQAResult, theme: Theme = DEFAULT_THEME) -> Figure:
         return _histograms(result, theme)
 
 
+def _not_reported(axis, theme: Theme) -> None:
+    """An empty panel says why: the format has no such field (GLL: no satellites or HDOP)"""
+    axis.text(
+        0.5,
+        0.5,
+        "not reported by the receiver",
+        transform=axis.transAxes,
+        ha="center",
+        va="center",
+        fontsize=_pt(theme, 8),
+        color=theme.colors.muted_text,
+    )
+    axis.set_xticks([])
+    axis.set_yticks([])
+
+
 def _histograms(result: NavQAResult, theme: Theme) -> Figure:
     colors = theme.colors
     th = result.config.thresholds
@@ -855,6 +871,8 @@ def _histograms(result: NavQAResult, theme: Theme) -> Figure:
             label=f"min_satellites {th.min_satellites}",
         )
         satellites.legend(fontsize=_pt(theme, 6.5))
+    else:
+        _not_reported(satellites, theme)
     satellites.set_xlabel(q.NSV.label, fontsize=_pt(theme, 8))
 
     values = frame["hdop"][dated].to_numpy(dtype=float)
@@ -862,6 +880,8 @@ def _histograms(result: NavQAResult, theme: Theme) -> Figure:
     if len(values):
         hdop.hist(np.clip(values, 0, th.max_hdop), bins=40, color=colors.primary)
         _log_y(hdop)
+    else:
+        _not_reported(hdop, theme)
     hdop.set_xlabel(q.HDOP.label, fontsize=_pt(theme, 8))
 
     codes = frame["quality"][dated].dropna().to_numpy(dtype=int)
@@ -881,6 +901,8 @@ def _histograms(result: NavQAResult, theme: Theme) -> Figure:
             ha="right",
         )
         _log_y(quality)
+    else:
+        _not_reported(quality, theme)
     quality.set_xlabel(q.NMEA_QUALITY.label, fontsize=_pt(theme, 8))
 
     for axis in axes.flat:

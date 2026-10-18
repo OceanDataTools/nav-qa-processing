@@ -226,7 +226,9 @@ def test_fkt230417_nav33():
     by_file = stats.counts_by_file(run.result.nav, s).set_index("file")
     total = by_file.loc["Total"]
     assert len(by_file) == 21 and (by_file["status"].iloc[:-1] == "read").all()
-    assert by_file.iloc[:-1]["Flagged by QC"].sum() == total["Flagged by QC"] == 285
+    # 285 as before (283 of them unreachable, Q8), and 8 quality-0 GGAs without satellites or
+    # HDOP (Q9, #92)
+    assert by_file.iloc[:-1]["Flagged by QC"].sum() == total["Flagged by QC"] == 293
     assert (total["Unreasonable speeds"], total["Unreasonable accelerations"]) == (
         s.unreasonable_speeds,
         s.unreasonable_accelerations,

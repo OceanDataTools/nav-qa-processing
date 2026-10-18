@@ -1,6 +1,6 @@
 import pytest
 
-from nav_qa_processing.formats.nmea import GGA, ZDA, checksum, has_checksum, parse_sentence
+from nav_qa_processing.formats.nmea import GGA, GLL, ZDA, checksum, has_checksum, parse_sentence
 
 SP_GGA = "$INGGA,192045.68,4437.541871,N,12402.686139,W,2,07,1.3,-4.31,M,-22.07,M,2.0,0135*4B"
 
@@ -84,3 +84,24 @@ def test_a_quoted_sentence_is_read_without_its_quotes():
     )
     assert sentence is not None and sentence.kind == "VTG"
     assert has_checksum('"$GPVTG,000.0,T,342.6,M,000.0,N,0000.1,K*7C"')
+
+
+@pytest.mark.parametrize(
+    "fields, quality",
+    [
+        ("3241.7854,N,11709.3193,W,000001.00,A,A", 1),  # autonomous
+        ("3241.7854,N,11709.3193,W,000001.00,A,D", 2),  # differential
+        ("3241.7854,N,11709.3193,W,000001.00,V,N", 0),  # not valid
+        ("3241.7854,N,11709.3193,W,000001.00,A", 1),  # NMEA 2.0: no mode, the status says
+        ("3241.7854,N,11709.3193,W,000001.00,V", 0),
+    ],
+)
+def test_gll_reads_as_a_gga_without_satellites_hdop_or_altitude(fields, quality):
+    body = f"GPGLL,{fields}"
+    sentence = parse_sentence(f"${body}*{checksum(body):02X}")
+    gga = GLL.from_fields(sentence.fields).as_gga()
+    assert gga.quality == quality and gga.time.seconds == 1.0
+    assert gga.lat == pytest.approx(32 + 41.7854 / 60) and gga.lon == pytest.approx(
+        -(117 + 9.3193 / 60)
+    )
+    assert (gga.nsat, gga.hdop, gga.alt, gga.lat_decimals) == (None, None, None, 6)

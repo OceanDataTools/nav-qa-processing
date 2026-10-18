@@ -10,6 +10,7 @@ matplotlib.use("Agg")
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pytest
 
 from nav_qa_processing import maps, plots, reports
@@ -302,3 +303,13 @@ def test_write_reports_writes_every_figure_as_svg(tmp_path):
     first = (tmp_path / "out" / "TEST_plots" / "timeline.svg").read_bytes()
     reports.write_reports(result, tmp_path / "out")
     assert (tmp_path / "out" / "TEST_plots" / "timeline.svg").read_bytes() == first
+
+
+def test_histograms_say_when_a_field_isnt_reported(tmp_path):
+    """GLL (nav27) has no satellites or HDOP: those panels say so rather than stay blank"""
+    result = cruise(tmp_path)
+    result.nav.frame["nsat"] = pd.array([None] * len(result.nav.frame), dtype="Int64")
+    result.nav.frame["hdop"] = np.nan
+    figure = plots.histograms(result)
+    texts = [t.get_text() for axis in figure.axes for t in axis.texts]
+    assert texts.count("not reported by the receiver") == 2
