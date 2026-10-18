@@ -55,8 +55,10 @@ def checksum(body: str) -> int:
     return value
 
 
-def parse_sentence(line: str) -> Sentence | None:
-    """The last sentence on `line`, or None if there is none or its checksum is wrong"""
+def parse_sentence(line: str, minimum: dict[str, int] | None = None) -> Sentence | None:
+    """The last sentence on `line`, or None if there is none or its checksum is wrong. A
+    sentence without a checksum needs `minimum` fields of its kind (default `FIELDS`)
+    """
     start = line.rfind("$")
     if start < 0:
         return None
@@ -69,7 +71,7 @@ def parse_sentence(line: str) -> Sentence | None:
             return None
         return Sentence(data.split(","), supplied)
     sentence = Sentence(data.split(","), None)
-    if len(sentence.fields) < FIELDS.get(sentence.kind, 0):
+    if len(sentence.fields) < (FIELDS if minimum is None else minimum).get(sentence.kind, 0):
         return None
     return sentence
 

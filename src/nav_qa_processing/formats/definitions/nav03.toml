@@ -10,6 +10,7 @@ time = "Logger date and time"
 description = "The nav02 layout, but the sentences are mostly GLL and VTG, with an occasional GGA. GLL sentences may be cut short after the longitude, so the logger's timestamp is the record time."
 notes = [
   "Records from GLL have no fix quality, satellite count, HDOP or altitude.",
+  "Examples: BH10-17, fileset 105061, file NEMA-Serial_20100916-131207.Raw (Northstar 941X): 6,299 GLLs and 231 GGAs over two days, with VTG, ZDA and a few RMC.",
 ]
 references = ["www.nmea.org"]
 examples = [

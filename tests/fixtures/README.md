@@ -43,6 +43,7 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | BH19-30 | 136141 (product 609730) | Blue Heron's UHDAS GPS feed, nav31 (GGA dated by PYRTM): 9,097 records equal to R2R's; G. No QA 2.0 report |
 | SP2613 | 169848 (UHDAS ADCP) | UHDAS's GP170 feeds (nav31): every fix at R2R's bestres times, 5.5–7 m from the BX992 |
 | KM1519 | 119346 (UHDAS ADCP; product 603576) | Kilo Moana's Simrad in UHDAS, 2015 (uhdas: UNIXD, the year from the file name): 12 m from the POS/MV's bestres at its times |
+| BH10-17 | 105061 | Blue Heron's NOAA SCS, nav03 (GLL cut after the longitude, occasional GGA; timed by the logger): 6,530 fixes on Lake Superior. R2R's products not yet compared (its service was down) |
 
 Between them, every one of R2R's six tests has a reference that R2R rates Y or R
 (`tests/test_r2r_references.py`, #26).
