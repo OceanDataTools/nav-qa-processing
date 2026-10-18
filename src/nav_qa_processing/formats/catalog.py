@@ -2,6 +2,7 @@
 looks like, independent of whether a reader exists for it yet.
 """
 
+import re
 import tomllib
 from dataclasses import dataclass, field
 from functools import cache
@@ -49,6 +50,15 @@ def _build(cls, data: dict):
     return cls(**data)
 
 
+def canonical_id(format_id: str) -> str:
+    """A format ID as this project writes it: NavManager's one-digit IDs padded to two digits
+    (nav2 -> nav02); anything else unchanged
+    """
+    text = format_id.strip()
+    match = re.fullmatch(r"nav([1-9])", text)
+    return f"nav0{match.group(1)}" if match else text
+
+
 def _natural_key(format_id: str) -> tuple:
     digits = "".join(c for c in format_id if c.isdigit())
     return (0, int(digits)) if format_id.startswith("nav") and digits else (1, format_id)
@@ -56,7 +66,7 @@ def _natural_key(format_id: str) -> tuple:
 
 @cache
 def formats() -> dict[str, FormatDefinition]:
-    """Every format definition by ID, in nav1, nav2, … order"""
+    """Every format definition by ID, in nav01, nav02, … order"""
     directory = files("nav_qa_processing.formats") / "definitions"
     loaded = {}
     for entry in directory.iterdir():

@@ -147,7 +147,7 @@ def test_a_zda_outside_the_gps_era_is_skipped():
     assert result.fixes == [] and "ZDA without a valid date" in result.errors[0]
 
 
-# -- nav1 and nav24 read the same way (#81) --
+# -- nav01 and nav24 read the same way (#81) --
 
 
 def test_nav1_bare_nmea_without_checksums():
@@ -163,7 +163,7 @@ def test_nav1_bare_nmea_without_checksums():
         "$GPZDA,235601,24,05,2009,00,00*43",
         "$GPGGA,235602,2600.4315,N,12229.8441,E,2,7,0.4,45,M,,M",
     ]
-    result = formats.get("nav1").reader.read([("gp150_20090524235600.raw", lines)])
+    result = formats.get("nav01").reader.read([("gp150_20090524235600.raw", lines)])
     assert [(f.day, f.gga.time.seconds) for f in result.fixes] == [
         (date(2009, 5, 24), 86161.0),
         (date(2009, 5, 24), 86162.0),

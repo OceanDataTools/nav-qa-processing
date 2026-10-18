@@ -75,8 +75,8 @@ def test_a_config_file_is_loaded_and_a_format_override_kept(tmp_path):
     text = source(build_notebook(result, tmp_path / "out"))
     assert f"CONFIG = Path({str(path.resolve())!r})" in text
     assert "config = load_config(CONFIG)" in text and "replace(" not in text
-    overridden = replace(result, config=replace(result.config, nav_format="nav1"))
-    assert "config = replace(config, nav_format='nav1')" in source(
+    overridden = replace(result, config=replace(result.config, nav_format="nav01"))
+    assert "config = replace(config, nav_format='nav01')" in source(
         build_notebook(overridden, tmp_path / "out")
     )
 

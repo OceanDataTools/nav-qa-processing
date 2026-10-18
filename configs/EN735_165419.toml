@@ -47,7 +47,7 @@ model_id = "100329"
 model_name = "GP-33"
 
 [nav]
-format = "nav2"
+format = "nav02"
 
 [provenance]
 distro_type = "post-cruise"

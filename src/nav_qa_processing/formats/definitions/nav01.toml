@@ -1,4 +1,4 @@
-id = "nav1"
+id = "nav01"
 title = "Raw NMEA: GGA dated by ZDA"
 system = "Raw receiver output"
 file_type = "ASCII text, one NMEA 0183 sentence per line"

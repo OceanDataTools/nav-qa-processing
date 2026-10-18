@@ -78,9 +78,11 @@ Every command follows these conventions:
 nav-qa-processing formats [ID]
 ```
 
-Without `ID`, lists R2R's raw navigation format IDs (`nav1` … `nav33`, `uhdas`, `siomet`,
+Without `ID`, lists R2R's raw navigation format IDs (`nav01` … `nav33`, `uhdas`, `siomet`,
 `metoc_nav`), whether this version can read each one, and the NMEA sentences it knows. With
 `ID`, describes that format (layout, sentences, vessels, R2R format IDs, examples) or sentence.
+IDs have two digits, so they sort in order: `nav02`, not NavManager's `nav2`. NavManager's
+spelling is still accepted wherever a format ID is given (`-f`, `[nav] format`, `formats ID`).
 
 | Argument | Default | Description |
 |---|---|---|

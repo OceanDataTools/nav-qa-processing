@@ -78,6 +78,7 @@ from pathlib import Path
 
 import numpy as np
 
+from nav_qa_processing.formats.catalog import canonical_id
 from nav_qa_processing.readable import Readable, latitude, longitude
 
 
@@ -380,7 +381,7 @@ def _configs(data: dict, base: Path, where: str) -> list[QAConfig]:
     return [
         replace(
             shared,
-            nav_format=nav.get("format", ""),
+            nav_format=canonical_id(nav.get("format", "")),
             nav_files=nav.get("files", ""),
             nav_device=nav_device_from_table(nav.get("device", {}), where),
             nav_name=nav.get("name", ""),

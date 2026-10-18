@@ -1,4 +1,5 @@
-"""Raw navigation formats: one FormatSpec per R2R format ID (NavManager's nav1 … nav33).
+"""Raw navigation formats: one FormatSpec per R2R format ID (NavManager's nav1 … nav33, written
+nav01 … nav33 here; `catalog.canonical_id` reads the one-digit spelling too).
 
 Every format ID has a definition in formats/definitions/ (see catalog.py). The ones with a
 reader can be processed; the reader turns a fileset's lines into dated fixes. Formats that
@@ -36,8 +37,8 @@ SCS_GGA = Reader(
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
-    "nav1": GGA_ZDA,  # bare NMEA (#81)
-    "nav2": SCS_GGA,  # NOAA SCS: logger date and time, then GGA (#81)
+    "nav01": GGA_ZDA,  # bare NMEA (#81)
+    "nav02": SCS_GGA,  # NOAA SCS: logger date and time, then GGA (#81)
     "nav24": GGA_ZDA,  # Sikuliaq: logger ID and ISO timestamp, then NMEA (#81)
     "nav29": GGA_ZDA,
     "nav33": TIMESTAMPED_GGA,
@@ -66,7 +67,8 @@ def all_formats() -> dict[str, FormatSpec]:
 
 
 def get(format_id: str) -> FormatSpec:
-    """The spec of a format that can be read"""
+    """The spec of a format that can be read (NavManager's one-digit IDs, e.g. nav2, too)"""
+    format_id = catalog.canonical_id(format_id)
     spec = all_formats().get(format_id)
     if spec is None or not spec.supported:
         supported = ", ".join(sorted(READERS))

@@ -55,7 +55,7 @@ def _email(text: str) -> str | None:
 
 def _nav_format(text: str) -> str | None:
     """None for a format ID with a reader; the hook can't run without one"""
-    if text in formats.READERS:
+    if formats.catalog.canonical_id(text) in formats.READERS:
         return None
     readable = ", ".join(sorted(formats.READERS))
     problem = "required" if not text else f"no reader for {text}"
@@ -99,7 +99,13 @@ def _ask_feed(prompt: Prompter, default: SiteFeed) -> SiteFeed:
         "  the collection system transfer it's in, e.g. OpenRVDAS (blank: any the hook runs for)",
         default.transfer,
     )
-    return replace(default, format=nav_format, files=nav_files, device=device, transfer=transfer)
+    return replace(
+        default,
+        format=formats.catalog.canonical_id(nav_format),
+        files=nav_files,
+        device=device,
+        transfer=transfer,
+    )
 
 
 def _name_check(taken: set[str], required: bool = True) -> Callable[[str], str | None]:

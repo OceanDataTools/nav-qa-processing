@@ -243,7 +243,7 @@ def _times(frame_times) -> np.ndarray:
 
 
 def test_en735_nav2():
-    """Endeavor's NOAA SCS (nav2: the logger's date and time, then GGA). Both rate G. R2R's
+    """Endeavor's NOAA SCS (nav02: the logger's date and time, then GGA). Both rate G. R2R's
     bestres is ours less 9 records: every 86,400th GGA (R8: 3), the last (R9) and the earlier of
     5 repeated times (NavManager keeps the later; QC flags it here). Their values are equal
     """
