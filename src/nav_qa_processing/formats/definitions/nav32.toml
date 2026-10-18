@@ -7,7 +7,7 @@ sentences = ["RMC"]
 r2r_formats = [100235]
 position = "RMC"
 time = "RMC date and time"
-description = "Rachel Carson's CORIOLIX logs: each line is the logger date (MM/DD/YYYY) and time, then an RMC sentence. Position, date and time come from RMC; the fix quality is taken as 1 when the status is A and 0 otherwise."
+description = "Rachel Carson's CORIOLIX logs: each line is the logger date (MM/DD/YYYY) and time, then an RMC sentence. Position and time of day come from RMC, the date from the logger (the logger's clock can be a minute or more off the receiver's); the fix quality from RMC's mode indicator, or without one 1 when the status is A and 0 otherwise."
 notes = [
   "RMC has no fix quality, satellite count, HDOP or altitude.",
   "The talker is EC (ECDIS) rather than GP.",

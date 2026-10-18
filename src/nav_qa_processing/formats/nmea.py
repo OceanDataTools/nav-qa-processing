@@ -1,4 +1,4 @@
-"""NMEA 0183 sentence parsing: checksum, GGA, GLL and ZDA.
+"""NMEA 0183 sentence parsing: checksum, GGA, GLL, RMC and ZDA.
 
 Behavior ported from NavManager's nmeatools (observed, not copied):
 - A line can hold a partial sentence followed by a complete one after a stream interruption.
@@ -17,17 +17,20 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
   with n + 2 decimal degrees (`lat_decimals`, `lon_decimals`). Times keep their decimals too.
 - A GLL (nav27) is read as a GGA without satellites, HDOP or altitude, its fix quality from the
   mode indicator (A 1, D 2, E 6, …) or, without one, its status (A 1, V 0), as NavManager reads
-  the status. NavManager ignores the mode, so it writes a differential fix as quality 1.
+  the status. NavManager ignores the mode, so it writes a differential fix as quality 1. An
+  RMC (nav32) is read the same way; its own date is kept (`RMC.day`) but readers date fixes by
+  the logger, as a receiver with the GPS week-number fault reports dates 1024 weeks early.
 - Empty numeric GGA fields parse as missing here. NavManager turns them into 0, which QC
   then flags. That mapping belongs to the r2rnav parity layer, not the parser.
 """
 
 from dataclasses import dataclass
+from datetime import date
 
 # The number of fields, address included, of a complete sentence: one without a checksum and
 # with fewer has been cut short. A GGA's last two (DGPS age and station) are optional: nav01's
 # documented sample, without a checksum, ends at the geoid separation's unit (#81)
-FIELDS = {"GGA": 13, "ZDA": 7, "GLL": 7}
+FIELDS = {"GGA": 13, "ZDA": 7, "GLL": 7, "RMC": 12}
 
 
 @dataclass(frozen=True)
@@ -247,6 +250,53 @@ class GLL:
             alt_decimals=0,
             talker=self.talker,
         )
+
+
+@dataclass(frozen=True)
+class RMC:
+    """Recommended minimum position: time, status, position and date. Missing fields are None.
+    `status` and `mode` as GLL's
+    """
+
+    time: TimeOfDay | None
+    lat: float | None  # [degrees_north]
+    lon: float | None  # [degrees_east]
+    lat_decimals: int
+    lon_decimals: int
+    status: str
+    mode: str
+    day: date | None  # the receiver's date
+    talker: str = ""
+
+    @classmethod
+    def from_fields(cls, f: list[str]) -> "RMC":
+        f = f + [""] * (13 - len(f))
+        return cls(
+            time=TimeOfDay.parse(f[1]),
+            lat=_degrees(f[3], f[4], "S", "N"),
+            lon=_degrees(f[5], f[6], "W", "E"),
+            lat_decimals=decimals(f[3]) + 2,
+            lon_decimals=decimals(f[5]) + 2,
+            status=f[2].strip().upper(),
+            mode=f[12].strip().upper(),
+            day=_ddmmyy(f[9]),
+            talker=f[0].lstrip("$!")[:-3],
+        )
+
+    quality = GLL.quality
+    as_gga = GLL.as_gga
+
+
+def _ddmmyy(text: str) -> date | None:
+    """RMC's date, ddmmyy; years 80–99 are 1980–1999, as NMEA's two-digit year is read"""
+    text = text.strip()
+    if len(text) != 6 or not text.isdigit():
+        return None
+    day, month, year = int(text[:2]), int(text[2:4]), int(text[4:])
+    try:
+        return date(1900 + year if year >= 80 else 2000 + year, month, day)
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True)

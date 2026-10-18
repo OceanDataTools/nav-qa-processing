@@ -1,13 +1,13 @@
 id = "nav30"
-title = "OpenRVDAS: RMC (read as nav32)"
+title = "OpenRVDAS (USAP): ISO timestamp, then NMEA"
 system = "OpenRVDAS"
 file_type = "ASCII text: ISO 8601 UTC timestamp, a space, one NMEA sentence"
 vessels = ["Nathaniel B. Palmer", "Laurence M. Gould"]
 sentences = ["DTM", "ZDA", "GLL", "GGA", "RMC", "VTG"]
 r2r_formats = [100573]
-position = "RMC"
-time = "RMC date and time"
-description = "OpenRVDAS logs from the USAP vessels: each line is OpenRVDAS's ISO 8601 UTC timestamp, a space and one NMEA sentence. NavManager reads it like nav32, taking position, date and time from RMC."
+position = "GGA"
+time = "GGA time of day, dated by the OpenRVDAS timestamp"
+description = "OpenRVDAS logs from the USAP vessels: each line is OpenRVDAS's ISO 8601 UTC timestamp, a space and one NMEA sentence. The fix is read from GGA (quality, satellites, HDOP), dated by the OpenRVDAS timestamp, as nav33 is. NavManager reads it like nav32, taking position, date and time from RMC."
 notes = [
   "The receiver in the example has the GPS week-number rollover fault: its ZDA and RMC dates are exactly 1024 weeks early (2005-03-13 for 2024-10-27). A reader that trusts the receiver's date places the whole cruise in 2005; the OpenRVDAS timestamp is right.",
   "Examples: NBP2410, fileset 165727, file gnss_pcode_deck04_nbp2410pcod-2024-10-27.",

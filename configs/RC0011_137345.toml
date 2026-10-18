@@ -1,0 +1,50 @@
+# From R2R's catalog, 2026-10-18
+[cruise]
+id = "RC0011"
+name = "OCN 230 Student"
+pi = "Nittrouer, Charles"
+vessel_id = "33IY"
+vessel_name = "Rachel Carson"
+operator_id = "edu.washington"
+scheduler_id = "org.unols"
+depart_date = 2018-10-25
+arrive_date = 2018-10-25
+doi = "doi:10.7284/908616"
+
+[cruise.extent]
+westernmost = -122.42193
+easternmost = -122.38468
+southernmost = 47.67665
+northernmost = 47.732
+
+[cruise.depart_port]
+name = "Seattle"
+port_id = "100059"
+
+[cruise.arrive_port]
+name = "Seattle"
+port_id = "100059"
+
+[fileset]
+id = "137345"
+doi = "doi:10.7284/137345"
+format_id = "100235"
+
+[fileset.device]
+id = "100873"
+make_id = "com.furuno"
+model_id = "100329"
+model_name = "GP-33"
+location_name = "science"
+
+[nav]
+format = "nav32"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

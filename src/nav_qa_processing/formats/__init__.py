@@ -51,6 +51,12 @@ FILE_STAMP_GGA = Reader(
     file_stamp.read, file_stamp.span, "date in the file name", "GGA", named=True
 )
 GLL_ZDA = Reader(partial(gga_zda.read, kind="GLL"), gga_zda.span, "ZDA sentence", "GLL/ZDA")
+SCS_RMC = Reader(
+    partial(timestamped_gga.read, stamp=timestamped_gga.scs_time, kind="RMC"),
+    partial(timestamped_gga.span, stamp=timestamped_gga.scs_time),
+    "logger timestamp",
+    "RMC",
+)
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
@@ -64,6 +70,8 @@ READERS: dict[str, Reader] = {
     "nav25": GGA_ZDA,  # Healy's Seapath: logger ID, ISO timestamp, NMEA, comma-separated
     "nav27": GLL_ZDA,  # Sproul: bare NMEA with GLL, not GGA, dated by ZDA
     "nav29": GGA_ZDA,
+    "nav30": TIMESTAMPED_GGA,  # OpenRVDAS (USAP): ISO timestamp, space, NMEA; its GGA, not RMC
+    "nav32": SCS_RMC,  # CORIOLIX (Rachel Carson): logger date and time, then RMC
     "nav33": TIMESTAMPED_GGA,
 }
 

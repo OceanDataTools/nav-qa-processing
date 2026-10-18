@@ -180,6 +180,8 @@ def test_rr1802_is_over_water_at_portland():
         ("HLY08TD_110937", "nav12", 363_486),  # Healy's POS/MV, gzipped, with ZDA
         ("MGL1509_122372", "nav12", 601_027),  # Langseth's C-Nav 3050: no ZDA, logger time
         ("SP1531_119707", "nav27", 93_417),  # Sproul's GP-90: GLL, not GGA (quality from GLL)
+        ("RC0014_137928", "nav32", 22_203),  # Rachel Carson's CORIOLIX RMC (rated R by both)
+        ("RC0011_137345", "nav32", 12_936),  # (rated Y by both)
     ],
 )
 def test_records_match_r2r_bestres(name, format_id, records):
