@@ -1,4 +1,4 @@
-id = "nav4"
+id = "nav04"
 title = "WHOI Calliope: GPS records with several NMEA sentences per line"
 system = "WHOI Calliope data acquisition system"
 file_type = "ASCII text: tab-separated prefix, then comma-joined NMEA sentences"

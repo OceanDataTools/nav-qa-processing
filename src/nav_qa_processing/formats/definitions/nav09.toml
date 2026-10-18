@@ -1,4 +1,4 @@
-id = "nav9"
+id = "nav09"
 title = "SIO satdata: one position per minute"
 system = "Scripps Institution of Oceanography satdata logger"
 file_type = "ASCII text, whitespace-separated (tabs and spaces)"

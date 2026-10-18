@@ -29,6 +29,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nav_qa_processing import __version__
+from nav_qa_processing.formats.catalog import canonical_id
 from nav_qa_processing.integrations.openvdm.hook import DEFAULT_OPENVDM_CONFIG, OpenVDMError
 from nav_qa_processing.network import NetworkError
 
@@ -104,7 +105,7 @@ def _run_configs(args: argparse.Namespace) -> list:
         raise ConfigError(f"-f applies to one feed: pick one of {names} with --nav")
     configs = [resolve_config(config, args.fileset_dir) for config in configs]
     if args.format:
-        configs = [replace(configs[0], nav_format=args.format)]
+        configs = [replace(configs[0], nav_format=canonical_id(args.format))]
     return configs
 
 
@@ -165,7 +166,9 @@ def _formats(args: argparse.Namespace) -> int:
         print(f"\nSentences: {', '.join(catalog.sentences())}")
         print("Show one with: nav-qa-processing formats <ID>")
         return 0
-    definition = catalog.formats().get(args.id) or catalog.sentences().get(args.id.upper())
+    definition = catalog.formats().get(canonical_id(args.id)) or catalog.sentences().get(
+        args.id.upper()
+    )
     if definition is None:
         print(f"Unknown format or sentence: {args.id}", file=sys.stderr)
         return 1
@@ -733,7 +736,7 @@ def build_parser() -> argparse.ArgumentParser:
         "formats",
         help="list the raw navigation formats, or describe one",
         description=(
-            "Lists R2R's raw navigation format IDs (nav1 … nav33, uhdas, siomet, metoc_nav) "
+            "Lists R2R's raw navigation format IDs (nav01 … nav33, uhdas, siomet, metoc_nav) "
             "and whether this version can read them, or describes one format or NMEA sentence."
         ),
     )

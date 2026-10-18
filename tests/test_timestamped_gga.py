@@ -107,7 +107,7 @@ def test_a_files_span_is_its_first_and_last_timestamp():
     assert timestamped_gga.span(["no timestamps here"]) is None
 
 
-# -- nav2: NOAA SCS, the logger's MM/DD/YYYY,hh:mm:ss.sss (#81) --
+# -- nav02: NOAA SCS, the logger's MM/DD/YYYY,hh:mm:ss.sss (#81) --
 
 
 def scs(stamp: str, hhmmss: str) -> str:
@@ -130,14 +130,14 @@ def test_nav2_lines_are_dated_by_their_scs_timestamps():
     """
     lines = [scs("08/19/2025,23:59:59.377", "235958"), scs("08/20/2025,00:00:01.020", "235959")]
     lines.append(scs("08/20/2025,00:00:02.010", "000000"))
-    result = formats.get("nav2").reader.read([("GPS-Furuno-GGA_20250820-000000.Raw", lines)])
+    result = formats.get("nav02").reader.read([("GPS-Furuno-GGA_20250820-000000.Raw", lines)])
     assert [(f.day, f.gga.time.seconds) for f in result.fixes] == [
         (date(2025, 8, 19), 86398.0),
         (date(2025, 8, 19), 86399.0),
         (date(2025, 8, 20), 0.0),
     ]
     assert result.errors == []
-    first, last = formats.get("nav2").reader.span(lines)
+    first, last = formats.get("nav02").reader.span(lines)
     assert (first.isoformat(), last.isoformat()) == (
         "2025-08-19T23:59:59.377000+00:00",
         "2025-08-20T00:00:02.010000+00:00",

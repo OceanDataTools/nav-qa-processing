@@ -1,4 +1,4 @@
-id = "nav2"
+id = "nav02"
 title = "NOAA SCS: logger date and time, then GGA"
 system = "NOAA Shipboard Computer System (SCS)"
 file_type = "ASCII text, comma-separated"

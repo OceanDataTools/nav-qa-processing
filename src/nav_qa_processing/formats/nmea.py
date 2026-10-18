@@ -21,7 +21,7 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
 from dataclasses import dataclass
 
 # The number of fields, address included, of a complete sentence: one without a checksum and
-# with fewer has been cut short. A GGA's last two (DGPS age and station) are optional: nav1's
+# with fewer has been cut short. A GGA's last two (DGPS age and station) are optional: nav01's
 # documented sample, without a checksum, ends at the geoid separation's unit (#81)
 FIELDS = {"GGA": 13, "ZDA": 7}
 

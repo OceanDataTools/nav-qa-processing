@@ -87,7 +87,7 @@ def r2r(monkeypatch):
 def test_nav_format_from_r2rs_format_id():
     assert catalog.nav_format(100150) == "nav29"
     assert catalog.nav_format(100199) == "nav33"  # Falkor (too)'s POS/MV
-    assert catalog.nav_format("100010") == "nav1"
+    assert catalog.nav_format("100010") == "nav01"
     assert catalog.nav_format(1) == ""
 
 

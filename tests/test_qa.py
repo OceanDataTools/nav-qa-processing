@@ -55,7 +55,7 @@ def test_no_nav_format_says_what_to_set(tmp_path):
     with pytest.raises(qa.ConfigError, match=r"set \[nav\] format.*nav29"):
         qa.run_qa(tmp_path)
     with pytest.raises(ValueError, match="not supported yet"):
-        qa.run_qa(tmp_path, QAConfig(nav_format="nav3"))
+        qa.run_qa(tmp_path, QAConfig(nav_format="nav03"))
 
 
 def test_a_bad_checksum_is_an_error_not_an_exception(tmp_path):

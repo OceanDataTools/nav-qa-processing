@@ -132,7 +132,7 @@ def test_sp2424_records_match_r2r_bestres_plus_the_final_fix():
 
 
 def test_rr1802_nav1_records_match_r2r_bestres():
-    """Revelle's raw NMEA (nav1, Furuno GP-150): 28,527 records equal R2R's bestres, record for
+    """Revelle's raw NMEA (nav01, Furuno GP-150): 28,527 records equal R2R's bestres, record for
     record (#81). R2R has no QA 2.0 report for this fileset
     """
     directory = DATA / "RR1802_132277_gnss"
@@ -141,7 +141,7 @@ def test_rr1802_nav1_records_match_r2r_bestres():
         pytest.skip(
             "RR1802 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset RR1802 132277"
         )
-    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav1")
+    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav01")
     r2r = geocsv.read(path).records  # with its 292 flagged records
     assert nav.errors == [] and nav.talkers == {"GP": 28_527}
     assert len(nav.frame) == len(r2r) == 28_527

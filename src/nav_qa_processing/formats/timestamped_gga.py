@@ -1,8 +1,8 @@
 """GGA fixes dated by the logger's timestamp: the reader behind nav33 (OpenRVDAS, Falkor (too))
-and nav2 (NOAA SCS).
+and nav02 (NOAA SCS).
 
 Each line is the logger's UTC timestamp, a comma (or a space) and a GGA sentence. nav33's is ISO
-8601 (`iso_time`), nav2's the date and time as two fields (`scs_time`, #81):
+8601 (`iso_time`), nav02's the date and time as two fields (`scs_time`, #81):
 
     2012-04-28T00:00:01.109000Z,$GPGGA,000000.987,2635.03241,N,09331.21859,W,2,09,1.1,...
     08/19/2025,12:37:31.377,$GPGGA,123730,4129.5473,N,07125.1176,W,2,10,1.5,15.9,M,,M,,*7A
@@ -23,7 +23,7 @@ NavManager's nav33 and nav2 parsers (`include/parsers/nav33.php`, `nav2.php`) da
 its logger date, then correct the date across midnight buffer by buffer. Not reproduced
 (docs/navmanager-differences.md):
 - it drops the 86,400th fix of each buffer (R8) and the cruise's last fix (R9): FKt230417, 18
-  and 1; EN735 (nav2), 3 and 1;
+  and 1; EN735 (nav02), 3 and 1;
 - it drops the earlier of two GGAs with the same time of day ("duplicate records caused by
   rounding seconds", for Falkor; R10: EN735, 5); here both are kept and QC flags the later
   (TIME_SEQUENCE);
@@ -49,7 +49,7 @@ from nav_qa_processing.formats.nmea import GGA, parse_sentence
 from nav_qa_processing.readable import plural
 
 # The logger timestamp starting a line, then a comma or a space: ISO 8601 (nav33), and SCS's
-# MM/DD/YYYY,hh:mm:ss.sss (nav2). Groups: year, month, day, hour, minute, seconds
+# MM/DD/YYYY,hh:mm:ss.sss (nav02). Groups: year, month, day, hour, minute, seconds
 _ISO = re.compile(r"\s*(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d(?:\.\d*)?)Z?[ ,]")
 _SCS = re.compile(r"\s*(\d\d)/(\d\d)/(\d{4}),(\d\d):(\d\d):(\d\d(?:\.\d*)?),")
 

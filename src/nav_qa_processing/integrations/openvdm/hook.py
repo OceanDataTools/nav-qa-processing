@@ -53,6 +53,7 @@ from nav_qa_processing.config import (
     thresholds_toml,
     toml_value,
 )
+from nav_qa_processing.formats.catalog import canonical_id
 from nav_qa_processing.network import reaching
 from nav_qa_processing.theme import theme_table, theme_toml
 
@@ -171,7 +172,7 @@ def load_site_config(path: Path | str | None) -> SiteConfig:
         SiteFeed(
             name=nav.get("name", ""),
             primary=nav["primary"],
-            format=nav.get("format", ""),
+            format=canonical_id(nav.get("format", "")),
             files=nav.get("files", ""),
             device=nav_device_from_table(nav.get("device", {}), str(path)),
             transfer=nav.get("transfer", ""),
