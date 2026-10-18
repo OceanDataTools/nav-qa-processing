@@ -142,3 +142,34 @@ def test_nav2_lines_are_dated_by_their_scs_timestamps():
         "2025-08-19T23:59:59.377000+00:00",
         "2025-08-20T00:00:02.010000+00:00",
     )
+
+
+# -- nav15: OSU's DAS, DATA and an ISO timestamp, then the sentence, quoted or not --
+
+
+def test_osu_time():
+    found = timestamped_gga.osu_time('DATA, 2011-04-11T00:00:00.158Z, "$GPGGA,000000,…"')
+    assert found == (date(2011, 4, 11), round(0.158e9))
+    assert timestamped_gga.osu_time("2011-04-11T00:00:00.158Z,$GPGGA,…") is None  # nav33's
+
+
+def test_nav15_quoted_and_unquoted_sentences_after_osu_headers():
+    """Wecoma's files: META_/VESSEL/SOURCE header records, then DATA records; the sentence is in
+    double quotes in the documented layout and bare in September 2011 (W1109B)
+    """
+    lines = [
+        'META_VESSEL, "Name",       "Call_Sign", "IMO_Number"',
+        'VESSEL,      "R/V Wecoma", "WSD7079",   "076044390"',
+        'DATA, 2011-04-11T00:00:00.158Z, "$GPGGA,000000,4437.5473,N,12402.7120,W,2,11,0.8,8.5,M,'
+        + '-21.8,M,,*70"',
+        'DATA, 2011-04-11T00:00:00.286Z, "$GPGSA,A,3,,23,07,04,13,16,03,20,08,10,30,02,1.3,0.8,'
+        + '1.1*36"',
+        "DATA, 2011-09-14T23:59:59.569Z, "
+        + nmea("GPGGA,000000.00,4438.48007,N,12429.40697,W,1,10,0.9,4.41,M,-26.15,M,,"),
+    ]
+    result = formats.get("nav15").reader.read([("gnss_adu5_starboardsuite.csv", lines)])
+    assert [(f.day, f.gga.time.seconds) for f in result.fixes] == [
+        (date(2011, 4, 11), 0.0),
+        (date(2011, 9, 15), 0.0),  # logged 0.4 s before midnight: the next day's fix
+    ]
+    assert result.errors == [] and result.rejected_checksums == {}

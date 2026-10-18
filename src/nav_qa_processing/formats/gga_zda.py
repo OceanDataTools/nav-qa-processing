@@ -39,7 +39,7 @@ from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 
-from nav_qa_processing.formats.nmea import GGA, ZDA, has_checksum, parse_sentence
+from nav_qa_processing.formats.nmea import GGA, ZDA, has_checksum, parse_sentence, unquoted
 from nav_qa_processing.readable import plural
 
 _DAY = 86_400 * 10**9  # [ns]
@@ -130,7 +130,7 @@ def sentences(lines: list[str]) -> Iterator[tuple[int, str]]:
         start = line.rfind("$")
         if start < 0:
             continue
-        text = line[start:].rstrip("\r\n")
+        text = unquoted(line[start:])
         following = index + 1
         while (
             not has_checksum(text)

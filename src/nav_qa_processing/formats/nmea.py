@@ -10,6 +10,7 @@ Behavior ported from NavManager's nmeatools (observed, not copied):
   and a nonstandard one-digit `*A` are all 0x0A. NavManager compares unpadded hex with PHP's
   loose `==`, so it rejects every correct checksum from `*0A` to `*0F` (`*00`–`*09` compare as
   numbers and pass); that isn't reproduced (#13, register R1). NavManager also reads truncated sentences, whose missing fields become 0 (RR2406).
+- A sentence in double quotes, as OSU's DAS logs it (nav15), is read without them.
 - A coordinate needs its hemisphere letter (N/S, E/W): without one it's missing, not north or
   east. NavManager reads it as positive, so RR2406's truncated GGAs put the ship at 83°E.
 - Positions keep the receiver's precision: a coordinate with n decimal minutes is reported
@@ -53,7 +54,7 @@ def parse_sentence(line: str) -> Sentence | None:
     start = line.rfind("$")
     if start < 0:
         return None
-    text = line[start:].strip()
+    text = unquoted(line[start:])
     data, star, supplied = text.partition("*")
     if star:
         computed = checksum(data[1:])
@@ -69,8 +70,15 @@ def parse_sentence(line: str) -> Sentence | None:
 
 def has_checksum(text: str) -> bool:
     """Whether a sentence's text ends in a complete checksum (`*` and two hex digits)"""
-    _, star, supplied = text.strip().rpartition("*")
+    _, star, supplied = unquoted(text).rpartition("*")
     return bool(star) and len(supplied) == 2 and _is_hex(supplied.lower())
+
+
+def unquoted(text: str) -> str:
+    """A sentence's text without surrounding whitespace or the double quotes OSU's DAS logs it
+    in (nav15: `"$GPGGA,…*70"`)
+    """
+    return text.strip().strip('"').strip()
 
 
 def _is_hex(text: str) -> bool:

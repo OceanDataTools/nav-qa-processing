@@ -34,6 +34,8 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | KN220-02 | 114491 (product 603657) | Knorr's C-Nav 2000, nav20: 227,436 records equal to R2R's; R2R flags 2 more (Q3). Alongside on Charleston's Cooper River for 5 h. No QA 2.0 report |
 | HLY08TD | 110937 (product 603255) | Healy's POS/MV, nav12 with ZDA, gzipped files: 363,486 records equal to R2R's but 2 empty HDOPs R2R writes as 0 (R11). No QA 2.0 report |
 | MGL1509 | 122372 (product 603725) | Langseth's C-Nav 3050, nav12 without ZDA (dated by the logger's year:day-of-year): 601,027 records equal to R2R's; Y (a 54-minute gap). No QA 2.0 report |
+| W1108A | 105073 (product 604751) | Wecoma's Ashtech ADU5, nav15 (DATA, ISO timestamp, quoted GGA): 50,678 records equal to R2R's within R2R's window, the Pacific day (08:00Z, from its 2012 QA report). No QA 2.0 report |
+| W1109B | 105076 (product 604754) | nav15 with unquoted sentences (September 2011): the same 68,302 records as R2R's, but R2R dates 1,017 of them a day early (R12). No QA 2.0 report |
 
 Between them, every one of R2R's six tests has a reference that R2R rates Y or R
 (`tests/test_r2r_references.py`, #26).

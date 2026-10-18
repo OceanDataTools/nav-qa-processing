@@ -51,6 +51,8 @@ from nav_qa_processing.readable import plural
 # The logger timestamp starting a line, then a comma or a space: ISO 8601 (nav33), and SCS's
 # MM/DD/YYYY,hh:mm:ss.sss (nav02). Groups: year, month, day, hour, minute, seconds
 _ISO = re.compile(r"\s*(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d(?:\.\d*)?)Z?[ ,]")
+# OSU's DAS (nav15): DATA, then the ISO 8601 timestamp, then the quoted sentence
+_OSU = re.compile(r"\s*DATA\s*,\s*(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d(?:\.\d*)?)Z?\s*,")
 _SCS = re.compile(r"\s*(\d\d)/(\d\d)/(\d{4}),(\d\d):(\d\d):(\d\d(?:\.\d*)?),")
 
 Stamp = Callable[[str], "tuple[date, int] | None"]
@@ -59,6 +61,14 @@ Stamp = Callable[[str], "tuple[date, int] | None"]
 def iso_time(line: str) -> tuple[date, int] | None:
     """A line's ISO 8601 logger timestamp: (date, time of day [ns]), or None if it has none"""
     match = _ISO.match(line)
+    return None if match is None else _stamp(*match.groups())
+
+
+def osu_time(line: str) -> tuple[date, int] | None:
+    """A nav15 line's logger timestamp (`DATA, 2011-04-11T00:00:00.158Z, "$GPGGA,…"`), like
+    `iso_time`
+    """
+    match = _OSU.match(line)
     return None if match is None else _stamp(*match.groups())
 
 

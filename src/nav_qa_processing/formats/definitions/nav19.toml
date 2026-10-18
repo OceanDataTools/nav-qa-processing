@@ -8,6 +8,7 @@ position = "P-code receiver decimal degrees"
 time = "TrueTime clock day of year and time; the year isn't recorded"
 description = "One record every 2 s: record number, TrueTime clock as day-of-year:hh:mm:ss, positions from the P-code and DGPS receivers, depths, meteorology, radiometers, thermosalinograph, and speed and course over ground."
 notes = [
+  "R2R files some of these under format 100046 (nav15), e.g. Wecoma's W1004B (fileset 103337, OregonState SUDS, 2010).",
   "The year must come from outside the file.",
   "-999999 marks a missing value.",
 ]
