@@ -35,7 +35,8 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R11 | nmeatools | An empty numeric GGA field read as 0 | HLY08TD: 2 records with HDOP 0 (flagged by both) | Missing (`NAN`) |
 | R12 | R2R's run, nav15 | GGAs logged before the logger's clock reached their time dated a day early | W1109B: 1,017 fixes, flagged out of sequence | Each GGA dated by its line's timestamp (#88) |
 | R13 | navcopy nav22 | Every GGA of a file dated by its name's date | NH1209: a file of 09-23's fixes named 20120924000000 dated a day late (R2R made no products from it) | Nearest the name's time, then the fix before (#90) |
-| R14 | navcopy nav27 | GLL's fix quality from its status alone (A 1, V 0) | A differential GLL written as quality 1 (none in SP1531, all mode A) | From the mode indicator when present (#92) |
+| R14 | navcopy nav27, nav32 | GLL's and RMC's fix quality from the status alone (A 1, V 0) | A differential fix written as quality 1 (none in SP1531 or RC0014) | From the mode indicator when present (#92, #94) |
+| R15 | navcopy nav30, nav32 | RMC dated by the receiver's own date; nav30 read from RMC though it logs GGA | NBP2410's receiver dates are 1024 weeks early: a cruise placed in 2005 (R2R hasn't processed it) | Dated by the logger; nav30 from its GGA, with quality, satellites and HDOP (#94) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -175,7 +176,15 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Here:** the quality comes from GLL's NMEA 2.3 mode indicator when present (A 1, D 2, E 6, M 7, S 8, N 0), else from the status as NavManager reads it (`nmea.GLL.quality`); satellites, HDOP and altitude are missing too.
 - **Evidence:** SP1531's GLLs are all mode A (and one N, status V), so both write the same qualities, record for record (`tests/test_rawnav.py`, #92).
 - **Why (confirmed in code):** NavManager's GLL class doesn't read the mode field.
-- **Effect:** a differential (D) or dead-reckoning (E) GLL fix would be written as quality 1.
+- **Effect:** a differential (D) or dead-reckoning (E) GLL fix would be written as quality 1. NavManager's `printBufferRMC` does the same for RMC (nav32: `status == 'A' ? 1 : 0`); Rachel Carson's RMCs have no mode field, so the status gives the same here (RC0014, RC0011, #94).
+
+### R15. RMC dated by the receiver; nav30 read from RMC
+
+- **NavManager:** `parse_nav32()` (`include/parsers/nav32.php`), which reads nav30 too, takes each fix's date from the RMC itself and writes quality from the status, with satellites, HDOP and altitude `NAN`.
+- **Here:** a fix is dated by its logger's timestamp (nav32: CORIOLIX's `MM/DD/YYYY`; nav30: OpenRVDAS's ISO time), and an RMC whose own date differs is reported. nav30 is read from its GGA, which the USAP OpenRVDAS logs carry, so its records have quality, satellites and HDOP.
+- **Evidence:** NBP2410 (nav30, fileset 165727): the Furuno GP-330B's RMC and ZDA dates are exactly 1024 weeks early, 2005-03-13 for OpenRVDAS's 2024-10-27 (`tests/test_timestamped_gga.py`, #94). Rachel Carson's RMC dates agree with the logger's, and RC0014's and RC0011's records equal R2R's.
+- **Why (confirmed in code):** the parser trusts the receiver's date; it was written for RMC-only logs.
+- **Effect:** a receiver with the GPS week-number fault puts the cruise 19.6 years early. R2R hasn't processed NBP2410's GNSS (its primary feed is the Seapath), so no product shows it yet.
 
 ## Geodesy and speed/course (navtools, navsogcog)
 

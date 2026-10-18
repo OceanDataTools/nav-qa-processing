@@ -173,3 +173,64 @@ def test_nav15_quoted_and_unquoted_sentences_after_osu_headers():
         (date(2011, 9, 15), 0.0),  # logged 0.4 s before midnight: the next day's fix
     ]
     assert result.errors == [] and result.rejected_checksums == {}
+
+
+# -- nav32: CORIOLIX, SCS's logger stamp, then RMC; nav30: OpenRVDAS, read from its GGA --
+
+
+def test_nav32_rmc_dated_by_the_logger():
+    """Rachel Carson's RMC (RC0014): no quality, satellites or HDOP but status A as quality 1;
+    the logger runs 89 s behind the receiver, so it gives the date and RMC the time
+    """
+    lines = [
+        "12/27/2018,14:51:11.568,$ECRMC,145240,A,4740.818,N,12224.442,W,0.0,204.40,271218,"
+        + "015.61,E*7E",
+        "12/27/2018,14:51:13.666,$ECRMC,145242,V,4740.818,N,12224.442,W,0.0,204.40,271218,"
+        + "015.61,E*6B",
+    ]
+    result = formats.get("nav32").reader.read([("GPS-Network-RMC_20181227-145109.Raw", lines)])
+    assert [(f.day, f.gga.time.seconds, f.gga.quality, f.gga.nsat) for f in result.fixes] == [
+        (date(2018, 12, 27), 53560.0, 1, None),
+        (date(2018, 12, 27), 53562.0, 0, None),
+    ]
+    assert result.errors == []
+
+
+def test_rmc_dates_from_the_gps_week_rollover_are_reported():
+    """NBP2410's receiver dates are 1024 weeks early: the logger dates the fix, and the RMC's
+    own date is reported
+    """
+    rmc = (
+        "2024-10-27T11:48:32.680500Z $GPRMC,114832,A,5822.0992,S,06354.1400,W,11.1,166.2,"
+        + "130305,11.9,E,A*18"
+    )
+    result = timestamped_gga.read([("f", [rmc])], kind="RMC")
+    assert [f.day for f in result.fixes] == [date(2024, 10, 27)]
+    assert result.errors == [
+        (
+            "f: 1 RMC dated -7168 days from the logger (the GPS week-number rollover); dated by "
+            "the logger"
+        )
+    ]
+
+
+def test_nav30_reads_openrvdas_gga_not_rmc():
+    """NBP2410's OpenRVDAS log has GGA as well as RMC: the GGA's quality, satellites and HDOP,
+    dated by OpenRVDAS's timestamp, not the receiver's 2005 date
+    """
+    lines = [
+        "2024-10-27T11:48:32.282476Z $GPZDA,114832,13,03,2005,00,00*43",
+        "2024-10-27T11:48:32.526890Z $GPGGA,114832,5822.0992,S,06354.1400,W,1,11,0.7,33.7,M,,,,*2D",
+        "2024-10-27T11:48:32.680500Z $GPRMC,114832,A,5822.0992,S,06354.1400,W,11.1,166.2,130305,"
+        + "11.9,E,A*18",
+    ]
+    result = formats.get("nav30").reader.read(
+        [("gnss_pcode_deck04_nbp2410pcod-2024-10-27", lines)]
+    )
+    (fix,) = result.fixes
+    assert (fix.day, fix.gga.quality, fix.gga.nsat, fix.gga.hdop) == (
+        date(2024, 10, 27),
+        1,
+        11,
+        0.7,
+    )

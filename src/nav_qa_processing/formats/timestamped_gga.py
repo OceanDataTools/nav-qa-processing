@@ -45,7 +45,7 @@ from nav_qa_processing.formats.gga_zda import (
     date_from,
     sentences,
 )
-from nav_qa_processing.formats.nmea import GGA, parse_sentence
+from nav_qa_processing.formats.nmea import GGA, RMC, parse_sentence
 from nav_qa_processing.readable import plural
 
 # The logger timestamp starting a line, then a comma or a space: ISO 8601 (nav33), and SCS's
@@ -109,23 +109,30 @@ def span(lines: list[str], stamp: Stamp = iso_time) -> tuple[datetime, datetime]
     return first, last
 
 
-def read(files: list[tuple[str, list[str]]], stamp: Stamp = iso_time) -> Result:
-    """Dated GGA fixes from `files`, each (name, lines), in the order given"""
+def read(files: list[tuple[str, list[str]]], stamp: Stamp = iso_time, kind: str = "GGA") -> Result:
+    """Dated fixes from `files`, each (name, lines), in the order given: from GGA sentences, or
+    with `kind` RMC from RMC (nav32, without satellites, HDOP or altitude). An RMC is dated by
+    its logger timestamp too; RMCs whose own date differs are reported (7168 days: the GPS
+    week-number rollover)
+    """
+    reason = lambda text: text.replace("GGA", kind)
     fixes: list[DatedFix] = []
     errors: list[str] = []
     rejected: dict[str, int] = {}
     skipped: dict[str, dict[str, int]] = {}
     for name, lines in files:
         timeless = unstamped = 0
+        misdated: dict[int, int] = {}  # RMC date minus the fix's [days] -> RMCs
         for number, text in sentences(lines):
             sentence = parse_sentence(text)
             if sentence is None:
-                if "GGA" in text:  # only the sentence this reader uses
+                if kind in text:  # only the sentence this reader uses
                     rejected[name] = rejected.get(name, 0) + 1
                 continue
-            if sentence.kind != "GGA":
+            if sentence.kind != kind:
                 continue
-            gga = GGA.from_fields(sentence.fields)
+            rmc = RMC.from_fields(sentence.fields) if kind == "RMC" else None
+            gga = rmc.as_gga() if rmc else GGA.from_fields(sentence.fields)
             if gga.time is None:
                 timeless += 1
                 continue
@@ -136,13 +143,20 @@ def read(files: list[tuple[str, list[str]]], stamp: Stamp = iso_time) -> Result:
             fix = DatedFix(gga, name, number)
             fix.day = date_from(*logged, gga.time.ns)
             fixes.append(fix)
+            if rmc and rmc.day is not None and rmc.day != fix.day:
+                days = (rmc.day - fix.day).days
+                misdated[days] = misdated.get(days, 0) + 1
         if timeless:
-            errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")
+            errors.append(f"{name}: {plural(timeless, kind)} without a time, skipped")
         if unstamped:
+            errors.append(f"{name}: {plural(unstamped, kind)} without a logger timestamp, skipped")
+        for days, count in sorted(misdated.items()):
+            rollover = " (the GPS week-number rollover)" if abs(days) % 7168 == 0 else ""
             errors.append(
-                f"{name}: {plural(unstamped, 'GGA')} without a logger timestamp, skipped"
+                f"{name}: {plural(count, 'RMC')} dated {days:+d} days from the logger"
+                f"{rollover}; dated by the logger"
             )
-        count_skipped(skipped, name, NO_TIME, timeless)
-        count_skipped(skipped, name, NO_LOGGER_TIMESTAMP, unstamped)
+        count_skipped(skipped, name, reason(NO_TIME), timeless)
+        count_skipped(skipped, name, reason(NO_LOGGER_TIMESTAMP), unstamped)
         count_skipped(skipped, name, FAILED_CHECKSUM, rejected.get(name, 0))
     return Result(fixes, errors, rejected, skipped)
