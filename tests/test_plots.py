@@ -98,11 +98,38 @@ def test_track_map(tmp_path):
     texts = [t.get_text() for t in axis.texts]
     assert "coastline data unavailable" in texts
     assert axis.get_title() == "TEST: trackline"
-    # the track breaks at the gap: two lines
-    assert (
-        sum(1 for line in axis.lines if line.get_color() == plots.DEFAULT_THEME.colors.primary)
-        == 2
-    )
+    # the track breaks at the gap: two lines, and the gap between them dashed
+    primary = [
+        line for line in axis.lines if line.get_color() == plots.DEFAULT_THEME.colors.primary
+    ]
+    assert sum(1 for line in primary if line.get_linestyle() == "-") == 2
+    assert "Gaps of 300 s or longer (1)" in found
+
+
+def test_a_track_in_short_bursts_draws_every_burst(tmp_path):
+    """Bursts of fixes too short to show as a line are drawn as dots, joined by dashed gaps
+    (#70, SP2220)
+    """
+    speed = 9.0 * METRE  # [degree s-1] north
+    bursts = [(n * 600, 1 if n == 2 else 3) for n in range(6)]  # (start [s], fixes)
+    fixes = [
+        (start + i, -117.3, 32.6 + (start + i) * speed, 2)
+        for start, count in bursts
+        for i in range(count)
+    ]
+    result = run_qa(fileset(tmp_path, fixes), QAConfig(cruise_id="TEST", nav_format="nav29"))
+    assert (result.qc.flags == 0).all()
+    axis = plots.track_map(result).axes[0]
+    dots = [
+        c
+        for c in axis.collections
+        if len(c.get_offsets()) == len(bursts)
+        and np.allclose(
+            c.get_facecolor()[0][:3], matplotlib.colors.to_rgb(plots.DEFAULT_THEME.colors.primary)
+        )
+    ]
+    assert len(dots) == 1  # one dot per burst, the lone fix's too
+    assert "Gaps of 300 s or longer (5)" in labels(axis)
 
 
 def test_track_map_across_the_antimeridian(tmp_path):
