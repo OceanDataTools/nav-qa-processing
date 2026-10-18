@@ -21,8 +21,14 @@ from nav_qa_processing.network import reaching
 
 logger = logging.getLogger(__name__)
 
-# (category, name) of the layers the maps use; detail maps use 10m, the world inset 110m
-DETAIL_LAYERS = (("physical", "land"), ("physical", "lakes"), ("physical", "coastline"))
+# (category, name) of the layers the maps and the over-water check use; detail maps use 10m,
+# the world inset 110m
+DETAIL_LAYERS = (
+    ("physical", "land"),
+    ("physical", "lakes"),
+    ("physical", "coastline"),
+    ("physical", "rivers_lake_centerlines"),  # water for the over-water check (#85)
+)
 WORLD_LAYERS = (("physical", "land"),)
 
 

@@ -503,10 +503,10 @@ def _over_water(stats: NavStats, th) -> CheckResult:
     with np.errstate(invalid="ignore"):
         ashore = int((stats.inland > 0).sum())
     tolerance = f"{q.DISTANCE.format(th.land_tolerance)} {q.DISTANCE.unit}"
-    detail = [f"more than {tolerance} inside Natural Earth's 1:10m coastline"]
+    detail = [f"more than {tolerance} from Natural Earth's 1:10m coasts and rivers"]
     if over:
         deepest = float(np.nanmax(stats.inland))
         detail.append(f"up to {q.DISTANCE.format(deepest)} {q.DISTANCE.unit} inland")
     if ashore > over:
-        detail.append(f"{ashore - over} within {tolerance} of the coast (harbors)")
+        detail.append(f"{ashore - over} on land within {tolerance} of water (ports)")
     return CheckResult(name, _status(over == 0), f"{over} over land", "; ".join(detail))

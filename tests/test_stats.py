@@ -328,7 +328,7 @@ def over_water(s):
 
 
 def test_over_water():
-    """A track that runs 1.5 km ashore (#79): within the default 2000 m it passes, and says how
+    """A track that runs 1.5 km ashore (#79): within the default 3000 m it passes, and says how
     many fixes were over land; within 500 m it warns
     """
     nav = nav_from(range(1001))  # 3 km north at 3 m s-1
@@ -339,8 +339,8 @@ def test_over_water():
     check = over_water(compute(nav, land=ashore))
     assert (check.status, check.value) == ("pass", "0 over land")
     assert check.detail == (
-        f"more than 2000 m inside Natural Earth's 1:10m coastline; {on_land} within 2000 m of "
-        "the coast (harbors)"
+        f"more than 3000 m from Natural Earth's 1:10m coasts and rivers; {on_land} on land within "
+        "3000 m of water (ports)"
     )
     s = compute(nav, Thresholds(land_tolerance=500.0), land=ashore)
     over = int(s.counted["over_land"].sum())
@@ -348,7 +348,7 @@ def test_over_water():
     check = over_water(s)
     assert (check.status, check.value) == ("warn", f"{over} over land")
     assert re.search(r"up to 149\d m inland", check.detail)  # the last fix, 1.5 km ashore
-    assert f"{on_land - over} within 500 m of the coast" in check.detail
+    assert f"{on_land - over} on land within 500 m of water" in check.detail
     assert stats.counts_by_file(nav, s).set_index("file").loc["Total", "Over land"] == over
 
 

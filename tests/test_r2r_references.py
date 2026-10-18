@@ -119,7 +119,7 @@ def test_rr2212_files_out_of_order():
     # Over water (#79): Oakland's inner harbor is land at 1:10m, up to 1.44 km in; within the
     # tolerance
     over_water = next(c for c in run.result.stats.checks if c.name == "Over water")
-    assert over_water.status == "pass" and "374 within 2000 m of the coast" in over_water.detail
+    assert over_water.status == "pass" and "374 on land within 3000 m" in over_water.detail
     assert round(np.nanmax(run.result.stats.inland)) == 1438
 
 
@@ -235,7 +235,7 @@ def test_fkt230417_nav33():
     assert by_file.loc["FKt230417_posmv_gga-2023-04-27.txt", "Flagged by QC"] == 283
     # Over water (#79): alongside in San Juan, which is land at 1:10m, for 30 minutes
     over_water = next(c for c in s.checks if c.name == "Over water")
-    assert over_water.status == "pass" and "1835 within 2000 m of the coast" in over_water.detail
+    assert over_water.status == "pass" and "1835 on land within 3000 m" in over_water.detail
 
 
 def _times(frame_times) -> np.ndarray:
