@@ -37,6 +37,8 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R13 | navcopy nav22 | Every GGA of a file dated by its name's date | NH1209: a file of 09-23's fixes named 20120924000000 dated a day late (R2R made no products from it) | Nearest the name's time, then the fix before (#90) |
 | R14 | navcopy nav27, nav32 | GLL's and RMC's fix quality from the status alone (A 1, V 0) | A differential fix written as quality 1 (none in SP1531 or RC0014) | From the mode indicator when present (#92, #94) |
 | R15 | navcopy nav30, nav32 | RMC dated by the receiver's own date; nav30 read from RMC though it logs GGA | NBP2410's receiver dates are 1024 weeks early: a cruise placed in 2005 (R2R hasn't processed it) | Dated by the logger; nav30 from its GGA, with quality, satellites and HDOP (#94) |
+| R16 | navcopy nav12 | In a file without ZDA, a GGA line identical to the previous one dropped | None in MGL1509 (its records equal R2R's) | Kept; QC flags the repeat (#84) |
+| R17 | navcopy nav12 | In a file without ZDA, a GGA later than the logger's time dated the day before, whatever the gap | None in MGL1509 | The date nearest the logger's timestamp (#84) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -185,6 +187,22 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Evidence:** NBP2410 (nav30, fileset 165727): the Furuno GP-330B's RMC and ZDA dates are exactly 1024 weeks early, 2005-03-13 for OpenRVDAS's 2024-10-27 (`tests/test_timestamped_gga.py`, #94). Rachel Carson's RMC dates agree with the logger's, and RC0014's and RC0011's records equal R2R's.
 - **Why (confirmed in code):** the parser trusts the receiver's date; it was written for RMC-only logs.
 - **Effect:** a receiver with the GPS week-number fault puts the cruise 19.6 years early. R2R hasn't processed NBP2410's GNSS (its primary feed is the Seapath), so no product shows it yet.
+
+### R16. nav12: a repeated GGA line dropped in a file without ZDA
+
+- **NavManager:** `parse_nav12()`'s branch for a file without ZDA (`include/parsers/nav12.php`, ~line 341) skips a GGA whose text equals the previous GGA line's (`if ($lines[1] == $lastline) continue;`).
+- **Here:** both are kept; QC flags the second (`TIME_SEQUENCE`) (`formats/zda_or_stamp.py`).
+- **Evidence:** MGL1509 (nav12 without ZDA, Langseth's C-Nav 3050): its 601,027 records equal R2R's, so it had no such repeat (`tests/test_rawnav.py`, #84).
+- **Why (confirmed in code):** a guard against a logger writing a line twice.
+- **Effect:** a repeated fix is missing from R2R's bestres rather than flagged.
+
+### R17. nav12: a GGA later than the logger dated the day before
+
+- **NavManager:** the same branch dates a GGA to the logger's day when its time of day is at or before the logger's, and to the previous GGA's day otherwise (`if ($gga->hhmmss <= $pc->hhmmss)`), whatever the difference.
+- **Here:** each GGA takes the date that puts it nearest its line's logger timestamp, counting across midnight (`timestamped_gga`'s rule, with `zda_or_stamp.doy_time`).
+- **Evidence:** MGL1509's records equal R2R's, so its logger never ran behind the receiver across midnight (#84). W1109B (nav15) shows what a logger running behind does to R2R's dates (R12).
+- **Why (confirmed in code):** the rule assumes the logger stamps each line after the receiver's fix.
+- **Effect:** with a logger running behind the receiver, fixes after midnight would carry the previous day's date until it catches up.
 
 ## Geodesy and speed/course (navtools, navsogcog)
 

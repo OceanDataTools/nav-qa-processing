@@ -66,7 +66,7 @@ QA_INFO = [
 def r2r(monkeypatch):
     """R2R's services, offline"""
 
-    def get(url, service="R2R"):
+    def get(url, service="R2R", what="R2R's catalog"):
         if "/api/cruise/" in url:
             data = [CRUISE] if "SP2613" in url else None
         elif "/api/fileset/" in url:
@@ -215,3 +215,25 @@ def test_the_receiver_comes_from_r2rs_device_unless_the_toml_names_one(tmp_path)
     mine = replace(config, nav_device=NavDevice(make="Trimble", model="BX992", location="mast"))
     text = config_to_toml(mine)
     assert "[nav.device]" in text and loads_cruise_config(text).nav_device == mine.nav_device
+
+
+def test_an_http_error_fetching_the_qa_report_is_raised_not_swallowed(r2r, monkeypatch):
+    """A 503 for the report would otherwise leave the config without its port coordinates,
+    format alias and catalog dates, silently (#101 review)
+    """
+    import io
+    import urllib.error
+
+    served = catalog._get
+
+    def unavailable_report(url, service="R2R", what="R2R's catalog"):
+        if url == REPORT_URL:
+            error = urllib.error.HTTPError(url, 503, "Service Unavailable", {}, io.BytesIO())
+            raise catalog.http_error(error, what, url)
+        return served(url, service, what)
+
+    monkeypatch.setattr(catalog, "_get", unavailable_report)
+    with pytest.raises(
+        catalog.R2RError, match=r"R2R's QA report \(service.rvdata.us\) answered 503"
+    ):
+        catalog.config_from_r2r_catalog("SP2613", 169851)

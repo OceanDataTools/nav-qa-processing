@@ -62,3 +62,15 @@ def test_files_with_zda_are_dated_by_zda():
         (date(2010, 9, 15), 0.5, "a"),
         (date(2010, 9, 15), 1.0, "b"),
     ]
+
+
+def test_corrupt_zda_years_fall_back_to_the_logger():
+    """A ZDA with a truncated year isn't valid for the span either, so a file of them is dated
+    by its logger timestamps, as `read` dates it (#99 review)
+    """
+    bad_zda = nmea("GPZDA,000000.00,15,9,0201,+0,+0")
+    lines = [line("2010:258:00:00:00.0", bad_zda), line("2010:258:00:00:01.0", gga("000001.00"))]
+    from nav_qa_processing.formats import gga_zda
+
+    assert gga_zda.span(lines) is None
+    assert dated([("a", lines)]) == [(date(2010, 9, 15), 1.0, "a")]

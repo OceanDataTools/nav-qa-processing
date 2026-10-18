@@ -83,8 +83,8 @@ SCS_LOGGER_TIMED = Reader(
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
     "nav01": GGA_ZDA,  # bare NMEA (#81)
-    "nav02": SCS_GGA,
-    "nav03": SCS_LOGGER_TIMED,  # NOAA SCS (Blue Heron): mostly GLL, cut short; logger time  # NOAA SCS: logger date and time, then GGA (#81)
+    "nav02": SCS_GGA,  # NOAA SCS: logger date and time, then GGA (#81)
+    "nav03": SCS_LOGGER_TIMED,  # NOAA SCS (Blue Heron): mostly GLL, cut short; logger time
     "nav12": ZDA_OR_STAMP,  # device ID, year:day-of-year timestamp, NMEA; ZDA when logged
     "nav15": OSU_GGA,  # OSU DAS: DATA, ISO timestamp, quoted GGA
     "nav20": GGA_ZDA,  # NAV tag, logger date and time, device tag, then NMEA (Knorr)
@@ -92,11 +92,11 @@ READERS: dict[str, Reader] = {
     "nav24": GGA_ZDA,  # Sikuliaq: logger ID and ISO timestamp, then NMEA (#81)
     "nav25": GGA_ZDA,  # Healy's Seapath: logger ID, ISO timestamp, NMEA, comma-separated
     "nav27": GLL_ZDA,  # Sproul: bare NMEA with GLL, not GGA, dated by ZDA
-    "nav29": GGA_ZDA,
+    "nav29": GGA_ZDA,  # STARC logger: timestamp, then NMEA (GGA dated by ZDA)
     "nav30": TIMESTAMPED_GGA,  # OpenRVDAS (USAP): ISO timestamp, space, NMEA; its GGA, not RMC
     "nav31": PYRTM_GGA,  # UHDAS's GPS feed (Blue Heron): GGA dated by PYRTM
     "nav32": SCS_RMC,  # CORIOLIX (Rachel Carson): logger date and time, then RMC
-    "nav33": TIMESTAMPED_GGA,
+    "nav33": TIMESTAMPED_GGA,  # ISO timestamp, then GGA (OpenRVDAS, Falkor (too))
     "uhdas": UNIXD_GGA,  # UHDAS: GGA dated by UNIXD, the year from the file name
 }
 

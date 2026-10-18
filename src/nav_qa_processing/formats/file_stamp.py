@@ -27,6 +27,8 @@ from nav_qa_processing.formats.gga_zda import (
     Result,
     count_skipped,
     date_from,
+    has_star,
+    report_cut_short,
     sentences,
 )
 from nav_qa_processing.formats.nmea import GGA, parse_sentence
@@ -56,11 +58,13 @@ def _dated(name: str, lines: list[str]) -> tuple[list[DatedFix], int, int]:
     """
     stamp = name_time(name)
     fixes: list[DatedFix] = []
-    timeless = rejected = 0
+    timeless = rejected = cut = 0
     for number, text in sentences(lines):
         sentence = parse_sentence(text)
         if sentence is None:
-            rejected += "GGA" in text
+            if "GGA" in text:
+                rejected += has_star(text)
+                cut += not has_star(text)
             continue
         if sentence.kind != "GGA":
             continue
@@ -73,14 +77,14 @@ def _dated(name: str, lines: list[str]) -> tuple[list[DatedFix], int, int]:
             fix.day = date_from(*stamp, gga.time.ns)
             stamp = (fix.day, gga.time.ns)
         fixes.append(fix)
-    return fixes, timeless, rejected
+    return fixes, timeless, rejected, cut
 
 
 def span(lines: list[str], name: str = "") -> tuple[datetime, datetime] | None:
     """The first and last fix of a file, dated from its name, to select and order files by"""
     if name_time(name) is None:
         return None
-    fixes, _, _ = _dated(name, lines)
+    fixes = _dated(name, lines)[0]
     if not fixes:
         return None
     moment = lambda fix: (
@@ -94,7 +98,7 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given"""
     result = Result([], [], {}, {})
     for name, lines in files:
-        fixes, timeless, rejected = _dated(name, lines)
+        fixes, timeless, rejected, cut = _dated(name, lines)
         if name_time(name) is None:
             if fixes:
                 result.errors.append(
@@ -110,4 +114,5 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
             result.rejected_checksums[name] = rejected
         count_skipped(result.skipped, name, NO_TIME, timeless)
         count_skipped(result.skipped, name, FAILED_CHECKSUM, rejected)
+        report_cut_short(result.errors, result.skipped, name, cut)
     return result

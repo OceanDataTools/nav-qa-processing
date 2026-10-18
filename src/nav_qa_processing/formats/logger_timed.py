@@ -18,6 +18,8 @@ from nav_qa_processing.formats.gga_zda import (
     DatedFix,
     Result,
     count_skipped,
+    has_star,
+    report_cut_short,
     sentences,
 )
 from nav_qa_processing.formats.nmea import GGA, GLL, TimeOfDay, parse_sentence
@@ -41,11 +43,13 @@ def read(files: list[tuple[str, list[str]]], stamp: Stamp = scs_time) -> Result:
     """
     result = Result([], [], {}, {})
     for name, lines in files:
-        unstamped = placeless = rejected = 0
+        unstamped = placeless = rejected = cut = 0
         for number, text in sentences(lines):
             sentence = parse_sentence(text, MINIMUM)
             if sentence is None:
-                rejected += "GLL" in text or "GGA" in text
+                if "GLL" in text or "GGA" in text:
+                    rejected += has_star(text)
+                    cut += not has_star(text)
                 continue
             if sentence.kind == "GLL":
                 gga = GLL.from_fields(sentence.fields).as_gga()
@@ -79,4 +83,5 @@ def read(files: list[tuple[str, list[str]]], stamp: Stamp = scs_time) -> Result:
         count_skipped(result.skipped, name, NO_LOGGER_TIMESTAMP.replace("GGA", "fix"), unstamped)
         count_skipped(result.skipped, name, NO_POSITION, placeless)
         count_skipped(result.skipped, name, FAILED_CHECKSUM, rejected)
+        report_cut_short(result.errors, result.skipped, name, cut)
     return result

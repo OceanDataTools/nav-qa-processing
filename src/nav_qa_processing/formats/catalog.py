@@ -50,11 +50,12 @@ def _build(cls, data: dict):
     return cls(**data)
 
 
-def canonical_id(format_id: str) -> str:
+def canonical_id(format_id: object) -> str:
     """A format ID as this project writes it: NavManager's one-digit IDs padded to two digits
-    (nav2 -> nav02); anything else unchanged
+    (nav2 -> nav02); anything else as text, so a TOML's `format = 29` is an unknown format, not
+    a crash (#83 review)
     """
-    text = format_id.strip()
+    text = str(format_id).strip()
     match = re.fullmatch(r"nav([1-9])", text)
     return f"nav0{match.group(1)}" if match else text
 
