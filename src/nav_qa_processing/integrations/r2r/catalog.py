@@ -17,6 +17,7 @@ lacks from that report when R2R has one, so the config reproduces the report's f
 import json
 import logging
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -46,13 +47,34 @@ logger = logging.getLogger(__name__)
 
 
 class R2RError(LookupError):
-    """R2R's catalog doesn't have what was asked for"""
+    """R2R's catalog doesn't have what was asked for, or R2R answered with an HTTP error.
+    `status` is that error's HTTP status, else None
+    """
+
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
+
+
+def http_error(error: urllib.error.HTTPError, what: str, url: str) -> R2RError:
+    """An HTTP error from R2R as a one-line R2RError naming what was being fetched (#101)"""
+    host = urllib.parse.urlsplit(url).hostname or url
+    retry = "; try again later" if error.code >= 500 else ""
+    return R2RError(
+        f"{what} ({host}) answered {error.code} {error.reason}{retry}", status=error.code
+    )
 
 
 def _get(url: str, service: str = "R2R") -> bytes:
     logger.debug("GET %s", url)
-    with reaching(service, url), urllib.request.urlopen(url, timeout=R2R_API_TIMEOUT) as response:
-        return response.read()
+    try:
+        with (
+            reaching(service, url),
+            urllib.request.urlopen(url, timeout=R2R_API_TIMEOUT) as response,
+        ):
+            return response.read()
+    except urllib.error.HTTPError as error:
+        raise http_error(error, f"{service}'s catalog", url) from error
 
 
 def fetch_r2r_records(endpoint: str, **query) -> list[dict]:
@@ -72,6 +94,10 @@ def fetch_device(vessel_id: str, device_id: str) -> dict:
         return json.loads(_get(url))
     except ValueError:  # R2R answers an unknown device with an HTML page
         return {}
+    except R2RError as error:
+        if error.status == 404:  # or, at times, with 404
+            return {}
+        raise
 
 
 def qa_report_url(fileset_id: int | str) -> str | None:

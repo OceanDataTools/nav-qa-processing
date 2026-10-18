@@ -87,3 +87,69 @@ def test_fileset_id_must_be_an_integer(capsys):
     with pytest.raises(SystemExit):
         main(["r2r", "fetch-fileset", "SP2613", "gnss"])
     assert "not an R2R fileset ID" in capsys.readouterr().err
+
+
+# -- R2R's HTTP errors are one line, not a traceback (#101) --
+
+
+def _http_error(code=503, reason="Service Unavailable"):
+    import io
+    import urllib.error
+
+    return urllib.error.HTTPError(
+        "https://service.rvdata.us/api/x", code, reason, {}, io.BytesIO()
+    )
+
+
+def test_config_from_catalog_reports_an_http_error_in_one_line(tmp_path, capsys, monkeypatch):
+    from nav_qa_processing.integrations.r2r import catalog
+
+    def unavailable(*args, **kwargs):
+        raise _http_error()
+
+    monkeypatch.setattr(catalog.urllib.request, "urlopen", unavailable)
+    assert main(["r2r", "config-from-catalog", "SP2613", "169851", "-o", str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and "Traceback" not in err
+    assert (
+        "R2R's catalog (service.rvdata.us) answered 503 Service Unavailable; try again later"
+        in err
+    )
+    # -vv adds the traceback
+    assert (
+        main(["r2r", "config-from-catalog", "SP2613", "169851", "-o", str(tmp_path), "-vv"]) == 1
+    )
+    assert "Traceback" in capsys.readouterr().err
+
+
+def test_fetch_fileset_says_what_arrived_when_the_products_fail(tmp_path, capsys, monkeypatch):
+    from nav_qa_processing.integrations.r2r import download
+
+    records = {
+        "fileset": [{"fileset_id": 105061, "download_url": "https://example.org/bag.tar.gz"}],
+        "product": [{"product_type": "r2rnav", "url": "https://example.org/products/"}],
+    }
+    monkeypatch.setattr(download, "fetch_r2r_records", lambda endpoint, **q: records[endpoint])
+    monkeypatch.setattr(download, "download_qa_report", lambda *a: None)
+
+    def bag(opener, url, destination, what="R2R's fileset download"):
+        if "products" in url:
+            raise download.http_error(_http_error(), what, url)
+        return url, 5
+
+    monkeypatch.setattr(download, "download_bag", bag)
+    assert main(["r2r", "fetch-fileset", "BH10-17", "105061", "-o", str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and "Traceback" not in err
+    assert "5 raw files are in" in err and "R2R's product bag (example.org) answered 503" in err
+    assert "Run again with --force to fetch them" in err
+
+
+def test_an_unknown_device_answered_with_404_is_no_device(monkeypatch):
+    from nav_qa_processing.integrations.r2r import catalog
+
+    def not_found(*args, **kwargs):
+        raise _http_error(404, "Not Found")
+
+    monkeypatch.setattr(catalog.urllib.request, "urlopen", not_found)
+    assert catalog.fetch_device("33P4", "999999") == {}
