@@ -34,6 +34,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R10 | navcopy nav33, nav02 | A GGA repeating the previous one's time of day dropped, keeping the later | EN735: 5 records | Kept; QC flags the repeat (#81) |
 | R11 | nmeatools | An empty numeric GGA field read as 0 | HLY08TD: 2 records with HDOP 0 (flagged by both) | Missing (`NAN`) |
 | R12 | R2R's run, nav15 | GGAs logged before the logger's clock reached their time dated a day early | W1109B: 1,017 fixes, flagged out of sequence | Each GGA dated by its line's timestamp (#88) |
+| R13 | navcopy nav22 | Every GGA of a file dated by its name's date | NH1209: a file of 09-23's fixes named 20120924000000 dated a day late (R2R made no products from it) | Nearest the name's time, then the fix before (#90) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -157,6 +158,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Evidence:** across midnight the logger ran 0.2–0.4 s behind the GPS (GGA 000000.00 logged at 23:59:59.569 on 09-14), until 00:16:57, when it moved ahead (GGA 001657.00 logged at 00:16:57.043). The 1,017 misdated fixes are exactly those whose GGA time was later than the logger's (`tests/test_rawnav.py`, #88).
 - **Why (suspected):** a rule dating a GGA later than the logger's time to the day before, as `parse_nav12()`'s branch without ZDA does. The master branch's nav15 code has no such rule (it carries the logger's date through a buffer), so R2R's 2012 run likely used an earlier version.
 - **Effect:** 17 minutes of a cruise dated a day early and flagged out of sequence in R2R's bestres.
+
+### R13. nav22: a file's GGAs all take its name's date
+
+- **NavManager:** the nav22 case (`navcopy.inc.php`) takes the `YYYYMMDDhhmmss` after the first `_` of the file's whole path (an `_` in a directory name breaks it), gives every GGA of the file that date, then carries the buffer's first date forward, adding a day where the time of day falls by more than 10 hours.
+- **Here:** the stamp is found in the file name alone; a file's first GGA takes the date nearest the name's time, each next GGA the date nearest the fix before (`formats/file_stamp.py`).
+- **Evidence:** NH1209's `ashtech_20120924000000.raw` holds 2012-09-23 18:36–21:00; at those times its fixes lie within meters (median 6.7 m) of R2R's bestres from the primary GPS, and dated 09-24 they match nothing (`tests/test_rawnav.py`, #90).
+- **Why (confirmed in code):** the file's name date is assigned to every GGA, and a file named after its first fix is assumed.
+- **Effect:** none on R2R's products, which don't use these feeds; a nav22 file named after midnight but starting before it would be dated a day late.
 
 ## Geodesy and speed/course (navtools, navsogcog)
 

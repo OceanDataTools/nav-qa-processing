@@ -7,6 +7,10 @@ sentences = ["GGA", "VTG", "PASHR"]
 position = "GGA"
 time = "GGA time of day, dated by the YYYYMMDDHHmmss stamp in the file name"
 description = "PASHR ATT, GGA and VTG sentences repeat in turn. No sentence carries a date: it comes from the YYYYMMDDHHmmss timestamp in the file name."
+notes = [
+  "Seen in New Horizon's Ashtech ADU2 fileset NH1209 (fileset 107219, files ashtech_YYYYMMDDhhmmss.raw). A file's name can postdate its first fix: ashtech_20120924000000.raw starts 2012-09-23 18:36.",
+  "R2R files these filesets under 100010 (nav01's ID) and has made no products or QA from them.",
+]
 references = ["www.nmea.org"]
 examples = [
   "$PASHR,ATT,000016.0,082.92,-001.50,-000.47,0.0014,0.0165,0*2F",

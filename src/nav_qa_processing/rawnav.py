@@ -88,7 +88,7 @@ def read_fileset(
             errors.append(f"{path.name}: {error}")
             unread[path.name] = str(error)
             continue
-        span = spec.reader.span(lines)
+        span = spec.reader.span_of(path.name, lines)
         if span is None:
             errors.append(f"{path.name}: no {spec.reader.dated_by}, skipped")
             unread[path.name] = f"no {spec.reader.dated_by}"
