@@ -1,0 +1,59 @@
+# From R2R's catalog, 2026-10-18
+[cruise]
+id = "EN735"
+name = "COOGER-NL 2025"
+pi = "Ortmann, Alice"
+vessel_id = "32EV"
+vessel_name = "Endeavor"
+operator_id = "edu.uri"
+scheduler_id = "org.unols"
+date_issued = "2025-09-08"
+date_modified = "2025-09-25T04:09:07Z"
+depart_date = 2025-08-19
+arrive_date = 2025-08-22
+doi = "doi:10.7284/910973"
+
+[cruise.extent]
+westernmost = -72.793253
+easternmost = -71.4073
+southernmost = 41.122587
+northernmost = 41.50037
+
+[cruise.depart_port]
+name = "Halifax"
+port_id = "100601"
+country_id = "ca"
+longitude = -63.56667
+latitude = 44.65
+
+[cruise.arrive_port]
+name = "Halifax"
+port_id = "100601"
+country_id = "ca"
+longitude = -63.56667
+latitude = 44.65
+
+[fileset]
+id = "165419"
+doi = "doi:10.7284/165419"
+date_created = "2025-09-10"
+format_id = "100011"
+format_alias = "scs_gpgga"
+
+[fileset.device]
+id = "100845"
+make_id = "com.furuno"
+model_id = "100329"
+model_name = "GP-33"
+
+[nav]
+format = "nav2"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

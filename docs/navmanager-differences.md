@@ -24,13 +24,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | ID | Stage | Difference | Effect on R2R's products | Status here |
 |---|---|---|---|---|
 | R1 | reader | Correct checksums 0x0A–0x0F rejected | Sentences dropped (14 % of VTG, 11 % of RMC in SP2613; 48,427 GGAs, 2.9 %, in FKt230417) | Fixed (#13) |
-| R2 | reader | Last GGA after the final ZDA dropped | One record lost per cruise (SP2424) | Fixed (#14) |
+| R2 | reader | Last GGA after the final ZDA dropped | One record lost per cruise (SP2424; SKQ202516S, nav24) | Fixed (#14) |
 | R3 | reader | GGA repeating the last dated time, or at 00:00:00, dropped | Records lost (SP2503: its first fix, at 00:00:00) | Fixed (#14) |
 | R4 | reader | An equal time of day advances the date | A repeated fix dated 24 h later (none in the references) | Fixed (#15) |
 | R5 | reader | Sentences split across logger lines read as short sentences, missing fields as 0 | RR2406: 191,414 of 266,841 records flagged; R on five tests from absurd values | Rejoined; a truncated sentence is rejected (#26) |
 | R6 | reader | A coordinate without its hemisphere letter read as N or E | RR2406: 45,243 fixes at 83°E | Missing (#26) |
-| R8 | navcopy nav33 | The 86,400th fix of each buffer dropped | FKt230417: 18 fixes | Every fix kept (#48) |
-| R9 | navcopy nav33 | The last fix of the cruise dropped | FKt230417: its final fix | Every fix kept (#48) |
+| R8 | navcopy nav33, nav2 | The 86,400th fix of each buffer dropped | FKt230417: 18 fixes; EN735: 3 | Every fix kept (#48, #81) |
+| R9 | navcopy nav33, nav2 | The last fix of the cruise dropped | FKt230417, EN735: the final fix | Every fix kept (#48, #81) |
+| R10 | navcopy nav33, nav2 | A GGA repeating the previous one's time of day dropped, keeping the later | EN735: 5 records | Kept; QC flags the repeat (#81) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -42,7 +43,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | Q4 | navqc | 3,600-record buffers | Flags depend on buffer boundaries | Whole series (#7) |
 | Q5 | navqc | Acceleration limit set to 3× position resolution [m], from one record | Silent, dimensionally odd limit | Derived from resolution, reported (#7) |
 | Q6 | navqc | Null island only at 00:00:00 | 0,0 fixes at other times kept | Any time (#7) |
-| Q7 | navqc | Stale-repeat decisions near the 0.25 m/s threshold | SP1925: 94 flags R2R-only, 10 ours-only | Documented (#10) |
+| Q7 | navqc | Stale-repeat decisions near the 0.25 m/s threshold | R2R-only flags: SP1925 94, RR1802 208, EN735 1,765 | Documented (#10, #81) |
 | Q8 | navqc | No rule for fixes the ship couldn't reach (only an exact 0,0 at midnight, Q6) | A long stretch at a wrong position stays in the products (FKt230417: 283 fixes 650 m off for 4.7 min) | Reachability rule at 25 m s-1, longest reachable chain (#47) |
 | P1 | navsample | Nearest record to each whole minute, with a skewed window and ring-buffer gaps | 1min misses nodes at buffer wraps and after the last fix | Nearest within half an interval (#8) |
 | P2 | NavControl | Committed tolerance 0.1°, R2R uses 0.01° | None (R2R runs 0.01°) | shapely at 0.01° (#8) |
@@ -72,7 +73,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 
 - **NavManager:** `parse_nav29` (`include/parsers/nav29.php`, end-of-input block): the loop `for ($inx=1; $inx < $binx - 1; $inx++)` prints one record fewer than the buffer holds.
 - **Here:** every valid GGA is kept (`formats/gga_zda.py`).
-- **Evidence:** SP2424 has 150,925 valid GGAs; R2R's bestres has 150,924, missing the final fix, 2024-11-04T03:16:44.50Z (`tests/test_rawnav.py`).
+- **Evidence:** SP2424 has 150,925 valid GGAs; R2R's bestres has 150,924, missing the final fix, 2024-11-04T03:16:44.50Z (`tests/test_rawnav.py`). nav24, read the same way (NavManager's inline `case "nav24"` has the same loop): SKQ202516S has 771,064; R2R's bestres lacks the final fix, 2025-09-07T22:11:03.97Z (`tests/test_r2r_references.py`, #81).
 - **Why (confirmed):** an off-by-one. `$binx` is the next free (1-based) index, so the buffer holds `$binx - 1` records, but the loop stops before the last one.
 - **Effect:** one fix lost at the end of every cruise whose last GGA follows its last ZDA. Here SP2424's 1min and control also end on that fix (P1).
 
@@ -115,21 +116,29 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Evidence:** `tests/test_r2r_references.py`.
 - **Effect:** R2R's out-of-sequence rating and its catalog extent are wrong for this cruise; the extent check here finds 100,828 fixes "outside" R2R's extent.
 
-### R8. nav33: the 86,400th fix of each buffer is dropped
+### R8. nav33 and nav2: the 86,400th fix of each buffer is dropped
 
-- **NavManager:** `parse_nav33()` (`include/parsers/nav33.php`, ~line 231) collects valid GGAs in a buffer of `$maxBuffer = 86400`. When it's full, it dates and prints entries 1 to `$maxBuffer - 1` and discards the buffer, so the last entry is never written.
+- **NavManager:** `parse_nav33()` (`include/parsers/nav33.php`, ~line 231) collects valid GGAs in a buffer of `$maxBuffer = 86400`. When it's full, it dates and prints entries 1 to `$maxBuffer - 1` and discards the buffer, so the last entry is never written. `parse_nav2()` (`include/parsers/nav2.php`) has the same buffer and loop.
 - **Here:** the reader keeps every valid GGA (`formats/timestamped_gga.py`).
-- **Evidence:** FKt230417: one fix missing after every 86,399 that R2R kept, 18 in all (`tests/test_r2r_references.py`).
+- **Evidence:** FKt230417: one fix missing after every 86,399 that R2R kept, 18 in all (`tests/test_r2r_references.py`). EN735 (nav2, 1 Hz): 08-20T12:39:20, 08-21T12:39:21 and 08-22T12:39:22, one a day (#81).
 - **Why (confirmed in code):** an off-by-one in the buffer's print loop; the other parsers of `navcopy.inc.php` with the same buffer may share it.
 - **Effect:** one fix a day at 1 Hz; too few to change a rating.
 
-### R9. nav33: the cruise's last fix is dropped
+### R9. nav33 and nav2: the cruise's last fix is dropped
 
 - **NavManager:** the flush after the last file (`include/parsers/nav33.php`, ~line 312) loops `for ($inx=1; $inx < $binx - 1; ...)`, which stops one short of the buffer's last entry.
 - **Here:** every fix is kept.
-- **Evidence:** FKt230417: R2R's bestres ends at 13:51:28.29Z; the raw files' last fix is 13:51:29.29Z.
+- **Evidence:** FKt230417: R2R's bestres ends at 13:51:28.29Z; the raw files' last fix is 13:51:29.29Z. EN735 (nav2, `parse_nav2()`'s flush has the same loop): R2R's ends at 2025-08-22T23:59:57Z, the raw files' last fix is 23:59:58Z.
 - **Why (confirmed in code):** as R2 for the GGA + ZDA reader: the final loop stops one short.
 - **Effect:** one record per cruise.
+
+### R10. nav33 and nav2: a GGA repeating the previous one's time is dropped
+
+- **NavManager:** while dating a buffer, `parse_nav2()` and `parse_nav33()` skip printing a GGA whose time of day equals the next one's (`if ($delt == 0) continue;`, commented "Added for Falkor to skip duplicate records caused by rounding seconds"), so of two GGAs with the same time the later is written.
+- **Here:** both are kept, and QC flags the second as out of sequence (`TIME_SEQUENCE`).
+- **Evidence:** EN735 (nav2): 5 repeated GGA times; R2R's bestres has each once, with the later GGA's values (altitudes up to 2.6 m apart). Comparing on the later record, every shared value is equal (`tests/test_r2r_references.py`, #81).
+- **Why (confirmed in code):** a fix for Falkor's logger, applied to every format these parsers read.
+- **Effect:** a few records per cruise; R2R keeps the later of each pair, this package the earlier as good.
 
 ## Geodesy and speed/course (navtools, navsogcog)
 
@@ -217,7 +226,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **NavManager and here:** a repeated position is flagged while the median of the 10 preceding speeds exceeds 0.25 m s-1.
 - **Evidence:** SP1925 (45,723 fixes, 1 Hz, 6-decimal positions): R2R flags 303, this package 219, 209 the same. Every difference is a repeated position while the ship barely moves (median of the preceding speeds 0.16–0.32 m s-1). NavManager's median skips the latest speed (`array_slice($speedHori, $vnx-11, 10)`) and restarts per buffer; neither changes the count (`tests/test_geocsv.py`).
 - **Why (suspected):** NavManager's inverted acceleration loop (Q2) computes speeds from the flagged repeats and flags further repeats next to them.
-- **Effect:** R2R flags more repeated positions at low speed.
+- **Effect:** R2R flags more repeated positions at low speed. The same at the dock in RR1802 (nav1: R2R flags 292, this package 93, 84 the same; 207 of R2R's 208 others repeat the previous position) and EN735 (nav2: 1,762 of R2R's 1,765 others), #81.
 
 ### Q8. Nothing catches a fix the ship couldn't have reached
 

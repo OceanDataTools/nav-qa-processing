@@ -14,6 +14,7 @@ reference, whose missing fixes in R2R's products are each explained (R1, R8, R9,
 import functools
 
 import numpy as np
+import pandas as pd
 import pytest
 from conftest import CONFIGS, DATA
 
@@ -93,7 +94,9 @@ def test_rr2406_split_sentences():
     flagged = best.records[best.records["flagged"]]
     assert int((flagged["nmea_quality"] == 0).sum()) == 120_694
     assert int((flagged["ship_longitude"] > 0).sum()) == 45_243
-    assert len(run.result.nav.frame) == 385_320 and (run.result.nav.frame["lon"] < 0).all()
+    # One GGA cut after the geoid separation, before a 4-minute break in the logger's stream, has
+    # every field we read: kept (#81)
+    assert len(run.result.nav.frame) == 385_321 and (run.result.nav.frame["lon"] < 0).all()
 
 
 def test_rr2212_files_out_of_order():
@@ -233,3 +236,53 @@ def test_fkt230417_nav33():
     # Over water (#79): alongside in San Juan, which is land at 1:10m, for 30 minutes
     over_water = next(c for c in s.checks if c.name == "Over water")
     assert over_water.status == "pass" and "1835 within 2000 m of the coast" in over_water.detail
+
+
+def _times(frame_times) -> np.ndarray:
+    return frame_times.dt.as_unit("ns").astype("int64").to_numpy()
+
+
+def test_en735_nav2():
+    """Endeavor's NOAA SCS (nav2: the logger's date and time, then GGA). Both rate G. R2R's
+    bestres is ours less 9 records: every 86,400th GGA (R8: 3), the last (R9) and the earlier of
+    5 repeated times (NavManager keeps the later; QC flags it here). Their values are equal
+    """
+    run = ours("EN735_165419")
+    rating, tests = ratings(run)
+    r2r_rating, r2r_tests = r2rs("EN735_165419")
+    assert rating == r2r_rating == "G"
+    for name in TESTS[:4]:  # the tests not from speeds and accelerations (A5)
+        assert tests[name] == r2r_tests[name]
+    nav = run.result.nav.frame
+    best = geocsv.read(directory("EN735_165419") / "products/data/EN735_bestres.geoCSV").records
+    times, theirs = _times(nav["time"]), _times(best["iso_time"])
+    assert (len(times), len(theirs)) == (300_036, 300_027)
+    assert np.isin(theirs, times).all()
+    repeated = nav["time"].duplicated(keep="last").to_numpy()
+    assert int(repeated.sum()) == 5
+    missing = nav["time"][~np.isin(times, theirs)].dt.strftime("%m-%dT%H:%M:%S").tolist()
+    assert missing == ["08-20T12:39:20", "08-21T12:39:21", "08-22T12:39:22", "08-22T23:59:58"]
+    kept = nav[~repeated & np.isin(times, theirs)]
+    assert np.allclose(kept["lon"], best["ship_longitude"], atol=5e-7)
+    assert (kept["alt"].to_numpy() == best["antenna_height"].to_numpy()).all()
+
+
+def test_skq202516s_nav24():
+    """Sikuliaq's Seapath 380+ (nav24: logger ID, ISO timestamp, NMEA; R2R format 100103). Both
+    rate G with the same results, and flag the same 62 records. R2R's bestres is ours less the
+    final fix, after the last ZDA (R2)
+    """
+    run = ours("SKQ202516S_165743")
+    rating, tests = ratings(run)
+    r2r_rating, r2r_tests = r2rs("SKQ202516S_165743")
+    assert rating == r2r_rating == "G" and tests == r2r_tests
+    nav = run.result.nav.frame
+    best = geocsv.read(directory("SKQ202516S_165743") / "products/data/SKQ202516S_bestres.geoCSV")
+    records = best.records
+    times, theirs = _times(nav["time"]), _times(records["iso_time"])
+    assert len(times) == len(theirs) + 1 == 771_064
+    assert (times[:-1] == theirs).all()
+    assert nav["time"].iloc[-1] == pd.Timestamp("2025-09-07T22:11:03.97Z")
+    assert np.allclose(nav["lat"].iloc[:-1], records["ship_latitude"], atol=5e-9)
+    flagged = run.result.qc.flags[:-1] != 0
+    assert int(flagged.sum()) == int(records["flagged"].sum()) == 62
