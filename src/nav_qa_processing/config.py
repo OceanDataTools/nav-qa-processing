@@ -173,10 +173,13 @@ class Thresholds(Readable):
     max_bad_quality: float = 5.0  # [percent] of records reporting a quality indicator
     max_unreasonable_speeds: float = 5.0  # [percent] of speeds
     max_unreasonable_accelerations: float = 5.0  # [percent] of accelerations
-    # A fix on land farther than this from Natural Earth's 1:10m coasts and rivers is over land
-    # (land.py, #79, #85): harbors the coastline draws as land (RR2212: 1,438 m) and rivers
-    # whose generalized centerline runs off a ship under way (RR1802, the Willamette: 2,630 m)
+    # Over water (land.py, #79, #85, #95): a fix on land farther than land_tolerance from
+    # Natural Earth's 1:10m coasts and rivers is reported, and one farther than max_inland
+    # warns. Harbors (RR2212: 1,438 m) and rivers (RR1802: 2,630 m from the Willamette's line)
+    # lie within the tolerance, canals the map lacks within max_inland (RC0014, Seattle's ship
+    # canal: 3,929 m); a fix plainly ashore is kilometres to hundreds of kilometres inland
     land_tolerance: float = 3000.0  # [m]
+    max_inland: float = 10_000.0  # [m]
     # -- QC --
     max_accel: float = 1.0  # [m s-2]
     # A fix farther from the trusted track than this speed allows, plus the tolerance, can't
@@ -222,6 +225,7 @@ THRESHOLD_UNITS = {
     "max_unreasonable_speeds": "%",
     "max_unreasonable_accelerations": "%",
     "land_tolerance": "m",
+    "max_inland": "m",
     "max_accel": "m s-2",
     "max_reach_speed": "m s-1",
     "reach_tolerance": "m",

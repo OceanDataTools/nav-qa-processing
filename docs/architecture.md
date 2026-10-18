@@ -744,8 +744,8 @@ Comparisons with R2R parse the numbers and map the units.
   writes the reports unrun, so a run writes one XML.
 
 **Over water (#79).** A research vessel's fixes are never over land, so a core check counts the
-usable records more than `land_tolerance` (3000 m, #85) inside Natural Earth's 1:10m land less its
-lakes, the layers the map draws and `fetch-map-data` caches (`land.py`). The coastline is
+usable records on Natural Earth's 1:10m land less its lakes (the layers the map draws and
+`fetch-map-data` caches, `land.py`) more than `max_inland` (10 km, #95) from water. The coastline is
 coarse in harbors: on RR2212 (Oakland's inner harbor, under way), RR2406 (Morehead City's
 channel) and FKt230417 (alongside in San Juan), 374, 120 and 1,835 fixes lie up to 1,438 m,
 147 m and 728 m inside it; the other references have none. Hence the tolerance, and a check
@@ -761,6 +761,13 @@ Willamette came out 43 km inland, KN220-02 on Charleston's Cooper River 2.5 km. 
 centerline. The centerlines are generalized: RR1802's run down the Willamette, under way at
 5 m s-1, is up to 2.63 km from its line, so the tolerance is 3000 m, not the 2000 m the harbors
 alone suggested. Without the rivers layer, the check uses land and lakes.
+
+Canals and channels the map lacks kept coming (#95): RC0014's return through Seattle's ship
+canal is up to 3.93 km from any of it. Rather than loosen the tolerance for every cruise, the
+check has two levels: a fix on land beyond `land_tolerance` (3000 m) is reported in the check's
+detail with the deepest, and only one beyond `max_inland` (10 km) warns and is counted and
+ringed on the map. A fix plainly ashore, a receiver fault or a stretch far off the track, is
+kilometres to hundreds of kilometres inland, and QC's reachability rule flags most jumps anyway.
 
 ### Validation strategy
 

@@ -27,7 +27,8 @@ The core checks (pass/warn/info/n/a) compare these with `Thresholds`, whose defa
 green bounds; R2R's own G/Y/R ratings belong to the R2R integration.
 
 - **Over water** (#79): with the land under the track (`land.Land`), each usable record's
-  distance inside the coastline; over land beyond `land_tolerance`. Without it (no map data),
+  distance on land to the nearest water; over land (warn) beyond `max_inland`, and reported
+  beyond `land_tolerance` (#95). Without it (no map data),
   the check is n/a.
 
 `gaps` lists the gaps (#65): when each started and ended, how long it was and the files either
@@ -269,7 +270,7 @@ def compute(
     if land is not None:
         inland = np.where(usable, land.inland(f["lon"], f["lat"]), np.nan)
         with np.errstate(invalid="ignore"):
-            counted["over_land"] = inland > th.land_tolerance
+            counted["over_land"] = inland > th.max_inland
 
     times = f["time"][in_sequence]
     stats = NavStats(
@@ -495,18 +496,32 @@ def _checks(stats: NavStats, qc_result, th, extent) -> list[CheckResult]:
 
 
 def _over_water(stats: NavStats, th) -> CheckResult:
-    """No usable fix more than `land_tolerance` inside the coastline (#79)"""
+    """No usable fix more than `max_inland` from Natural Earth's water (#79, #95). Fixes on land
+    nearer than that are reported, not warned of: farther than `land_tolerance` (canals and
+    channels the map lacks), and within it (ports)
+    """
     name = "Over water"
     if stats.inland is None:
         return CheckResult(name, "n/a", "no coastline data", "run fetch-map-data")
-    over = int(stats.counted["over_land"].sum())
+    metres = lambda value: f"{q.DISTANCE.format(value)} {q.DISTANCE.unit}"
+    inland = stats.inland
     with np.errstate(invalid="ignore"):
-        ashore = int((stats.inland > 0).sum())
-    tolerance = f"{q.DISTANCE.format(th.land_tolerance)} {q.DISTANCE.unit}"
-    detail = [f"more than {tolerance} from Natural Earth's 1:10m coasts and rivers"]
-    if over:
-        deepest = float(np.nanmax(stats.inland))
-        detail.append(f"up to {q.DISTANCE.format(deepest)} {q.DISTANCE.unit} inland")
-    if ashore > over:
-        detail.append(f"{ashore - over} on land within {tolerance} of water (ports)")
-    return CheckResult(name, _status(over == 0), f"{over} over land", "; ".join(detail))
+        over = inland > th.max_inland
+        waterways = (inland > th.land_tolerance) & ~over
+        ports = (inland > 0) & (inland <= th.land_tolerance)
+    detail = [f"more than {metres(th.max_inland)} from Natural Earth's 1:10m coasts and rivers"]
+    if over.any():
+        detail.append(f"up to {metres(np.nanmax(inland))} inland")
+    if waterways.any():
+        deepest = np.nanmax(np.where(waterways, inland, np.nan))
+        detail.append(
+            f"{int(waterways.sum())} on land {metres(th.land_tolerance)} to "
+            f"{metres(th.max_inland)} from water, up to {metres(deepest)} (waterways the map "
+            "lacks)"
+        )
+    if ports.any():
+        detail.append(
+            f"{int(ports.sum())} on land within {metres(th.land_tolerance)} of water (ports)"
+        )
+    count = int(over.sum())
+    return CheckResult(name, _status(count == 0), f"{count} over land", "; ".join(detail))

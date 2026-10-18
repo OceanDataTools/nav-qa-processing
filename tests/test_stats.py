@@ -328,8 +328,9 @@ def over_water(s):
 
 
 def test_over_water():
-    """A track that runs 1.5 km ashore (#79): within the default 3000 m it passes, and says how
-    many fixes were over land; within 500 m it warns
+    """A track that runs 1.5 km ashore (#79, #95): with the defaults its fixes on land are ports;
+    with a 500 m tolerance those beyond it are reported, not warned of; with max_inland 1000 m
+    the ones beyond that warn
     """
     nav = nav_from(range(1001))  # 3 km north at 3 m s-1
     nav.frame["source_file"] = "x"
@@ -339,16 +340,21 @@ def test_over_water():
     check = over_water(compute(nav, land=ashore))
     assert (check.status, check.value) == ("pass", "0 over land")
     assert check.detail == (
-        f"more than 3000 m from Natural Earth's 1:10m coasts and rivers; {on_land} on land within "
-        "3000 m of water (ports)"
+        f"more than 10000 m from Natural Earth's 1:10m coasts and rivers; {on_land} on land "
+        "within 3000 m of water (ports)"
     )
-    s = compute(nav, Thresholds(land_tolerance=500.0), land=ashore)
+    # beyond the tolerance but within max_inland: reported, still a pass
+    check = over_water(compute(nav, Thresholds(land_tolerance=500.0), land=ashore))
+    assert (check.status, check.value) == ("pass", "0 over land")
+    assert re.search(r"; \d+ on land 500 m to 10000 m from water, up to 149\d m", check.detail)
+    # beyond max_inland: over land, warned of
+    s = compute(nav, Thresholds(land_tolerance=500.0, max_inland=1000.0), land=ashore)
     over = int(s.counted["over_land"].sum())
-    assert over == pytest.approx((nav.frame["lat"] > shore + 500 * METRE).sum(), abs=2)
+    assert over == pytest.approx((nav.frame["lat"] > shore + 1000 * METRE).sum(), abs=2)
     check = over_water(s)
     assert (check.status, check.value) == ("warn", f"{over} over land")
     assert re.search(r"up to 149\d m inland", check.detail)  # the last fix, 1.5 km ashore
-    assert f"{on_land - over} on land within 500 m of water" in check.detail
+    assert "on land 500 m to 1000 m from water" in check.detail
     assert stats.counts_by_file(nav, s).set_index("file").loc["Total", "Over land"] == over
 
 

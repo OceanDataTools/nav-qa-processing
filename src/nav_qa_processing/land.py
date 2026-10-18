@@ -7,7 +7,7 @@ each position's distance on land to the nearest water [m]: a coast or a river ce
 
 The 1:10m coastline is coarse in harbors and channels: on RR2212 (Oakland's inner harbor), RR2406
 (Morehead City) and FKt230417 (the dock at San Juan), fixes of a ship under way or alongside lie
-up to 1.44 km inside it. The check therefore counts only fixes more than `land_tolerance` inland,
+up to 1.44 km inside it. The check therefore warns only of fixes more than `max_inland` inland,
 and isn't a QC flag: the coastline is too coarse to drop fixes from the products by.
 
 Ports up rivers aren't water in the land and lakes polygons: RR1802 at Portland's Swan Island
