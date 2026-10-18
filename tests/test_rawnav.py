@@ -183,6 +183,7 @@ def test_rr1802_is_over_water_at_portland():
         ("RC0014_137928", "nav32", 22_203),  # Rachel Carson's CORIOLIX RMC (rated R by both)
         ("RC0011_137345", "nav32", 12_936),  # (rated Y by both)
         ("BH19-30_136141", "nav31", 9_097),  # Blue Heron's UHDAS GPS feed: GGA dated by PYRTM
+        ("BH10-17_105061", "nav03", 6_530),  # Blue Heron's SCS: GLL and GGA, logger time
     ],
 )
 def test_records_match_r2r_bestres(name, format_id, records):
