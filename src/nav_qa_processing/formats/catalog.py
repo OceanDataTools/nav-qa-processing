@@ -59,7 +59,8 @@ def canonical_id(format_id: str) -> str:
     return f"nav0{match.group(1)}" if match else text
 
 
-def _natural_key(format_id: str) -> tuple:
+def natural_key(format_id: str) -> tuple:
+    """Sorts nav01, nav02, …, nav33, then the named formats"""
     digits = "".join(c for c in format_id if c.isdigit())
     return (0, int(digits)) if format_id.startswith("nav") and digits else (1, format_id)
 
@@ -73,7 +74,7 @@ def formats() -> dict[str, FormatDefinition]:
         if entry.name.endswith(".toml") and entry.name != "sentences.toml":
             definition = _build(FormatDefinition, tomllib.loads(entry.read_text()))
             loaded[definition.id] = definition
-    return {k: loaded[k] for k in sorted(loaded, key=_natural_key)}
+    return {k: loaded[k] for k in sorted(loaded, key=natural_key)}
 
 
 @cache

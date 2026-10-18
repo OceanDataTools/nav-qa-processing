@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 
-from nav_qa_processing.formats import catalog, gga_zda, timestamped_gga
+from nav_qa_processing.formats import catalog, gga_zda, timestamped_gga, zda_or_stamp
 
 
 @dataclass(frozen=True)
@@ -34,12 +34,16 @@ SCS_GGA = Reader(
     "logger timestamp",
     "GGA",
 )
+ZDA_OR_STAMP = Reader(zda_or_stamp.read, zda_or_stamp.span, "ZDA or logger timestamp", "GGA/ZDA")
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
     "nav01": GGA_ZDA,  # bare NMEA (#81)
     "nav02": SCS_GGA,  # NOAA SCS: logger date and time, then GGA (#81)
+    "nav12": ZDA_OR_STAMP,  # device ID, year:day-of-year timestamp, NMEA; ZDA when logged
+    "nav20": GGA_ZDA,  # NAV tag, logger date and time, device tag, then NMEA (Knorr)
     "nav24": GGA_ZDA,  # Sikuliaq: logger ID and ISO timestamp, then NMEA (#81)
+    "nav25": GGA_ZDA,  # Healy's Seapath: logger ID, ISO timestamp, NMEA, comma-separated
     "nav29": GGA_ZDA,
     "nav33": TIMESTAMPED_GGA,
 }
@@ -59,6 +63,11 @@ class FormatSpec:
         return self.reader is not None
 
 
+def readable() -> list[str]:
+    """The IDs of the formats with a reader, in order (nav01, nav02, …, then named ones)"""
+    return sorted(READERS, key=catalog.natural_key)
+
+
 def all_formats() -> dict[str, FormatSpec]:
     return {
         format_id: FormatSpec(definition, READERS.get(format_id))
@@ -71,7 +80,7 @@ def get(format_id: str) -> FormatSpec:
     format_id = catalog.canonical_id(format_id)
     spec = all_formats().get(format_id)
     if spec is None or not spec.supported:
-        supported = ", ".join(sorted(READERS))
+        supported = ", ".join(readable())
         what = "not supported yet" if spec else "unknown"
         raise ValueError(f"nav format {format_id!r} is {what} (supported: {supported})")
     return spec

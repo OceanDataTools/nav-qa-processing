@@ -32,6 +32,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R8 | navcopy nav33, nav02 | The 86,400th fix of each buffer dropped | FKt230417: 18 fixes; EN735: 3 | Every fix kept (#48, #81) |
 | R9 | navcopy nav33, nav02 | The last fix of the cruise dropped | FKt230417, EN735: the final fix | Every fix kept (#48, #81) |
 | R10 | navcopy nav33, nav02 | A GGA repeating the previous one's time of day dropped, keeping the later | EN735: 5 records | Kept; QC flags the repeat (#81) |
+| R11 | nmeatools | An empty numeric GGA field read as 0 | HLY08TD: 2 records with HDOP 0 (flagged by both) | Missing (`NAN`) |
 | R7 | R2R's run | RR2212's files processed out of date order | 121,321 records flagged out of sequence (50.08 %, R); the catalog extent misses two days | Files in time order (suspected R2R pipeline, not NavManager) |
 | G1 | geodesy | Hand-written Vincenty: rounded semi-minor axis, early-exit azimuth, no iteration limit | Last digit of 8 speeds and ~4,300 courses (SP2613) | pyproj (#6) |
 | G2 | geodesy | SOG/COG from coordinates rounded as written | Last digit of some speeds | Full precision (#12) |
@@ -140,6 +141,14 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Why (confirmed in code):** a fix for Falkor's logger, applied to every format these parsers read.
 - **Effect:** a few records per cruise; R2R keeps the later of each pair, this package the earlier as good.
 
+### R11. An empty numeric GGA field is read as 0
+
+- **NavManager:** `NMEA0183_GGA::init` (`include/nmeatools.inc.php`) converts each field with PHP's numeric casts, so an empty HDOP, satellite count or altitude becomes 0.
+- **Here:** an empty field is missing (`NAN` in the products); `nmea.py` parses it so.
+- **Evidence:** HLY08TD (nav12, Healy's POS/MV): two GGAs with an empty HDOP, written by R2R as 0.0; QC flags both records here too (`tests/test_rawnav.py`, #81).
+- **Why (confirmed in code):** PHP casts an empty string to 0.
+- **Effect:** an HDOP of 0, impossible for a fix, in R2R's bestres; the records are flagged either way.
+
 ## Geodesy and speed/course (navtools, navsogcog)
 
 ### G1. Hand-written Vincenty
@@ -198,7 +207,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **NavManager:** acceleration between successive scalar speeds; the fix nearest in time to an excessive acceleration is flagged; the loop runs while `$iter < $maxIter` from 1 with `$maxIter = 3`.
 - **Here:** acceleration at each fix from velocity *vectors* over a 2 s time base; each peak is resolved against the track either side: an excursion that comes back is flagged, a step that stays is reported; repeated until nothing new is flagged.
 - **Why (confirmed for the mechanics):** scalar speeds barely change when a fix jumps sideways, so lateral errors are missed; the nearest fix to the acceleration's time is often a good neighbour of the bad one; `$iter < 3` from 1 allows two passes, though the comment says up to 3.
-- **Effect:** missed sideways errors; good neighbours flagged instead of the bad fix.
+- **Effect:** missed sideways errors; good neighbours flagged instead of the bad fix. With coarse positions at 1 Hz, it also flags a few good fixes under way where one step looks short: KN220-02 (nav20) 2 and MGL1509 (nav12, 4-decimal minutes) 4, none of them repeats (#84).
 
 ### Q4. 3,600-record buffers
 

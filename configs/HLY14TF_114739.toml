@@ -1,0 +1,49 @@
+# From R2R's catalog, 2026-10-18
+[cruise]
+id = "HLY14TF"
+name = "Dynamic Interface Testing"
+location = "Northeast Pacific Ocean (180W)"
+vessel_id = "33HQ"
+vessel_name = "Healy"
+operator_id = "mil.uscg"
+scheduler_id = "mil.uscg"
+depart_date = 2014-09-14
+arrive_date = 2014-09-18
+doi = "doi:10.7284/901464"
+
+[cruise.extent]
+westernmost = -130.7849022
+easternmost = -122.34100082
+southernmost = 47.59042387
+northernmost = 50.25424213
+
+[cruise.depart_port]
+name = "Seattle"
+port_id = "100059"
+
+[cruise.arrive_port]
+name = "Seattle"
+port_id = "100059"
+
+[fileset]
+id = "114739"
+doi = "doi:10.7284/114739"
+format_id = "100091"
+
+[fileset.device]
+id = "100569"
+make_id = "com.kongsberg"
+model_id = "100201"
+model_name = "Seapath 330+"
+
+[nav]
+format = "nav25"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"
