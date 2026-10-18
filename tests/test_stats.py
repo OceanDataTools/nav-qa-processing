@@ -57,6 +57,9 @@ def test_completeness_never_exceeds_100_percent():
 def test_gaps_of_max_gap_or_longer():
     s = compute(nav_from([0, 1, 301, 302, 1000]))
     assert s.gaps == 2 and s.longest_gap == 698.0
+    # shown as hh:mm:ss, with the seconds the threshold is given in (#73)
+    longest = next(c for c in s.checks if c.name == "Longest gap")
+    assert longest.value == "00:11:38.000 (698.000 s)"
 
 
 def test_out_of_sequence_records():

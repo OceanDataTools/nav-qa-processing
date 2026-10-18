@@ -88,6 +88,33 @@ def test_datetimes():
     assert q.ISO_TIME.format(late, decimals=2) == "2026-07-10T00:00:00.00Z"
 
 
+@pytest.mark.parametrize(
+    "seconds, text",
+    [
+        (102_103.5, "28:21:43.500"),  # SP2220's longest gap: hours aren't wrapped at 24
+        (48_625.5, "13:30:25.500"),  # SP2503's
+        (401, "00:06:41.000"),
+        (0.5, "00:00:00.500"),
+        (59.9996, "00:01:00.000"),  # rounding carries into the minute
+        (360_000, "100:00:00.000"),
+    ],
+)
+def test_durations(seconds, text):
+    assert q.LONGEST_GAP.format_duration(seconds) == text
+    assert q.format_duration(seconds, 3) == text
+
+
+def test_durations_with_their_seconds():
+    assert q.LONGEST_GAP.format_duration(102_103.5, seconds=True) == (
+        "28:21:43.500 (102103.500 s)"
+    )
+    assert q.DURATION.format_duration(300, decimals=0) == "00:05:00"
+    assert q.LONGEST_GAP.format_duration(None) == q.MISSING
+    assert q.LONGEST_GAP.clock_label == "Longest time between successive fixes [hh:mm:ss]"
+    with pytest.raises(ValueError, match="not a duration"):
+        q.HDOP.format_duration(1.0)
+
+
 def test_naive_datetimes_are_rejected():
     with pytest.raises(ValueError, match="timezone-aware"):
         q.ISO_TIME.format(datetime(2026, 7, 9), decimals=0)  # noqa: DTZ001

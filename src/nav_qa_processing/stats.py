@@ -46,6 +46,7 @@ import numpy as np
 import pandas as pd
 
 from nav_qa_processing import geodesy
+from nav_qa_processing import quantities as q
 from nav_qa_processing.config import Extent, Thresholds
 from nav_qa_processing.qc import Flag, QCResult, acceleration_at_fixes
 from nav_qa_processing.rawnav import RawNav
@@ -412,7 +413,9 @@ def _checks(stats: NavStats, qc_result, th, extent) -> list[CheckResult]:
         CheckResult(
             "Longest gap",
             _status(at_most(stats.longest_gap, th.max_longest_gap)),
-            "n/a" if stats.longest_gap is None else f"{stats.longest_gap:.3f} s",
+            "n/a"
+            if stats.longest_gap is None
+            else q.LONGEST_GAP.format_duration(stats.longest_gap, seconds=True),
             f"{stats.gaps} gaps of {th.max_gap:g} s or longer",
         ),
         CheckResult(

@@ -360,7 +360,7 @@ def _statistics(lay: Layout, result: NavQAResult) -> Table:
             when(good.last) if good else "",
         ],
         [q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval), "", "", ""],
-        [q.LONGEST_GAP.label, q.LONGEST_GAP.format(s.longest_gap), "", "", ""],
+        [q.LONGEST_GAP.clock_label, q.LONGEST_GAP.format_duration(s.longest_gap), "", "", ""],
     ]
     for quantity, name, places in (
         (q.NSV, "nsv", None),
@@ -476,16 +476,17 @@ def _gaps(lay: Layout, result: NavQAResult) -> list[Flowable]:
     """The longest gaps (#65): when each started and ended, its length and the files either side"""
     th = result.config.thresholds
     found = stats.gaps(result.nav, result.qc, th)
-    heading = Paragraph(f"Gaps of {th.max_gap:g} s or longer", lay.subheading)
+    longer = f"{th.max_gap:g} s ({q.DURATION.format_duration(th.max_gap, 0)}) or longer"
+    heading = Paragraph(f"Gaps of {longer}", lay.subheading)
     if found.empty:
-        return [heading, Paragraph(f"No gaps of {th.max_gap:g} s or longer.", lay.body)]
+        return [heading, Paragraph(f"No gaps of {longer}.", lay.body)]
     decimals = result.nav.decimals.get("time", 0)
     when = lambda moment: q.ISO_TIME.format(moment, decimals)
     rows = [
         [
             when(gap.start),
             when(gap.end),
-            q.SAMPLING_INTERVAL.format(gap.length),
+            q.SAMPLING_INTERVAL.format_duration(gap.length),
             gap.file_before
             if gap.file_before == gap.file_after
             else f"{gap.file_before} to {gap.file_after}",
@@ -496,7 +497,7 @@ def _gaps(lay: Layout, result: NavQAResult) -> list[Flowable]:
     if more:
         rows.append([f"and {more} more", "", "", ""])
     note = "The longest first" + (f"; {len(found)} in all." if more else ".")
-    header = ["Last fix before", "First fix after", q.SAMPLING_INTERVAL.label, "Files"]
+    header = ["Last fix before", "First fix after", q.SAMPLING_INTERVAL.clock_label, "Files"]
     return [
         heading,
         Paragraph(note, lay.small),

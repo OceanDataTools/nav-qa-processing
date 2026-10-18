@@ -14,6 +14,10 @@ The rules (docs/architecture.md, "Standardized quantities"):
 - Integers are written without decimals.
 - Datetimes are UTC, `YYYY-MM-DDThh:mm:ss[.f…]Z`, at the receiver's time precision.
 - Missing values are written `NAN`.
+- Durations a person reads (a gap, the longest gap) are also shown as `hh:mm:ss[.f…]`, hours
+  not wrapped at 24 (`format_duration`), with the seconds beside them where they're compared
+  with a threshold in seconds. Machine-read values (the QA XML, GeoCSV, config TOMLs) stay in
+  seconds.
 - Descriptions contain no commas: GeoCSV writes them as one comma-separated `field_long_name`
   list.
 
@@ -89,6 +93,29 @@ class Quantity:
             case Datatype.DATETIME:
                 return format_datetime(value, self._decimals(decimals))
 
+    @property
+    def clock_label(self) -> str:
+        """The label of a duration shown as hh:mm:ss, e.g. "Longest time between successive
+        fixes [hh:mm:ss]"
+        """
+        self._is_duration()
+        return f"{self.description} [hh:mm:ss]"
+
+    def format_duration(self, value, decimals: int | None = None, seconds: bool = False) -> str:
+        """A duration in seconds as `hh:mm:ss[.f…]`, or MISSING; with `seconds`, the seconds in
+        this quantity's format beside it, e.g. "28:21:43.500 (102103.500 s)"
+        """
+        self._is_duration()
+        if _is_missing(value):
+            return MISSING
+        decimals = self._decimals(decimals)
+        clock = format_duration(float(value), decimals)
+        return f"{clock} ({self.format(value, decimals)} {self.unit})" if seconds else clock
+
+    def _is_duration(self) -> None:
+        if self.datatype is not Datatype.FLOAT or self.unit != "s":
+            raise ValueError(f"{self.name} is not a duration in seconds")
+
     def _decimals(self, decimals: int | None) -> int:
         decimals = self.decimals if decimals is None else decimals
         if decimals is None:
@@ -151,6 +178,23 @@ def format_datetime(value, decimals: int) -> str:
     if decimals:
         text += "." + f"{fraction:09d}"[:decimals]
     return text + "Z"
+
+
+def format_duration(seconds: float, decimals: int) -> str:
+    """A duration as `hh:mm:ss[.f…]` with `decimals` fractional-second digits; hours aren't
+    wrapped at 24, e.g. `28:21:43.500` for 102103.5 s
+    """
+    if decimals < 0:
+        raise ValueError(f"decimals must be >= 0, not {decimals}")
+    sign = "-" if seconds < 0 else ""
+    # Round half up first, as format_datetime does, so 59.9996 s at 3 decimals is 00:01:00.000
+    scale = 10**decimals
+    total = math.floor(abs(seconds) * scale + 0.5)
+    whole, fraction = divmod(total, scale)
+    minutes, second = divmod(whole, 60)
+    hours, minute = divmod(minutes, 60)
+    text = f"{sign}{hours:02d}:{minute:02d}:{second:02d}"
+    return f"{text}.{fraction:0{decimals}d}" if decimals else text
 
 
 def receiver_decimals(texts) -> int:

@@ -669,6 +669,14 @@ own format strings or unit names. The rules:
   across the whole fileset, applied to every value. So a fileset with altitudes `7.76` and `7.887`
   writes `7.760` and `7.887`.
 - **Times** are `YYYY-MM-DDThh:mm:ss[.f…]Z` in UTC, at the receiver's time precision.
+- **Durations** a person reads (the longest gap in the checks and statistics, the gaps table)
+  are shown as `hh:mm:ss[.f…]`, hours not wrapped at 24 (SP2220's longest gap is
+  `28:21:43.500`), through `Quantity.format_duration` (#73). Where the value is compared with a
+  threshold given in seconds, the seconds go beside it (`28:21:43.500 (102103.500 s)`), or the
+  threshold is shown both ways ("Gaps of 300 s (00:05:00) or longer"). Short intervals (the
+  most common time between fixes, the histogram's axis) stay in seconds, and so does every
+  value a program reads: the QA XML's `LongestGapEpoch` and the certificate that shows it,
+  and the config TOMLs' thresholds.
 - **Missing values** are `NAN` in GeoCSV (declared in `field_missing`), and an empty element with
   `xsi:nil="true"` in XML.
 - **Descriptions** are written once, in plain grammatical sentences, and reused everywhere.
