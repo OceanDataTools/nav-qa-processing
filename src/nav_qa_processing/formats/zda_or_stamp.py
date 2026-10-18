@@ -38,13 +38,19 @@ def doy_time(line: str) -> tuple[date, int] | None:
     return day, (hour * 3600 + minute * 60) * 10**9 + round(seconds * 1e9)
 
 
+_spans = gga_zda.SpanCache()  # whether a file has a valid ZDA, as its span found
+
+
 def _has_zda(lines: list[str]) -> bool:
-    return gga_zda.span(lines) is not None
+    kept = _spans.take(lines)
+    return gga_zda.span(lines) is not None if kept is None else kept
 
 
 def span(lines: list[str]) -> tuple[datetime, datetime] | None:
     """A file's first and last ZDA, or without one its first and last logger timestamps"""
-    return gga_zda.span(lines) or timestamped_gga.span(lines, stamp=doy_time)
+    zda_span = gga_zda.span(lines)
+    _spans.keep(lines, zda_span is not None)
+    return zda_span or timestamped_gga.span(lines, stamp=doy_time)
 
 
 def read(files: list[tuple[str, list[str]]]) -> Result:
@@ -57,4 +63,5 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
         merged.errors += part.errors
         merged.rejected_checksums |= part.rejected_checksums
         merged.skipped |= part.skipped
+    _spans.clear()
     return merged

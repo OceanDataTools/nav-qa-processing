@@ -17,7 +17,7 @@ skipped (`rawnav` reports it unread); a GGA without a parseable time is skipped.
 """
 
 import re
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import PurePath
 
 from nav_qa_processing.formats.gga_zda import (
@@ -25,6 +25,7 @@ from nav_qa_processing.formats.gga_zda import (
     NO_TIME,
     DatedFix,
     Result,
+    SpanCache,
     count_skipped,
     date_from,
     has_star,
@@ -37,6 +38,7 @@ from nav_qa_processing.readable import plural
 # YYYYMMDDhhmmss in a file name, optionally with a T, _ or - between date and time
 _NAME_STAMP = re.compile(r"(\d{4})(\d\d)(\d\d)[T_-]?(\d\d)(\d\d)(\d\d)")
 NO_NAME_STAMP = "GGA in a file whose name has no date"
+_spans = SpanCache()
 
 
 def name_time(name: str) -> tuple[date, int] | None:
@@ -84,21 +86,17 @@ def span(lines: list[str], name: str = "") -> tuple[datetime, datetime] | None:
     """The first and last fix of a file, dated from its name, to select and order files by"""
     if name_time(name) is None:
         return None
-    fixes = _dated(name, lines)[0]
-    if not fixes:
-        return None
-    moment = lambda fix: (
-        datetime(fix.day.year, fix.day.month, fix.day.day, tzinfo=UTC)
-        + (timedelta(microseconds=fix.gga.time.ns // 1000))
-    )
-    return moment(fixes[0]), moment(fixes[-1])
+    dated = _dated(name, lines)
+    _spans.keep(lines, dated)
+    fixes = dated[0]
+    return (fixes[0].moment, fixes[-1].moment) if fixes else None
 
 
 def read(files: list[tuple[str, list[str]]]) -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given"""
     result = Result([], [], {}, {})
     for name, lines in files:
-        fixes, timeless, rejected, cut = _dated(name, lines)
+        fixes, timeless, rejected, cut = _spans.take(lines) or _dated(name, lines)
         if name_time(name) is None:
             if fixes:
                 result.errors.append(
@@ -115,4 +113,5 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
         count_skipped(result.skipped, name, NO_TIME, timeless)
         count_skipped(result.skipped, name, FAILED_CHECKSUM, rejected)
         report_cut_short(result.errors, result.skipped, name, cut)
+    _spans.clear()
     return result
