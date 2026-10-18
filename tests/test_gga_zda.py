@@ -190,3 +190,44 @@ def test_nav24_sikuliaq_lines():
     assert (fix.day, fix.gga.time.seconds) == (date(2025, 8, 29), 86399.97)
     assert fix.gga.lat == pytest.approx(64 + 29.644114 / 60)
     assert result.errors == []
+
+
+@pytest.mark.parametrize(
+    "format_id, lines, expected",
+    [
+        (  # Healy's Seapath 330+, 2014: comma-separated (HLY14TF)
+            "nav25",
+            [
+                "gnss_seapath_330,2014-09-14T23:59:56Z,$INZDA,235956.24,14,09,2014,,*75",
+                "gnss_seapath_330,2014-09-14T23:59:56Z,$INGGA,235956.24,4735.432106,N,"
+                + "12220.460931,W,1,12,0.7,-4.41,M,-18.47,M,,*64",
+                "gnss_seapath_330,2014-09-14T23:59:56Z,$INHDT,269.35,T*1E",
+            ],
+            [(date(2014, 9, 14), 86396.24)],
+        ),
+        (  # Knorr, 2013: NAV tag, logger date and time, device tag
+            "nav20",
+            [
+                "NAV 2013/11/20 05:00:00.644 GPS $GPGGA,050000.00,4131.43842,N,07040.33599,W,2,"
+                + "8,0.9,29.17,M,-30.68,M,9,0907*6B",
+                "NAV 2013/11/20 05:00:00.952 GPS $GPZDA,050000.00,20,11,2013,+0,+0*61",
+            ],
+            [(date(2013, 11, 20), 18000.0)],
+        ),
+        (  # year:day-of-year timestamps; ZDA's month unpadded; a GGA past midnight
+            "nav12",
+            [
+                "cnav\t2010:258:00:00:00.0656\t$GPZDA,235959.00,14,9,2010,+0,+0*58",
+                "cnav\t2010:258:00:00:00.6557\t$GPGGA,000000.00,2118.98294,N,15753.17430,W,2,"
+                + "8,1.2,25.62,M,6.61,M,10,0108*4C",
+                "cnav\t2010:258:00:00:01.0227\t$GPZDA,000000.00,15,9,2010,+0,+0*58",
+            ],
+            [(date(2010, 9, 15), 0.0)],
+        ),
+    ],
+)
+def test_logger_prefixes_before_gga_and_zda(format_id, lines, expected):
+    """nav25, nav20 and nav12 differ from nav29 only in the prefix before each sentence"""
+    result = formats.get(format_id).reader.read([("f", lines)])
+    assert [(f.day, f.gga.time.seconds) for f in result.fixes] == expected
+    assert result.errors == [] and result.rejected_checksums == {}

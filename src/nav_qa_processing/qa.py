@@ -136,7 +136,7 @@ def run_qa(
     root = fileset.root if isinstance(fileset, Fileset) else fileset
     config = resolve_config(config, root)
     if not config.nav_format:
-        readable = ", ".join(sorted(formats.READERS))
+        readable = ", ".join(formats.readable())
         raise ConfigError(
             f"no nav format: set [nav] format in the config (formats that can be read: {readable})"
         )

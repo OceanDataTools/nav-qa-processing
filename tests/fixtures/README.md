@@ -30,6 +30,10 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | RR1802 | 132277 (product 608479) | Revelle's Furuno GP-150, nav01 (bare NMEA): 28,527 records equal to R2R's, record for record; R2R flags 292 stale repeats at the dock (Q7). No QA 2.0 report |
 | EN735 | 165419 (product 616264) | Endeavor's NOAA SCS, nav02 (logger date and time + GGA): G for both. R2R lacks every 86,400th fix (R8: 3), the last (R9) and the earlier of 5 repeated times (R10) |
 | SKQ202516S | 165743 (product 616278) | Sikuliaq's Seapath 380+, nav24 (logger ID, ISO timestamp, NMEA; R2R format 100103): G for both, the same results and 62 flags; R2R lacks the final fix (R2) |
+| HLY14TF | 114739 (product 603305) | Healy's Seapath 330+, nav25 (logger ID, ISO timestamp, NMEA): 349,199 records equal to R2R's, record for record, none flagged. No QA 2.0 report |
+| KN220-02 | 114491 (product 603657) | Knorr's C-Nav 2000, nav20: 227,436 records equal to R2R's; R2R flags 2 more (Q3). Alongside on Charleston's Cooper River for 5 h. No QA 2.0 report |
+| HLY08TD | 110937 (product 603255) | Healy's POS/MV, nav12 with ZDA, gzipped files: 363,486 records equal to R2R's but 2 empty HDOPs R2R writes as 0 (R11). No QA 2.0 report |
+| MGL1509 | 122372 (product 603725) | Langseth's C-Nav 3050, nav12 without ZDA (dated by the logger's year:day-of-year): 601,027 records equal to R2R's; Y (a 54-minute gap). No QA 2.0 report |
 
 Between them, every one of R2R's six tests has a reference that R2R rates Y or R
 (`tests/test_r2r_references.py`, #26).

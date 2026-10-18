@@ -57,7 +57,7 @@ def _nav_format(text: str) -> str | None:
     """None for a format ID with a reader; the hook can't run without one"""
     if formats.catalog.canonical_id(text) in formats.READERS:
         return None
-    readable = ", ".join(sorted(formats.READERS))
+    readable = ", ".join(formats.readable())
     problem = "required" if not text else f"no reader for {text}"
     return f"{problem}: one of {readable} (`nav-qa-processing formats` describes them)"
 

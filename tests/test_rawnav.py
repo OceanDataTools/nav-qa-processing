@@ -93,7 +93,10 @@ def _compare(nav, r2r):
         ("hdop", "hdop"),
         ("alt", "antenna_height"),
     ]:
-        assert (ours[column].astype(float).to_numpy() == r2r[field].astype(float).to_numpy()).all()
+        a, b = ours[column].astype(float).to_numpy(), r2r[field].astype(float).to_numpy()
+        # NavManager writes an empty field as 0 (R11: HLY08TD's 2 empty HDOPs)
+        b = np.where(np.isnan(a) & (b == 0), np.nan, b)
+        assert np.array_equal(a, b, equal_nan=True), column
 
 
 def test_sp2613_bestres_head_fixture(sp2613):
@@ -167,3 +170,38 @@ def test_rr1802_is_over_water_at_portland():
     check = next(c for c in result.stats.checks if c.name == "Over water")
     assert (check.status, check.value) == ("pass", "0 over land")
     assert 2600 < np.nanmax(result.stats.inland) < 2700
+
+
+@pytest.mark.parametrize(
+    "name, format_id, records",
+    [
+        ("HLY14TF_114739", "nav25", 349_199),  # Healy's Seapath 330+, 2014
+        ("KN220-02_114491", "nav20", 227_436),  # Knorr's C-Nav 2000, 2014
+        ("HLY08TD_110937", "nav12", 363_486),  # Healy's POS/MV, gzipped, with ZDA
+        ("MGL1509_122372", "nav12", 601_027),  # Langseth's C-Nav 3050: no ZDA, logger time
+    ],
+)
+def test_records_match_r2r_bestres(name, format_id, records):
+    """Each reference's records equal R2R's bestres, record for record. R2R has no QA 2.0 report
+    for these filesets, so only the products compare
+    """
+    from nav_qa_processing.integrations.r2r.config import load_cruise_config
+    from nav_qa_processing.qa import cruise_window
+
+    cruise, fileset = name.rsplit("_", 1)
+    directory = DATA / f"{name}_gnss"
+    path = directory / "products" / "data" / f"{cruise}_bestres.geoCSV"
+    if not path.exists():
+        pytest.skip(
+            f"{cruise} not downloaded; run: uv run nav-qa-processing r2r fetch-fileset "
+            f"{cruise} {fileset}"
+        )
+    config = load_cruise_config(CONFIGS / f"{name}.toml")
+    assert config.nav_format == format_id
+    start, end = cruise_window(config)
+    window = {k: v for k, v in (("start", start), ("end", end)) if v is not None}
+    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), format_id, **window)
+    r2r = geocsv.read(path).records
+    assert nav.errors == []
+    assert len(nav.frame) == len(r2r) == records
+    _compare(nav, r2r)
