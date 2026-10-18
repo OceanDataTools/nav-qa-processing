@@ -58,6 +58,11 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   thresholds)` lists the gaps, longest first, with their files (#65). `NavStats.good`
   (`GoodFixes`) has the ranges over the fixes that pass QC, beside navqa's pre-QC ones (#66).
   `NavStats.verdict` is the checks in a line, (status, text), under the PDF's title (#68).
+  `compute(..., land)` adds the "Over water" check (#79): `NavStats.inland` [m] per record,
+  `counted["over_land"]` beyond `Thresholds.land_tolerance`; n/a without the land.
+- `land.py`: `load(lon, lat)` -> `Land` (Natural Earth 1:10m land less lakes around the fixes,
+  via `maps.clipped_geometries`; None without the map data), `Land.inland(lon, lat)` [m].
+  `qa.run_qa` loads it. A check, not a QC flag: harbors are land at 1:10m (RR2212: 1,438 m).
 - `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...);
   `tests/test_boundaries.py` keeps core from importing `integrations/`.
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's

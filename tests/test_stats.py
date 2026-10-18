@@ -4,10 +4,12 @@ from datetime import UTC, datetime
 import numpy as np
 import pandas as pd
 import pytest
+import shapely
 from conftest import DATA
 
 from nav_qa_processing import qc, rawnav, stats
 from nav_qa_processing.config import Extent, Thresholds
+from nav_qa_processing.land import Land
 
 START = pd.Timestamp("2026-07-09T12:00:00Z")
 METRE = 1 / 111_320  # [degree] of latitude
@@ -30,9 +32,9 @@ def nav_from(seconds, lat=None, quality=None, n_sat=12):
     return rawnav.RawNav(frame, {"time": 1, "lon": 10, "lat": 10, "hdop": 1, "alt": 1}, ["x"])
 
 
-def compute(nav, thresholds=None, extent=None):
+def compute(nav, thresholds=None, extent=None, land=None):
     thresholds = thresholds or Thresholds()
-    return stats.compute(nav, qc.flag(nav, thresholds), thresholds, extent)
+    return stats.compute(nav, qc.flag(nav, thresholds), thresholds, extent, land)
 
 
 def test_modal_interval_ties_go_to_the_shorter_step():
@@ -158,13 +160,15 @@ def test_counts_by_file():
     # The files' counts add up to the total, which is what the checks counted
     columns = ["fixes", *stats.COUNTED.values()]
     columns.remove("Outside area")
+    columns.remove("Over land")
     assert (table.loc[["a.txt", "b.txt"], columns].sum() == total[columns]).all()
     assert total["Unreasonable speeds"] == s.unreasonable_speeds
     assert total["Unreasonable accelerations"] == s.unreasonable_accelerations
     assert (total["Gaps"], total["Out of sequence"]) == (s.gaps, s.out_of_sequence)
     assert total["Flagged by QC"] == int((qc.flag(nav, Thresholds()).flags != 0).sum())
-    # Without an expected area there's no outside-area count; a skipped file has no counts
-    assert table["Outside area"].isna().all()
+    # Without an expected area or the land there's no outside-area or over-land count; a
+    # skipped file has no counts
+    assert table["Outside area"].isna().all() and table["Over land"].isna().all()
     assert table.loc["c.txt", "status"] == stats.SKIPPED and pd.isna(table.loc["c.txt", "fixes"])
 
 
@@ -317,3 +321,40 @@ def test_sp2503_matches_r2r_on_completeness_and_the_long_gap():
     assert_shared_values_equal(s, results, ranges)
     statuses = {c.name: c.status for c in s.checks}
     assert statuses["Completeness"] == statuses["Longest gap"] == "warn"
+
+
+def over_water(s):
+    return next(c for c in s.checks if c.name == "Over water")
+
+
+def test_over_water():
+    """A track that runs 1.5 km ashore (#79): within the default 2000 m it passes, and says how
+    many fixes were over land; within 500 m it warns
+    """
+    nav = nav_from(range(1001))  # 3 km north at 3 m s-1
+    nav.frame["source_file"] = "x"
+    shore = 32.0 + 1500 * METRE
+    ashore = Land(shapely.box(-117.5, shore, -116.5, 33.0))
+    on_land = int((nav.frame["lat"] > shore).sum())
+    check = over_water(compute(nav, land=ashore))
+    assert (check.status, check.value) == ("pass", "0 over land")
+    assert check.detail == (
+        f"more than 2000 m inside Natural Earth's 1:10m coastline; {on_land} within 2000 m of "
+        "the coast (harbors)"
+    )
+    s = compute(nav, Thresholds(land_tolerance=500.0), land=ashore)
+    over = int(s.counted["over_land"].sum())
+    assert over == pytest.approx((nav.frame["lat"] > shore + 500 * METRE).sum(), abs=2)
+    check = over_water(s)
+    assert (check.status, check.value) == ("warn", f"{over} over land")
+    assert re.search(r"up to 149\d m inland", check.detail)  # the last fix, 1.5 km ashore
+    assert f"{on_land - over} within 500 m of the coast" in check.detail
+    assert stats.counts_by_file(nav, s).set_index("file").loc["Total", "Over land"] == over
+
+
+def test_over_water_without_map_data():
+    nav = nav_from(range(10))
+    nav.frame["source_file"] = "x"
+    s = compute(nav)
+    assert (over_water(s).status, over_water(s).value) == ("n/a", "no coastline data")
+    assert pd.isna(stats.counts_by_file(nav, s).iloc[-1]["Over land"])

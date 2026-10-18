@@ -252,6 +252,7 @@ MODAL_INTERVAL = Quantity(
 LONGEST_GAP = Quantity(
     "longest_gap", "Longest time between successive fixes", Datatype.FLOAT, "s", decimals=3
 )
+DISTANCE = Quantity("distance", "Distance", Datatype.FLOAT, "m", decimals=0)
 FIXES = Quantity("fixes", "Number of fixes", Datatype.INTEGER, "1")
 PERCENTAGE = Quantity("percentage", "Percentage", Datatype.FLOAT, "percent", decimals=2)
 DURATION = Quantity("duration", "Duration", Datatype.FLOAT, "s", decimals=3)
@@ -273,6 +274,7 @@ QUANTITIES: dict[str, Quantity] = {
         SAMPLING_INTERVAL,
         MODAL_INTERVAL,
         LONGEST_GAP,
+        DISTANCE,
         FIXES,
         PERCENTAGE,
         DURATION,

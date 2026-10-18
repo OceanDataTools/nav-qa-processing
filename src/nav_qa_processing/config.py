@@ -172,6 +172,9 @@ class Thresholds(Readable):
     max_bad_quality: float = 5.0  # [percent] of records reporting a quality indicator
     max_unreasonable_speeds: float = 5.0  # [percent] of speeds
     max_unreasonable_accelerations: float = 5.0  # [percent] of accelerations
+    # A fix farther than this inside Natural Earth's 1:10m coastline is over land (land.py,
+    # #79); harbors and channels the coastline draws as land lie within it (RR2212: 1,438 m)
+    land_tolerance: float = 2000.0  # [m]
     # -- QC --
     max_accel: float = 1.0  # [m s-2]
     # A fix farther from the trusted track than this speed allows, plus the tolerance, can't
@@ -216,6 +219,7 @@ THRESHOLD_UNITS = {
     "max_bad_quality": "%",
     "max_unreasonable_speeds": "%",
     "max_unreasonable_accelerations": "%",
+    "land_tolerance": "m",
     "max_accel": "m s-2",
     "max_reach_speed": "m s-1",
     "reach_tolerance": "m",

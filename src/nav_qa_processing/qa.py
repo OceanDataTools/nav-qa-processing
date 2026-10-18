@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from nav_qa_processing import __version__, formats, geocsv, products, qc, rawnav, stats
+from nav_qa_processing import __version__, formats, geocsv, land, products, qc, rawnav, stats
 from nav_qa_processing.config import Extent, QAConfig, load_config
 from nav_qa_processing.fileset import Fileset, load_fileset, verify_manifest
 from nav_qa_processing.formats.nmea import TALKERS
@@ -168,10 +168,21 @@ def run_qa(
         bestres=best,
         one_minute=one_minute,
         control=products.control(one_minute),
-        stats=stats.compute(nav, flags, config.thresholds, config.extent),
+        stats=stats.compute(nav, flags, config.thresholds, config.extent, _land(nav, flags)),
         errors=errors,
         started=started,
         finished=datetime.now(UTC),
         versions=_versions(),
         config_path=config_path,
     )
+
+
+def _land(nav: rawnav.RawNav, flags: qc.QCResult) -> land.Land | None:
+    """The land around the usable fixes, for the "Over water" check (#79), or None without the
+    map data
+    """
+    usable = (flags.flags & int(stats.UNUSABLE)) == 0
+    found = land.load(nav.frame["lon"][usable], nav.frame["lat"][usable])
+    if found is None:
+        logger.warning("no coastline data: the over-water check is n/a (run fetch-map-data)")
+    return found
