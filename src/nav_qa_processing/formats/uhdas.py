@@ -1,0 +1,131 @@
+"""GGA dated by UHDAS's clock sentences: the readers behind nav31 (PYRTM) and uhdas (UNIXD).
+
+UHDAS writes a sentence from its computer's clock beside each GPS sentence: `$PYRTM,2019,
+275.8333405,75.8928819` (nav31: year, decimal day of year, days since boot) or `$UNIXD,
+0.9166745,2.1294175` (uhdas: decimal day of year, days since boot). The decimal day counts from
+0 at January 1 00:00 UTC, so day 275.83 of 2019 is October 3, 20:00, and runs past 365 when a
+cruise crosses the new year. UNIXD has no year: it comes from the file name, UHDAS's
+`<prefix><year>_<day>_<seconds>.gps` (`bh2019_275_72000.gps`, `name_year`).
+
+Each GGA takes the date that puts it nearest the clock sentence before it (the one after it,
+before the first), counting across midnight. The time of the fix is the GGA's: the UHDAS clock
+can run minutes off the receiver (BH19-30: about 4 minutes ahead).
+
+NavManager reads nav31 on its `pyrtm_parser` branch and UNIXD on `uhdas_parser`, both buffered
+like its GGA + ZDA parsers (`docs/navmanager-differences.md`).
+"""
+
+import re
+from datetime import UTC, date, datetime, timedelta
+from pathlib import PurePath
+
+from nav_qa_processing.formats.gga_zda import (
+    FAILED_CHECKSUM,
+    NO_TIME,
+    DatedFix,
+    Result,
+    count_skipped,
+    date_from,
+    sentences,
+)
+from nav_qa_processing.formats.nmea import GGA, parse_sentence
+from nav_qa_processing.readable import plural
+
+_DAY = 86_400 * 10**9  # [ns]
+_NAME_YEAR = re.compile(r"((?:19|20)\d\d)_(\d{3})_\d+")
+NO_CLOCK = "GGA with no clock sentence in its file to date it"
+
+
+def name_year(name: str) -> int | None:
+    """The year in a UHDAS file name, `<prefix><year>_<day>_<seconds>`, or None"""
+    match = _NAME_YEAR.search(PurePath(name).name)
+    return int(match.group(1)) if match else None
+
+
+def clock(fields: list[str], year: int | None) -> tuple[date, int] | None:
+    """A PYRTM's or UNIXD's (date, time of day [ns]); UNIXD's year is given. None if unreadable"""
+    try:
+        if fields[0].endswith("PYRTM"):
+            year, decimal_day = int(fields[1]), float(fields[2])
+        else:
+            decimal_day = float(fields[1])
+    except (IndexError, ValueError):
+        return None
+    if year is None or not 0 <= decimal_day < 400:
+        return None
+    ns = round(decimal_day * _DAY)
+    days, time_of_day = divmod(ns, _DAY)
+    return date(year, 1, 1) + timedelta(days=days), time_of_day
+
+
+def _dated(name: str, lines: list[str], kind: str) -> tuple[list[DatedFix], int, int, int]:
+    """A file's fixes, dated by the nearest clock sentence; with the GGAs without a time, those
+    without a clock sentence in the file, and those that failed their checksum
+    """
+    year = name_year(name) if kind == "UNIXD" else None
+    fixes: list[DatedFix] = []
+    pending: list[DatedFix] = []  # GGAs before the file's first clock sentence
+    last = None
+    timeless = rejected = 0
+    for number, text in sentences(lines):
+        sentence = parse_sentence(text)
+        if sentence is None:
+            rejected += "GGA" in text
+            continue
+        if sentence.fields[0].endswith(kind):  # $PYRTM or $UNIXD
+            found = clock(sentence.fields, year)
+            if found is not None:
+                last = found
+                for fix in pending:
+                    fix.day = date_from(*last, fix.gga.time.ns)
+                pending = []
+            continue
+        if sentence.kind != "GGA":
+            continue
+        gga = GGA.from_fields(sentence.fields)
+        if gga.time is None:
+            timeless += 1
+            continue
+        fix = DatedFix(gga, name, number)
+        if last is None:
+            pending.append(fix)
+        else:
+            fix.day = date_from(*last, gga.time.ns)
+        fixes.append(fix)
+    return [f for f in fixes if f.day is not None], timeless, len(pending), rejected
+
+
+def span(
+    lines: list[str], name: str = "", kind: str = "PYRTM"
+) -> tuple[datetime, datetime] | None:
+    """The first and last fix of a file, to select and order files by"""
+    fixes = _dated(name, lines, kind)[0]
+    if not fixes:
+        return None
+    moment = lambda fix: (
+        datetime(fix.day.year, fix.day.month, fix.day.day, tzinfo=UTC)
+        + (timedelta(microseconds=fix.gga.time.ns // 1000))
+    )
+    return moment(fixes[0]), moment(fixes[-1])
+
+
+def read(files: list[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
+    """Dated GGA fixes from `files`, each (name, lines), in the order given, by `kind`'s clock
+    sentences, PYRTM or UNIXD
+    """
+    result = Result([], [], {}, {})
+    for name, lines in files:
+        fixes, timeless, unclocked, rejected = _dated(name, lines, kind)
+        result.fixes += fixes
+        if timeless:
+            result.errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")
+        if unclocked:
+            result.errors.append(
+                f"{name}: {plural(unclocked, 'GGA')} with no {kind} sentence to date it, skipped"
+            )
+        if rejected:
+            result.rejected_checksums[name] = rejected
+        count_skipped(result.skipped, name, NO_TIME, timeless)
+        count_skipped(result.skipped, name, NO_CLOCK.replace("clock", kind), unclocked)
+        count_skipped(result.skipped, name, FAILED_CHECKSUM, rejected)
+    return result

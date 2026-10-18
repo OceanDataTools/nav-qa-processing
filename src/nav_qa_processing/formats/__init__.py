@@ -11,7 +11,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 
-from nav_qa_processing.formats import catalog, file_stamp, gga_zda, timestamped_gga, zda_or_stamp
+from nav_qa_processing.formats import (
+    catalog,
+    file_stamp,
+    gga_zda,
+    timestamped_gga,
+    uhdas,
+    zda_or_stamp,
+)
 
 
 @dataclass(frozen=True)
@@ -57,6 +64,14 @@ SCS_RMC = Reader(
     "logger timestamp",
     "RMC",
 )
+PYRTM_GGA = Reader(uhdas.read, uhdas.span, "PYRTM sentence", "GGA")
+UNIXD_GGA = Reader(
+    partial(uhdas.read, kind="UNIXD"),
+    partial(uhdas.span, kind="UNIXD"),
+    "UNIXD sentence and year in the file name",
+    "GGA",
+    named=True,
+)
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
@@ -71,8 +86,10 @@ READERS: dict[str, Reader] = {
     "nav27": GLL_ZDA,  # Sproul: bare NMEA with GLL, not GGA, dated by ZDA
     "nav29": GGA_ZDA,
     "nav30": TIMESTAMPED_GGA,  # OpenRVDAS (USAP): ISO timestamp, space, NMEA; its GGA, not RMC
+    "nav31": PYRTM_GGA,  # UHDAS's GPS feed (Blue Heron): GGA dated by PYRTM
     "nav32": SCS_RMC,  # CORIOLIX (Rachel Carson): logger date and time, then RMC
     "nav33": TIMESTAMPED_GGA,
+    "uhdas": UNIXD_GGA,  # UHDAS: GGA dated by UNIXD, the year from the file name
 }
 
 

@@ -10,6 +10,7 @@ time = "GGA time of day, dated by the PYRTM year and day of year"
 description = "When GPS isn't logged on its own, the GPS feed recorded by UHDAS is the only source. Each GGA is paired with a PYRTM sentence from the UHDAS computer's clock, which carries the year."
 notes = [
   "Examples: BH19-30, fileset 136141, file bh2019_275_72000.gps (Furuno GP-90).",
+  "The decimal day counts from 0 at January 1 00:00 UTC, as UNIXD's does: 275.83 of 2019 is October 3, 20:00. Current UHDAS installations write PYRTM beside every GPS feed (SP2613's UHDAS ADCP fileset 169848: gp170a, gp170b).",
   "R2R format 100234 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
 references = ["www.nmea.org"]

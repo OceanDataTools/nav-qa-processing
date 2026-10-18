@@ -7,7 +7,9 @@ position = "GGA"
 time = "GGA time of day, dated by the UNIXD day of year and an externally given year"
 description = "UNIXD and GGA sentences in turn. UNIXD is written by the UHDAS computer, not the receiver: its decimal day of year counts from 0 at January 1 00:00 UTC and runs past 365 when a cruise crosses the new year."
 notes = [
-  "The year isn't in the file and must be supplied.",
+  "The year isn't in the file: it comes from UHDAS's file name, <prefix><year>_<day>_<seconds>.gps.",
+  "Examples: KM1519, UHDAS ADCP fileset 119346, file raw/simrad/km2015_323_07200.gps (Kilo Moana's Simrad, 2015). R2R files UHDAS GPS logs only inside UHDAS ADCP filesets (100036).",
+  "Newer UHDAS writes PYRTM, with the year, instead (nav31): SP2613's UHDAS fileset 169848, 2026.",
 ]
 references = ["www.nmea.org"]
 examples = [

@@ -23,7 +23,7 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `formats/__init__.py`: the registry. `READERS` maps format IDs to a `Reader` (`read`, and
   `span`: a file's first and last time, to select and order files by): so far `nav01`,
   `nav20`, `nav24`, `nav25` and `nav29` (`GGA_ZDA`), `nav33` (`TIMESTAMPED_GGA`), `nav02`
-  (`SCS_GGA`, #81), `nav12` (`ZDA_OR_STAMP`, #84), `nav15` (`OSU_GGA`, #88), `nav22` (`FILE_STAMP_GGA`, #90) `nav27` (`GLL_ZDA`, #92: `gga_zda.read(kind="GLL")`, `nmea.GLL.as_gga()` without satellites, HDOP or altitude), `nav30` (`TIMESTAMPED_GGA`: OpenRVDAS's GGA, not its RMC) and `nav32` (`SCS_RMC`: `timestamped_gga.read(kind="RMC")`, dated by the logger, RMC dates that differ reported; #94); `get(id)` refuses formats without one.
+  (`SCS_GGA`, #81), `nav12` (`ZDA_OR_STAMP`, #84), `nav15` (`OSU_GGA`, #88), `nav22` (`FILE_STAMP_GGA`, #90) `nav27` (`GLL_ZDA`, #92: `gga_zda.read(kind="GLL")`, `nmea.GLL.as_gga()` without satellites, HDOP or altitude), `nav30` (`TIMESTAMPED_GGA`: OpenRVDAS's GGA, not its RMC), `nav32` (`SCS_RMC`: `timestamped_gga.read(kind="RMC")`, dated by the logger, RMC dates that differ reported; #94), `nav31` (`PYRTM_GGA`) and `uhdas` (`UNIXD_GGA`, named: the year from the file name) (#97, `uhdas.py`: GGA dated by UHDAS's clock sentence); `get(id)` refuses formats without one.
   `nmea.py` (sentences, checksum, GGA, ZDA); `gga_zda.py` (each GGA dated by the nearest ZDA);
   `timestamped_gga.py` (each GGA dated by its line's logger timestamp: `iso_time` for
   OpenRVDAS and Falkor (too), `scs_time` for NOAA SCS's `MM/DD/YYYY,hh:mm:ss.sss`, `osu_time`
@@ -293,7 +293,8 @@ record against R2R's products, no QA 2.0 reports) HLY14TF (nav25), KN220-02 (nav
 within R2R's Pacific-day window; R2R misdates 17 minutes of W1109B, R12); NH1209 (#90, nav22,
 against R2R's primary-GPS bestres, as R2R made no products from it); SP1531 (#92, nav27, record
 for record, quality from GLL); RC0014 and RC0011 (#94, nav32, record for record, R and Y as
-R2R); see
+R2R); BH19-30 (#97, nav31, record for record) and UHDAS's GPS logs in SP2613's and KM1519's
+UHDAS ADCP filesets (nav31, uhdas: against the primary GPS); see
 `tests/fixtures/README.md` and `tests/test_r2r_references.py`.
 
 ## Porting rules
