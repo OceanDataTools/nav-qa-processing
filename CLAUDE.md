@@ -296,8 +296,8 @@ within R2R's Pacific-day window; R2R misdates 17 minutes of W1109B, R12); NH1209
 against R2R's primary-GPS bestres, as R2R made no products from it); SP1531 (#92, nav27, record
 for record, quality from GLL); RC0014 and RC0011 (#94, nav32, record for record, R and Y as
 R2R); BH19-30 (#97, nav31, record for record) and UHDAS's GPS logs in SP2613's and KM1519's
-UHDAS ADCP filesets (nav31, uhdas: against the primary GPS); BH10-17 (#99, nav03: R2R's products
-not yet compared, its service was down); see
+UHDAS ADCP filesets (nav31, uhdas: against the primary GPS); BH10-17 (#99, nav03, record for
+record); see
 `tests/fixtures/README.md` and `tests/test_r2r_references.py`.
 
 ## Porting rules

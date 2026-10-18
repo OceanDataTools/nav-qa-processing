@@ -50,7 +50,7 @@ def test_a_gll_without_a_position_is_skipped():
 
 def test_bh10_17():
     """Blue Heron on Lake Superior, 2010-09-16 to 17: 6,299 GLLs and 231 GGAs, all read, in
-    time order. R2R's products for it couldn't be fetched when this was written (#99)
+    time order; they equal R2R's bestres record for record (`test_rawnav.py`, #99)
     """
     path = DATA / "BH10-17_105061_gnss" / "data" / "NEMA-Serial_20100916-131207.Raw"
     if not path.exists():
