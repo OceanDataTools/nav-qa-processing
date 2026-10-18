@@ -11,19 +11,25 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 
-from nav_qa_processing.formats import catalog, gga_zda, timestamped_gga, zda_or_stamp
+from nav_qa_processing.formats import catalog, file_stamp, gga_zda, timestamped_gga, zda_or_stamp
 
 
 @dataclass(frozen=True)
 class Reader:
     """How a format's files are read: `read` dates their fixes; `span` is a file's first and
-    last time, by which files are selected and ordered (None: the file can't be dated)
+    last time, by which files are selected and ordered (None: the file can't be dated). A
+    `named` reader's span also takes the file's name (nav22's date is in it)
     """
 
     read: Callable[[list[tuple[str, list[str]]]], gga_zda.Result]
-    span: Callable[[list[str]], tuple[datetime, datetime] | None]
+    span: Callable[..., tuple[datetime, datetime] | None]
     dated_by: str  # what dates a file, for "no …, skipped"
     sentences: str  # the sentences read, for checksum failures
+    named: bool = False
+
+    def span_of(self, name: str, lines: list[str]) -> tuple[datetime, datetime] | None:
+        """A file's span, by `span` with its name when the reader needs it"""
+        return self.span(lines, name=name) if self.named else self.span(lines)
 
 
 GGA_ZDA = Reader(gga_zda.read, gga_zda.span, "ZDA sentence", "GGA/ZDA")
@@ -41,6 +47,9 @@ OSU_GGA = Reader(
     "logger timestamp",
     "GGA",
 )
+FILE_STAMP_GGA = Reader(
+    file_stamp.read, file_stamp.span, "date in the file name", "GGA", named=True
+)
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
@@ -49,6 +58,7 @@ READERS: dict[str, Reader] = {
     "nav12": ZDA_OR_STAMP,  # device ID, year:day-of-year timestamp, NMEA; ZDA when logged
     "nav15": OSU_GGA,  # OSU DAS: DATA, ISO timestamp, quoted GGA
     "nav20": GGA_ZDA,  # NAV tag, logger date and time, device tag, then NMEA (Knorr)
+    "nav22": FILE_STAMP_GGA,  # bare NMEA with no date: the file name's YYYYMMDDhhmmss
     "nav24": GGA_ZDA,  # Sikuliaq: logger ID and ISO timestamp, then NMEA (#81)
     "nav25": GGA_ZDA,  # Healy's Seapath: logger ID, ISO timestamp, NMEA, comma-separated
     "nav29": GGA_ZDA,

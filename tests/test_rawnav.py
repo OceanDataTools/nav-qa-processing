@@ -255,3 +255,31 @@ def test_w1109b_r2r_dates_seventeen_minutes_a_day_early():
     )
     assert ours[moved].sub(pd.Timedelta(days=1)).isin(theirs).all()
     assert r2r.loc[~theirs.isin(ours), "flagged"].all()
+
+
+def test_nh1209_nav22_agrees_with_the_primary_gps():
+    """New Horizon's Ashtech ADU2 (nav22: no date but the file name's). R2R made no products
+    from it, but each file's fixes lie within meters of R2R's bestres from the primary GPS at
+    the same times, so they're dated right (#90)
+    """
+    directory = DATA / "NH1209_107219_gnss"
+    path = directory / "products" / "data" / "NH1209_bestres.geoCSV"
+    if not path.exists():
+        pytest.skip(
+            "NH1209 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset NH1209 107219"
+        )
+    from nav_qa_processing import geodesy
+
+    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), "nav22")
+    assert nav.errors == [] and len(nav.frame) == 137_407
+    r2r = geocsv.read(path).records.drop_duplicates("iso_time")
+    for name, fixes in nav.frame.groupby("source_file", observed=True):
+        common = fixes.merge(r2r, left_on="time", right_on="iso_time")
+        if name.startswith("ashtech_20120918"):  # before R2R's first fix
+            assert common.empty
+            continue
+        assert len(common) >= 0.99 * len(fixes), name
+        distance = geodesy.inverse(
+            common["lon"], common["lat"], common["ship_longitude"], common["ship_latitude"]
+        )[0]
+        assert np.median(distance) < 10, name

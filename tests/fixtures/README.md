@@ -36,6 +36,7 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | MGL1509 | 122372 (product 603725) | Langseth's C-Nav 3050, nav12 without ZDA (dated by the logger's year:day-of-year): 601,027 records equal to R2R's; Y (a 54-minute gap). No QA 2.0 report |
 | W1108A | 105073 (product 604751) | Wecoma's Ashtech ADU5, nav15 (DATA, ISO timestamp, quoted GGA): 50,678 records equal to R2R's within R2R's window, the Pacific day (08:00Z, from its 2012 QA report). No QA 2.0 report |
 | W1109B | 105076 (product 604754) | nav15 with unquoted sentences (September 2011): the same 68,302 records as R2R's, but R2R dates 1,017 of them a day early (R12). No QA 2.0 report |
+| NH1209 | 107219 (product 608147) | New Horizon's Ashtech ADU2, nav22 (no date but the file name's): R2R made no products from it, but its fixes lie within meters of R2R's primary-GPS bestres at the same times; one file named 09-24 holds 09-23's fixes (R13) |
 
 Between them, every one of R2R's six tests has a reference that R2R rates Y or R
 (`tests/test_r2r_references.py`, #26).
