@@ -45,8 +45,11 @@ from nav_qa_processing.readable import plural
 _DAY = 86_400 * 10**9  # [ns]
 _HALF_DAY = _DAY // 2
 _EPOCH = date(1970, 1, 1)
-# A logger timestamp starting a line: Unix seconds or ISO 8601, then a space or a comma
-_TIMESTAMP = re.compile(r"\s*(\d+(\.\d*)?|\d{4}-\d\d-\d\dT[\d:.]+Z?)[ ,]")
+# A logger timestamp starting a line: Unix seconds, ISO 8601 or SCS's MM/DD/YYYY,hh:mm:ss.sss,
+# then a space or a comma
+_TIMESTAMP = re.compile(
+    r"\s*(\d+(\.\d*)?|\d{4}-\d\d-\d\dT[\d:.]+Z?|\d\d/\d\d/\d{4},\d\d:\d\d:[\d.]+)[ ,]"
+)
 # A split sentence is joined with at most this many following lines
 MAX_CONTINUATIONS = 3
 # ZDA years taken as dates: the GPS era. Others are corrupt (e.g. a truncated year)

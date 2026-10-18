@@ -15,6 +15,7 @@ from nav_qa_processing.formats import (
     catalog,
     file_stamp,
     gga_zda,
+    logger_timed,
     timestamped_gga,
     uhdas,
     zda_or_stamp,
@@ -72,11 +73,18 @@ UNIXD_GGA = Reader(
     "GGA",
     named=True,
 )
+SCS_LOGGER_TIMED = Reader(
+    logger_timed.read,
+    partial(timestamped_gga.span, stamp=timestamped_gga.scs_time),
+    "logger timestamp",
+    "GLL/GGA",
+)
 
 # Format ID -> reader, for the formats implemented so far
 READERS: dict[str, Reader] = {
     "nav01": GGA_ZDA,  # bare NMEA (#81)
-    "nav02": SCS_GGA,  # NOAA SCS: logger date and time, then GGA (#81)
+    "nav02": SCS_GGA,
+    "nav03": SCS_LOGGER_TIMED,  # NOAA SCS (Blue Heron): mostly GLL, cut short; logger time  # NOAA SCS: logger date and time, then GGA (#81)
     "nav12": ZDA_OR_STAMP,  # device ID, year:day-of-year timestamp, NMEA; ZDA when logged
     "nav15": OSU_GGA,  # OSU DAS: DATA, ISO timestamp, quoted GGA
     "nav20": GGA_ZDA,  # NAV tag, logger date and time, device tag, then NMEA (Knorr)

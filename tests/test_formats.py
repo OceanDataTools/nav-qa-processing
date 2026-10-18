@@ -65,7 +65,7 @@ def test_example_checksums_are_correct():
 
 def test_unsupported_format_is_reported():
     with pytest.raises(ValueError, match="not supported yet"):
-        formats.get("nav03")
+        formats.get("nav04")
     assert formats.get("nav29").supported
 
 
