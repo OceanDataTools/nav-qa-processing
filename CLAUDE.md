@@ -66,12 +66,14 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   (`GoodFixes`) has the ranges over the fixes that pass QC, beside navqa's pre-QC ones (#66).
   `NavStats.verdict` is the checks in a line, (status, text), under the PDF's title (#68).
   `compute(..., land)` adds the "Over water" check (#79): `NavStats.inland` [m] per record,
-  `counted["over_land"]` beyond `Thresholds.land_tolerance`; n/a without the land.
+  `counted["over_land"]` beyond `Thresholds.max_inland` (warn); fixes beyond `land_tolerance`
+  but within it are reported in the detail (#95); n/a without the land.
 - `land.py`: `load(lon, lat)` -> `Land` (Natural Earth 1:10m land less lakes around the fixes,
   via `maps.clipped_geometries`, with the river centerlines as water, #85; None without the
   map data), `Land.inland(lon, lat)` [m to the nearest coast or river]. `qa.run_qa` loads it.
   A check, not a QC flag: harbors are land at 1:10m (RR2212: 1,438 m) and river lines are
-  generalized (RR1802 on the Willamette: 2,630 m), hence `land_tolerance` 3000 m.
+  generalized (RR1802 on the Willamette: 2,630 m), hence `land_tolerance` 3000 m; canals the
+  map lacks (RC0014: 3,929 m) are reported, and only fixes beyond `max_inland` 10 km warn.
 - `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...);
   `tests/test_boundaries.py` keeps core from importing `integrations/`.
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's

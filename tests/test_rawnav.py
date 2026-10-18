@@ -338,3 +338,24 @@ def test_uhdas_gps_feeds_agree_with_the_primary_gps(
     assert nav.errors == [] and len(nav.frame) == records
     distance = _against_bestres(nav.frame, geocsv.read(path).records)
     assert len(distance) == matched and np.median(distance) < median
+
+
+def test_rc0014_canal_is_reported_not_warned_of():
+    """Seattle's ship canal, which Natural Earth lacks: up to 3.9 km from its water, beyond
+    land_tolerance but within max_inland, so reported and the check passes (#95)
+    """
+    from nav_qa_processing.fileset import load_fileset
+    from nav_qa_processing.integrations.r2r.config import load_cruise_config
+    from nav_qa_processing.qa import run_qa
+
+    directory = DATA / "RC0014_137928_gnss"
+    if not (directory / "data").is_dir():
+        pytest.skip(
+            "RC0014 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset RC0014 137928"
+        )
+    result = run_qa(load_fileset(directory), load_cruise_config(CONFIGS / "RC0014_137928.toml"))
+    if result.stats.inland is None:
+        pytest.skip("no Natural Earth data; run: uv run nav-qa-processing fetch-map-data")
+    check = next(c for c in result.stats.checks if c.name == "Over water")
+    assert (check.status, check.value) == ("pass", "0 over land")
+    assert "284 on land 3000 m to 10000 m from water, up to 3929 m" in check.detail

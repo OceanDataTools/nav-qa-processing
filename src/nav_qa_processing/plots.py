@@ -5,7 +5,7 @@
   points, the start and end, QC's position steps and the expected area, with a world inset.
   The track breaks at gaps of `max_gap` or longer between good fixes, drawn faint and dashed;
   a stretch too small to show as a line at the map's scale is drawn as a dot (#70). Fixes over
-  land beyond `land_tolerance` are ringed (#79).
+  land beyond `max_inland` are ringed (#79, #95).
   The legend and inset go where they cover no fix or marker: the legend below the map when
   there's no such place on it, and the inset left out when there's none;
 - `speed_and_acceleration`: speed over ground and the acceleration QC tests, against time, with
