@@ -40,6 +40,9 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | SP1531 | 119707 (product 604581) | Sproul's Furuno GP-90, nav27 (GLL dated by ZDA, no GGA): 93,417 records equal to R2R's, the quality column included; no satellites, HDOP or altitude. R2R doesn't flag its one quality-0 fix (Q9). No QA 2.0 report |
 | RC0014 | 137928 (product 610013) | Rachel Carson's Furuno GP-33, nav32 (CORIOLIX: logger date and time, then RMC): 22,203 records equal to R2R's; R for both (accelerations from 3-decimal minutes every 2 s). Its ship-canal transit warns over water (#95). No QA 2.0 report |
 | RC0011 | 137345 (product 610012) | nav32: 12,936 records equal to R2R's; Y for both. No QA 2.0 report |
+| BH19-30 | 136141 (product 609730) | Blue Heron's UHDAS GPS feed, nav31 (GGA dated by PYRTM): 9,097 records equal to R2R's; G. No QA 2.0 report |
+| SP2613 | 169848 (UHDAS ADCP) | UHDAS's GP170 feeds (nav31): every fix at R2R's bestres times, 5.5–7 m from the BX992 |
+| KM1519 | 119346 (UHDAS ADCP; product 603576) | Kilo Moana's Simrad in UHDAS, 2015 (uhdas: UNIXD, the year from the file name): 12 m from the POS/MV's bestres at its times |
 
 Between them, every one of R2R's six tests has a reference that R2R rates Y or R
 (`tests/test_r2r_references.py`, #26).

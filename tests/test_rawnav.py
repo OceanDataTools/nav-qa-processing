@@ -182,6 +182,7 @@ def test_rr1802_is_over_water_at_portland():
         ("SP1531_119707", "nav27", 93_417),  # Sproul's GP-90: GLL, not GGA (quality from GLL)
         ("RC0014_137928", "nav32", 22_203),  # Rachel Carson's CORIOLIX RMC (rated R by both)
         ("RC0011_137345", "nav32", 12_936),  # (rated Y by both)
+        ("BH19-30_136141", "nav31", 9_097),  # Blue Heron's UHDAS GPS feed: GGA dated by PYRTM
     ],
 )
 def test_records_match_r2r_bestres(name, format_id, records):
@@ -286,3 +287,54 @@ def test_nh1209_nav22_agrees_with_the_primary_gps():
             common["lon"], common["lat"], common["ship_longitude"], common["ship_latitude"]
         )[0]
         assert np.median(distance) < 10, name
+
+
+def _against_bestres(fixes, bestres, tolerance="0.5s"):
+    """Each fix matched to R2R's nearest bestres record within `tolerance`: the distances [m]"""
+    from nav_qa_processing import geodesy
+
+    left = fixes.sort_values("time").assign(time=lambda f: f["time"].dt.as_unit("ns"))
+    right = bestres.drop_duplicates("iso_time").sort_values("iso_time")
+    right = right.assign(iso_time=right["iso_time"].dt.as_unit("ns"))
+    matched = pd.merge_asof(
+        left,
+        right,
+        left_on="time",
+        right_on="iso_time",
+        direction="nearest",
+        tolerance=pd.Timedelta(tolerance),
+    ).dropna(subset=["ship_longitude"])
+    return geodesy.inverse(
+        matched["lon"], matched["lat"], matched["ship_longitude"], matched["ship_latitude"]
+    )[0]
+
+
+@pytest.mark.parametrize(
+    "name, feed, format_id, product, records, matched, median",
+    [
+        # UHDAS's GP170 feeds on SP2613 (PYRTM) against the BX992's bestres
+        ("SP2613_169848", "gp170a", "nav31", "SP2613_169851", 26_509, 26_509, 10),
+        ("SP2613_169848", "gp170b", "nav31", "SP2613_169851", 26_509, 26_509, 10),
+        # Kilo Moana's Simrad in UHDAS, 2015 (UNIXD), against the POS/MV's bestres
+        ("KM1519_119346", "simrad", "uhdas", "KM1519_119346", 31_586, 11_981, 20),
+    ],
+)
+def test_uhdas_gps_feeds_agree_with_the_primary_gps(
+    name, feed, format_id, product, records, matched, median
+):
+    """UHDAS's GPS logs, inside R2R's UHDAS ADCP filesets: R2R made no products from them, but
+    at R2R's times their fixes lie within meters of the cruise's bestres, so they're dated
+    right (#97)
+    """
+    cruise, fileset = name.split("_")
+    directory = DATA / f"{name}_gnss" / "data" / "raw" / feed
+    path = DATA / f"{product}_gnss" / "products" / "data" / f"{cruise}_bestres.geoCSV"
+    if not directory.is_dir() or not path.exists():
+        pytest.skip(
+            f"{cruise} not downloaded; run: uv run nav-qa-processing r2r fetch-fileset "
+            f"{cruise} {fileset} (and {product.split('_')[1]})"
+        )
+    nav = rawnav.read_fileset(sorted(directory.glob("*.gps")), format_id)
+    assert nav.errors == [] and len(nav.frame) == records
+    distance = _against_bestres(nav.frame, geocsv.read(path).records)
+    assert len(distance) == matched and np.median(distance) < median
