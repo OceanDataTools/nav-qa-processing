@@ -68,6 +68,32 @@ class DatedFix:
         """Nanoseconds since 1970-01-01T00:00:00Z"""
         return (self.day - _EPOCH).days * _DAY + self.gga.time.ns
 
+    @property
+    def moment(self) -> datetime:
+        """The fix's UTC date and time, to the microsecond"""
+        return datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=self.time_ns // 1000)
+
+
+class SpanCache:
+    """What a reader's `span` worked out for a file, kept for its `read` to reuse rather than
+    parse the file again (code review, 2026-10-18). Keyed by the file's lines list, which
+    `rawnav` passes to both; `read` clears it, so files `span` saw but `read` skipped don't
+    linger
+    """
+
+    def __init__(self):
+        self._kept: dict[int, tuple[list[str], object]] = {}
+
+    def keep(self, lines: list[str], value: object) -> None:
+        self._kept[id(lines)] = (lines, value)
+
+    def take(self, lines: list[str]) -> object | None:
+        kept = self._kept.pop(id(lines), None)
+        return kept[1] if kept is not None and kept[0] is lines else None
+
+    def clear(self) -> None:
+        self._kept.clear()
+
 
 # Why a reader skipped a sentence, as Result.skipped counts them (#67)
 NO_TIME = "GGA without a time"

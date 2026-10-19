@@ -16,7 +16,7 @@ like its GGA + ZDA parsers (`docs/navmanager-differences.md`).
 """
 
 import re
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import PurePath
 
 from nav_qa_processing.formats.gga_zda import (
@@ -24,6 +24,7 @@ from nav_qa_processing.formats.gga_zda import (
     NO_TIME,
     DatedFix,
     Result,
+    SpanCache,
     count_skipped,
     date_from,
     has_star,
@@ -36,6 +37,7 @@ from nav_qa_processing.readable import plural
 _DAY = 86_400 * 10**9  # [ns]
 _NAME_YEAR = re.compile(r"((?:19|20)\d\d)_(\d{3})_\d+")
 NO_CLOCK = "GGA with no clock sentence in its file to date it"
+_spans = SpanCache()
 
 
 def name_year(name: str) -> int | None:
@@ -103,14 +105,10 @@ def span(
     lines: list[str], name: str = "", kind: str = "PYRTM"
 ) -> tuple[datetime, datetime] | None:
     """The first and last fix of a file, to select and order files by"""
-    fixes = _dated(name, lines, kind)[0]
-    if not fixes:
-        return None
-    moment = lambda fix: (
-        datetime(fix.day.year, fix.day.month, fix.day.day, tzinfo=UTC)
-        + (timedelta(microseconds=fix.gga.time.ns // 1000))
-    )
-    return moment(fixes[0]), moment(fixes[-1])
+    dated = _dated(name, lines, kind)
+    _spans.keep(lines, dated)
+    fixes = dated[0]
+    return (fixes[0].moment, fixes[-1].moment) if fixes else None
 
 
 def read(files: list[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
@@ -119,7 +117,7 @@ def read(files: list[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
     """
     result = Result([], [], {}, {})
     for name, lines in files:
-        fixes, timeless, unclocked, rejected, cut = _dated(name, lines, kind)
+        fixes, timeless, unclocked, rejected, cut = _spans.take(lines) or _dated(name, lines, kind)
         result.fixes += fixes
         if timeless:
             result.errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")
@@ -133,4 +131,5 @@ def read(files: list[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
         count_skipped(result.skipped, name, NO_CLOCK.replace("clock", kind), unclocked)
         count_skipped(result.skipped, name, FAILED_CHECKSUM, rejected)
         report_cut_short(result.errors, result.skipped, name, cut)
+    _spans.clear()
     return result
