@@ -1,0 +1,61 @@
+# From R2R's catalog, 2026-10-19
+[cruise]
+id = "SR2612"
+name = "Near-Trench Community Geodetic Experiment"
+pi = "White, Joel"
+vessel_id = "33P4"
+vessel_name = "Sally Ride"
+operator_id = "edu.ucsd.sio"
+scheduler_id = "org.unols"
+date_issued = "2026-07-22"
+date_modified = "2026-08-06T04:23:14Z"
+depart_date = 2026-06-19
+arrive_date = 2026-06-21
+doi = "doi:10.7284/911459"
+
+[cruise.extent]
+westernmost = -125.05301007
+easternmost = -122.28869925
+southernmost = 37.76413588
+northernmost = 44.2525008
+
+[cruise.depart_port]
+name = "Newport"
+port_id = "100041"
+country_id = "us"
+state_id = "or"
+longitude = -124.05222
+latitude = 44.63694
+
+[cruise.arrive_port]
+name = "Alameda"
+port_id = "101696"
+country_id = "us"
+state_id = "ca"
+longitude = -122.25639
+latitude = 37.75667
+
+[fileset]
+id = "169918"
+doi = "doi:10.7284/169918"
+date_created = "2026-07-23"
+format_id = "100150"
+format_alias = "starc_raw"
+
+[fileset.device]
+id = "101250"
+make_id = "com.kongsberg"
+model_id = "100436"
+model_name = "Seatex Seapath 380+ 5"
+
+[nav]
+format = "nav29"
+
+[provenance]
+distro_type = "post-cruise"
+contact_institution = "Rolling Deck to Repository (R2R)"
+contact_institution_id = "us.rvdata"
+contact_email = "info@rvdata.us"
+
+[geocsv]
+attribution = "Rolling Deck to Repository (R2R) Program; http://www.rvdata.us/"

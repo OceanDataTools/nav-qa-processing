@@ -364,3 +364,14 @@ def test_over_water_without_map_data():
     s = compute(nav)
     assert (over_water(s).status, over_water(s).value) == ("n/a", "no coastline data")
     assert pd.isna(stats.counts_by_file(nav, s).iloc[-1]["Over land"])
+
+
+@pytest.mark.parametrize("step", [0.2, 0.1])
+def test_completeness_at_5_and_10_hz(step):
+    """An unbroken 5 Hz or 10 Hz feed is complete: slots are counted in integer nanoseconds, not
+    float seconds, where 0.2 s isn't exact (SR2612 came out 80 %, #108)
+    """
+    seconds = np.round(np.arange(0, 3600, step), 3)  # an hour, from 2026-07-09 12:00
+    s = compute(nav_from(seconds))
+    assert s.modal_interval == step and s.possible_epochs == len(seconds)
+    assert s.occupied_epochs == len(seconds) and s.completeness == 100.0

@@ -222,8 +222,13 @@ def compute(
     steps = np.diff(t)
     interval = modal_interval(steps)
     if interval and len(t):
-        possible = int(np.floor(1 + (t[-1] - t[0]) / interval + 1e-9))
-        occupied = len(np.unique(np.floor((t - t[0]) / interval + 1e-9)))
+        # Interval slots in integer nanoseconds: in float seconds since 1970, a step that
+        # isn't exact in binary (0.2 s) errs by ~1e-7 and one fix in five lands in its
+        # neighbour's slot (SR2612: 80 % for an unbroken 5 Hz feed, #108)
+        ns = f["time"][in_sequence].dt.as_unit("ns").astype("int64").to_numpy()
+        interval_ns = round(interval * 1e9)  # whole milliseconds, so exact
+        possible = int((ns[-1] - ns[0]) // interval_ns) + 1
+        occupied = len(np.unique((ns - ns[0]) // interval_ns))
     else:
         possible = occupied = len(t)
 

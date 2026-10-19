@@ -288,3 +288,23 @@ def test_skq202516s_nav24():
     assert np.allclose(nav["lat"].iloc[:-1], records["ship_latitude"], atol=5e-9)
     flagged = run.result.qc.flags[:-1] != 0
     assert int(flagged.sum()) == int(records["flagged"].sum()) == 62
+
+
+def test_sr2612_five_hz():
+    """Sally Ride's Seapath 380+ at an unbroken 5 Hz (nav29). R2R's bestres is ours less the
+    final fix (R2), with the same 960 flags. Completeness is 100 % here, 80.05 % in R2R's report,
+    so R2R rates it Y and we G (A8, #108)
+    """
+    run = ours("SR2612_169918")
+    rating, tests = ratings(run)
+    r2r_rating, r2r_tests = r2rs("SR2612_169918")
+    assert (rating, r2r_rating) == ("G", "Y")
+    assert tests["PercentCompleteness"] == ("G", 100.0)
+    assert r2r_tests["PercentCompleteness"] == ("Y", 80.05)
+    for name in TESTS[1:5]:  # the others, but accelerations (A5)
+        assert tests[name] == r2r_tests[name]
+    nav = run.result.nav.frame
+    best = geocsv.read(directory("SR2612_169918") / "products/data/SR2612_bestres.geoCSV").records
+    times, theirs = _times(nav["time"]), _times(best["iso_time"])
+    assert len(times) == len(theirs) + 1 == 880_236 and (times[:-1] == theirs).all()
+    assert int((run.result.qc.flags[:-1] != 0).sum()) == int(best["flagged"].sum()) == 960
