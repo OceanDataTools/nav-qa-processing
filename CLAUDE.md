@@ -297,7 +297,8 @@ against R2R's primary-GPS bestres, as R2R made no products from it); SP1531 (#92
 for record, quality from GLL); RC0014 and RC0011 (#94, nav32, record for record, R and Y as
 R2R); BH19-30 (#97, nav31, record for record) and UHDAS's GPS logs in SP2613's and KM1519's
 UHDAS ADCP filesets (nav31, uhdas: against the primary GPS); BH10-17 (#99, nav03, record for
-record); see
+record); SR2612 (#108, nav29 at 5 Hz: G here, Y in R2R's report, whose completeness truncates
+steps to whole milliseconds, A8); see
 `tests/fixtures/README.md` and `tests/test_r2r_references.py`.
 
 ## Porting rules

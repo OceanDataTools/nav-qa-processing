@@ -105,3 +105,21 @@ def test_gll_reads_as_a_gga_without_satellites_hdop_or_altitude(fields, quality)
         -(117 + 9.3193 / 60)
     )
     assert (gga.nsat, gga.hdop, gga.alt, gga.lat_decimals) == (None, None, None, 6)
+
+
+@pytest.mark.parametrize(
+    "text", ["1203242943", "246000", "126000.50", "120361", "12030", "12a030"]
+)
+def test_a_malformed_time_of_day_is_missing(text):
+    """Six digits, hours, minutes and seconds in range; SR2612's Hemisphere spliced
+    `$GPGGA,1203242943,…`, which passed its checksum by chance (#108)
+    """
+    from nav_qa_processing.formats.nmea import TimeOfDay
+
+    assert TimeOfDay.parse(text) is None
+
+
+def test_a_leap_second_is_a_time():
+    from nav_qa_processing.formats.nmea import TimeOfDay
+
+    assert TimeOfDay.parse("235960.00").seconds == 86400.0

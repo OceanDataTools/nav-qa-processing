@@ -44,6 +44,7 @@ Larger references are fetched into `data/` (gitignored) by the tests' skip messa
 | SP2613 | 169848 (UHDAS ADCP) | UHDAS's GP170 feeds (nav31): every fix at R2R's bestres times, 5.5–7 m from the BX992 |
 | KM1519 | 119346 (UHDAS ADCP; product 603576) | Kilo Moana's Simrad in UHDAS, 2015 (uhdas: UNIXD, the year from the file name): 12 m from the POS/MV's bestres at its times |
 | BH10-17 | 105061 | Blue Heron's NOAA SCS, nav03 (GLL cut after the longitude, occasional GGA; timed by the logger): 6,530 fixes on Lake Superior, equal to R2R's bestres record for record, the GLLs' missing quality included; we flag 4 stale repeats R2R doesn't (Q7). No QA 2.0 report |
+| SR2612 | 169918 (product 620237) | Sally Ride's Seapath 380+, nav29 at an unbroken 5 Hz: R2R's 880,235 records equal ours less the final fix (R2), the same 960 flags. Completeness 100 % here, 80.05 % in R2R's report (A8), so G here and Y there |
 
 Between them, every one of R2R's six tests has a reference that R2R rates Y or R
 (`tests/test_r2r_references.py`, #26).

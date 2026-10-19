@@ -125,11 +125,17 @@ class TimeOfDay:
 
     @classmethod
     def parse(cls, text: str) -> "TimeOfDay | None":
+        """`hhmmss[.s…]`, or None unless it's six digits with the hours, minutes and seconds in
+        range: a spliced sentence can pass its checksum by chance (SR2612's Hemisphere:
+        `$GPGGA,1203242943,…`, read as 120,324 hours, #108)
+        """
         whole, _, fraction = text.strip().partition(".")
-        if not whole.isdigit() or (fraction and not fraction.isdigit()):
+        if len(whole) != 6 or not whole.isdigit() or (fraction and not fraction.isdigit()):
             return None
         hh, rest = divmod(int(whole), 10_000)
         mm, ss = divmod(rest, 100)
+        if hh > 23 or mm > 59 or ss > 60:  # 60: a leap second
+            return None
         ns = int((fraction + "0" * 9)[:9]) if fraction else 0
         return cls((hh * 3600 + mm * 60 + ss) * 10**9 + ns, len(fraction))
 

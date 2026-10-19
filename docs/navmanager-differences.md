@@ -65,6 +65,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | A5 | navqa | Speeds and accelerations between every pair of records, scalar | SP2424: 0.16 % unreasonable accelerations, ±14 m s-2 (GNSS noise) | QC's acceleration over 2 s (#24) |
 | A6 | navqa | Percentages over "actual epochs" (in-sequence steps), −1 and −2 for speeds and accelerations | Negligible | Over records, speeds, accelerations (#24) |
 | A7 | xmltools2 | Ratings of values as written; gaps at the receiver's time precision; uncomputable results | A gap just over a bound; division by zero | Rated as written through `quantities.py`; no result is R (#27) |
+| A8 | navqa | Steps truncated to whole milliseconds from float seconds: at 5 Hz one step in five reads 199 ms and is merged with the next | Completeness ~80 % for an unbroken 5 Hz feed: every recent Sally Ride cruise rated Y (SR2609–SR2612) | Slots counted in integer nanoseconds: 100 % (#108) |
 | X1 | R2R QA XML | Duplicate `<r2r:id>` in `cruise`, PHP number printing, mixed unit names, a double space | Text only | R2R's structure, standardized text (#27) |
 
 ## Reader (navdatalist, navcopy, nmeatools)
@@ -417,6 +418,14 @@ acceleration results differ (A5).
 - **Evidence:** SP2613 (G), SP2503 (R: completeness 47.34 % R, gap 48,625.50 s Y) and SP2424 (G): every rating, the overall rating and the infos equal R2R's (`tests/test_r2r_xml.py`).
 - **Why (confirmed in code):** the thresholds were written twice by hand; the gap keeps the receiver's precision because it's a time.
 - **Effect:** a gap between a bound and the next centisecond (900.004 s) is G in NavManager, Y here.
+
+### A8. Completeness at 5 Hz: steps truncated to whole milliseconds
+
+- **NavManager:** `navqa` turns each record's time into float Unix seconds (`gmmktime(…) + $secondFractionOf`, `include/navqa.inc.php`, ~line 281) and each step into milliseconds with `intval(1e3 * ($utim[$binx] - $utim[$binx-1]))` (~lines 302 and 459). `intval` truncates. A 0.2 s step isn't exact in binary, and at Unix-time magnitudes (about 1.8e9 s) the difference of two doubles errs by about 1e-7 s, so about one step in five comes out 199.9999… ms and truncates to 199. The modal interval is still 200 ms, so a 199 ms step doesn't count as an epoch on its own: the countable-epochs loop (A3) adds the next step to it and counts the two as one.
+- **Here:** the interval slots are counted in integer nanoseconds (`stats.compute`, #108), so an unbroken 5 Hz feed is 100 % complete. An earlier version of this package binned the slots in float seconds and lost the same one fix in five (80.00 % on SR2612); that was fixed in #108.
+- **Evidence:** SR2612 (Sally Ride, Seapath 380+, nav29, fileset 169918): 880,236 fixes, every step exactly 0.2 s, longest gap 0.2 s. Simulating navqa's arithmetic on R2R's bestres times gives 176,047 steps of 199 ms and 703,943 of 200 ms, and completeness 80.01 %; R2R's report gives 80.05 % (the 0.04 % presumably from navqa's 3,600-record buffer boundaries and its end-of-file loop, A3). R2R's reports for the cruises before it, with the same feed: SR2611 80.08 %, SR2610 80.00 %, SR2609 80.01 %, each rated Y with a longest gap of 0.20 s (SR2609: 24.4 s) (`tests/test_r2r_references.py`, #108).
+- **Why (confirmed in code):** truncating a float difference to an integer; rounding (`round`) would give 200 for every step.
+- **Effect:** every 5 Hz feed (and 10 Hz, 0.1 s not being exact either) reads about 80 % complete, so R2R rates completeness Y (below 95 %) for cruises whose navigation is complete: SR2609–SR2612, Sally Ride's recent cruises, all rated Y overall for this alone. 1 Hz and 2 Hz feeds are unaffected (1 and 0.5 are exact in binary).
 
 ## R2R's QA 2.0 XML
 
