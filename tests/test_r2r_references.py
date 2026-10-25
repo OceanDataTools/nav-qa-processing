@@ -12,16 +12,21 @@ reference, whose missing fixes in R2R's products are each explained (R1, R8, R9,
 """
 
 import functools
+import os
 
 import numpy as np
 import pandas as pd
 import pytest
 from conftest import CONFIGS, DATA
 
-from nav_qa_processing import geocsv, pdf_report, stats
+from nav_qa_processing import geocsv, maps, pdf_report, stats
 from nav_qa_processing.integrations.r2r.config import load_cruise_config
 from nav_qa_processing.integrations.r2r.reports import run_r2r
 from nav_qa_processing.integrations.r2r.xml_report import R2R_NAMESPACE, build_qa_xml
+
+# Every reference run uses the map data when it's cached (each fileset's run is cached for the
+# session, so the same for all); the over-water results are checked only then (#110)
+pytestmark = pytest.mark.map_data
 
 TESTS = [
     "PercentCompleteness",
@@ -44,8 +49,15 @@ def directory(name):
     return path
 
 
-@functools.cache
 def ours(name):
+    """The fileset's R2R run, cached for the session per map-data state: other modules reuse it
+    without map data, which a `map_data` test mustn't get (#110)
+    """
+    return _ours(name, os.environ.get(maps.NO_MAP_DATA, ""))
+
+
+@functools.cache
+def _ours(name, no_map_data):
     return run_r2r(directory(name), CONFIGS / f"{name}.toml")
 
 
@@ -119,8 +131,11 @@ def test_rr2212_files_out_of_order():
     # Over water (#79): Oakland's inner harbor is land at 1:10m, up to 1.44 km in; within the
     # tolerance
     over_water = next(c for c in run.result.stats.checks if c.name == "Over water")
-    assert over_water.status == "pass" and "374 on land within 3000 m" in over_water.detail
-    assert round(np.nanmax(run.result.stats.inland)) == 1438
+    if run.result.stats.inland is not None:
+        assert over_water.status == "pass" and "374 on land within 3000 m" in over_water.detail
+        assert round(np.nanmax(run.result.stats.inland)) == 1438
+    else:
+        assert over_water.status == "n/a"
 
 
 def test_sp2220_no_fix():
@@ -139,10 +154,10 @@ def test_sp2220_no_fix():
     assert r2r_tests["PercentCompleteness"] == ("R", 33.99)
     # The checks in a line (#68)
     status, line = run.result.stats.verdict
+    no_map_data = " n/a: Over water." if run.result.stats.inland is None else ""
     assert status == "warn" and line == (
         "4 of 8 checks warn: Completeness 6.02 %; Longest gap 28:21:43.500 (102103.500 s); Bad "
-        "quality "
-        "indicator 82.61 %; Within the expected area 3 outside."
+        "quality indicator 82.61 %; Within the expected area 3 outside." + no_map_data
     )
     # What the reader skipped (#67): every GGA without a time and ZDA without a date, and
     # the 09-27 file it couldn't read
@@ -237,7 +252,10 @@ def test_fkt230417_nav33():
     assert by_file.loc["FKt230417_posmv_gga-2023-04-27.txt", "Flagged by QC"] == 283
     # Over water (#79): alongside in San Juan, which is land at 1:10m, for 30 minutes
     over_water = next(c for c in s.checks if c.name == "Over water")
-    assert over_water.status == "pass" and "1835 on land within 3000 m" in over_water.detail
+    if s.inland is not None:
+        assert over_water.status == "pass" and "1835 on land within 3000 m" in over_water.detail
+    else:
+        assert over_water.status == "n/a"
 
 
 def _times(frame_times) -> np.ndarray:

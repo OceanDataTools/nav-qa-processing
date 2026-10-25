@@ -150,7 +150,9 @@ nav-qa-processing fetch-map-data
 Downloads the Natural Earth layers the trackline map uses (1:10m land, lakes and coastlines,
 and the 1:110m world for the inset, about 27 MB) into cartopy's data directory, so the map has
 coastlines offline, e.g. at sea. Without them, the map is drawn without coastlines and says so,
-and the "Over water" check, which uses the same land and lakes, is n/a.
+and the "Over water" check, which uses the same land and lakes, is n/a. Setting the environment
+variable `NAV_QA_NO_MAP_DATA` has the same effect without touching the network; the tests set
+it, so they never download map data (tests marked `map_data` use it when it's already here).
 It takes no arguments.
 
 ### Opening the notebook

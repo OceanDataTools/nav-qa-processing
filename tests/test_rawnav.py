@@ -151,6 +151,7 @@ def test_rr1802_nav1_records_match_r2r_bestres():
     _compare(nav, r2r)
 
 
+@pytest.mark.map_data
 def test_rr1802_is_over_water_at_portland():
     """Swan Island on the Willamette, and a run down to the Columbia: land in Natural Earth's
     polygons, on the water by its river centerlines and the 3000 m tolerance (#85)
@@ -341,6 +342,7 @@ def test_uhdas_gps_feeds_agree_with_the_primary_gps(
     assert len(distance) == matched and np.median(distance) < median
 
 
+@pytest.mark.map_data
 def test_rc0014_canal_is_reported_not_warned_of():
     """Seattle's ship canal, which Natural Earth lacks: up to 3.9 km from its water, beyond
     land_tolerance but within max_inland, so reported and the check passes (#95)

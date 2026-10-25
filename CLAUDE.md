@@ -333,4 +333,6 @@ steps to whole milliseconds, A8); see
   module changes the generated notebook. Check by hand with `run ... --execute-notebook`.
 - Tests are plain pytest functions. Use small synthetic inputs, and use downloaded R2R filesets
   for end-to-end parity. Parity tests skip when the data is absent, and the skip message names
-  the fetch command.
+  the fetch command. No test downloads Natural Earth (#110): `conftest.py` sets
+  `NAV_QA_NO_MAP_DATA` for the session; a test marked `map_data` uses the data when it's cached
+  and must still pass, or skip, without it.
