@@ -55,9 +55,10 @@ output_extra_directory = "NAV_QA"        # where reports go
 [geocsv]
 attribution = "R/V Robert Gordon Sproul, Scripps Institution of Oceanography"
 
-# QA thresholds, as in a config TOML; e.g.:
-# [thresholds]
-# max_gap = 300.0
+# QA thresholds, as in a config TOML. max_speed is the vessel's top speed [m s-1]: a
+# step faster than it counts as an unreasonable speed (1 knot is 0.514 m s-1)
+[thresholds]
+max_speed = 5.4                   # Sproul's, from R2R's vessel catalog (info/vessel/32QU)
 
 # The reports' theme, as in a config TOML; e.g.:
 # [theme]

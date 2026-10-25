@@ -53,6 +53,14 @@ def _email(text: str) -> str | None:
     return None if not text or ("@" in text and " " not in text) else "not an email address"
 
 
+def _speed(text: str) -> str | None:
+    """None for a speed in m s-1 above 0"""
+    try:
+        return None if float(text) > 0 else "must be above 0"
+    except ValueError:
+        return "a number, in m s-1 (1 knot is 0.514 m s-1)"
+
+
 def _nav_format(text: str) -> str | None:
     """None for a format ID with a reader; the hook can't run without one"""
     if formats.catalog.canonical_id(text) in formats.READERS:
@@ -213,6 +221,12 @@ def prompt_site_config(
         contact_institution=ask("contact_institution", "Contact institution for the QA report"),
         contact_email=ask("contact_email", "Contact email", _email),
     )
+    max_speed = prompt.ask(
+        "Vessel's top speed [m s-1] (1 knot is 0.514 m s-1); faster steps count as unreasonable",
+        f"{defaults.thresholds.max_speed:g}",
+        _speed,
+    )
+    site.thresholds = replace(site.thresholds, max_speed=float(max_speed))
     site.feeds = _ask_feeds(prompt, defaults)
     site.attribution = prompt.ask(
         "\nGeoCSV products' attribution (e.g. R/V Roger Revelle, Scripps Institution of "
