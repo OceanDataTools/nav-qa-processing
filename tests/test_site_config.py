@@ -5,7 +5,7 @@ import io
 import pytest
 
 from nav_qa_processing.cli import main
-from nav_qa_processing.config import Extent, NavDevice
+from nav_qa_processing.config import Extent, NavDevice, Thresholds
 from nav_qa_processing.integrations.openvdm.hook import (
     SiteConfig,
     SiteFeed,
@@ -32,6 +32,9 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
         "Scripps Institution of Oceanography",
         "not an email",  # re-asked
         "tech@example.org",
+        "12 knots",  # top speed: a number in m s-1, re-asked
+        "-1",  # above 0, re-asked
+        "5.4",
         "",  # nav format: required, re-asked
         "nav99",  # no reader, re-asked
         "nav33",
@@ -70,9 +73,12 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
         contact_institution="Scripps Institution of Oceanography",
         contact_email="tech@example.org",
         attribution="R/V Roger Revelle, Scripps Institution of Oceanography",
+        thresholds=Thresholds(max_speed=5.4),
     )
+    assert "\n[thresholds]\nmax_speed = 5.4\n" in output.read_text()
     prompts = capsys.readouterr().err
     assert "not an email address" in prompts
+    assert "a number, in m s-1" in prompts and "must be above 0" in prompts
     assert (
         "required: one of nav01, nav02, nav03, nav12, nav15, nav20, nav22, nav24, nav25, nav27, nav29, nav30, nav31, nav32, nav33, uhdas"
         in prompts
@@ -87,7 +93,9 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
 
 
 def test_prompted_extent_across_the_antimeridian(tmp_path, monkeypatch, capsys):
-    answer(monkeypatch, "", "", "", "nav29", "", *[""] * 6, "", "", "178", "-178", "-20", "-15")
+    answer(
+        monkeypatch, "", "", "", "", "nav29", "", *[""] * 6, "", "", "178", "-178", "-20", "-15"
+    )
     output = tmp_path / "site.toml"
     assert main(["site-config", "-o", str(output)]) == 0
     assert load_site_config(output).extent == Extent(178.0, -178.0, -20.0, -15.0)
@@ -95,10 +103,11 @@ def test_prompted_extent_across_the_antimeridian(tmp_path, monkeypatch, capsys):
 
 
 def test_writes_to_stdout(monkeypatch, capsys):
-    answer(monkeypatch, "Sproul", "", "", "nav33")  # then end of input
+    answer(monkeypatch, "Sproul", "", "", "", "nav33")  # then end of input
     assert main(["site-config", "-o", "-"]) == 0
     out = capsys.readouterr().out
     assert 'name = "Sproul"' in out and 'format = "nav33"' in out
+    assert "\nmax_speed = 8.7\n" in out  # written at its default too
 
 
 EXISTING = SiteConfig(
@@ -126,7 +135,7 @@ def test_overwrites_only_with_force_starting_from_the_file(tmp_path, monkeypatch
     assert load_site_config(output) == EXISTING
 
     # Clear the vessel name; a contact institution; keep the email; a new format
-    answer(monkeypatch, "-", "Scripps", "", "nav29")
+    answer(monkeypatch, "-", "Scripps", "", "", "nav29")
     assert main(["site-config", "-o", str(output), "--force"]) == 0
     site = load_site_config(output)
     assert (site.vessel_name, site.contact_institution) == ("", "Scripps")
@@ -169,6 +178,7 @@ def test_settings_in_openvdm_yaml_are_not_asked_for(tmp_path, monkeypatch, capsy
     answer(
         monkeypatch,
         "tech@example.org",  # contact email: empty in openvdm.yaml, so asked
+        "",  # top speed: the default
         "nav33",
         "",  # every file
         *[""] * 4,  # no device
@@ -225,6 +235,7 @@ def test_adding_a_second_position_sensor(tmp_path, monkeypatch, capsys):
         "",  # vessel name
         "",  # contact institution
         "",  # contact email
+        "",  # top speed
         "nav33",  # the primary: format, files, device, transfer
         "raw/POSMV_GGA-*.txt",
         *[""] * 4,
@@ -270,7 +281,7 @@ def test_editing_keeps_or_drops_the_other_sensors(tmp_path, monkeypatch):
     assert main(["site-config", "-o", str(output), "--force"]) == 0
     assert output.read_text() == text
     # Keep every answer up to the Seapath's name, then drop it
-    answer(monkeypatch, *[""] * 10, "-", "")
+    answer(monkeypatch, *[""] * 11, "-", "")
     assert main(["site-config", "-o", str(output), "--force"]) == 0
     site = load_site_config(output)
     assert [f.name for f in site.feeds] == ["posmv"] and site.primary.primary

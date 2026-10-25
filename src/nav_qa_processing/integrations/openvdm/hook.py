@@ -260,10 +260,18 @@ def site_config_to_toml(site: SiteConfig) -> str:
         "[geocsv]",
         entry("attribution", site.attribution),
     ]
-    thresholds = thresholds_toml(site.thresholds)
-    if not thresholds:
-        thresholds = ["", "# QA thresholds, as in a config TOML; e.g.:"]
-        thresholds += ["# [thresholds]", "# max_gap = 300.0"]
+    # max_speed is always written: the vessel's own top speed matters to every ship (#113)
+    others = [
+        line for line in thresholds_toml(site.thresholds)[2:] if not line.startswith("max_speed")
+    ]
+    thresholds = [
+        "",
+        "# QA thresholds, as in a config TOML. max_speed is the vessel's top speed [m s-1]: a",
+        "# step faster than it counts as an unreasonable speed (1 knot is 0.514 m s-1)",
+        "[thresholds]",
+        f"max_speed = {site.thresholds.max_speed}",
+        *others,
+    ]
     theme = theme_toml(site.theme)
     if not theme:
         theme = ["", "# The reports' theme, as in a config TOML; e.g.:"]

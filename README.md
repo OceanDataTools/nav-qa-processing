@@ -713,11 +713,12 @@ nav-qa-processing site-config [-o SITE_TOML] [--openvdm-config OPENVDM_YAML] [--
 Writes the [site TOML](#site-toml) by prompting, on stderr, for each field OpenVDM doesn't
 store: the vessel name and report contact, the GNSS feed's format (one with a reader; the
 prompt lists them), files glob, device (make, model, serial number, location) and transfer, any
-other position sensors (a name each, then the same; `-` drops one), the GeoCSV attribution, the extra directory and an expected
+the vessel's top speed in m s-1 (`[thresholds] max_speed`, default 8.7), other position
+sensors (a name each, then the same; `-` drops one), the GeoCSV attribution, the extra directory and an expected
 cruise area. Enter keeps the `[default]` and `-` clears it. It works offline. Over an existing
 file (with `--force`) its values are the defaults, and at the end of input every remaining
-field keeps its default, so with no input the file is written back unchanged. `[thresholds]`
-and `[theme]` are kept as they are.
+field keeps its default, so with no input the file is written back unchanged. The other
+`[thresholds]` and `[theme]` are kept as they are.
 
 | Argument | Default | Description |
 |---|---|---|
@@ -741,7 +742,7 @@ The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
 | `[openvdm]` | `output_extra_directory` | `NAV_QA` | The OpenVDM extra directory the reports go into |
 | `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.contact` wins |
 | `[geocsv]` | `attribution` | blank | The GeoCSV products' attribution |
-| `[thresholds]` | as in a [config TOML](#config-toml) | defaults | QC and QA limits |
+| `[thresholds]` | as in a [config TOML](#config-toml) | defaults | QC and QA limits. `max_speed`, the vessel's top speed [m s-1] (default 8.7), is always written: a step faster than it counts as an unreasonable speed |
 | `[theme]` | as in a [config TOML](#config-toml) | none | The reports' look; paths relative to the site TOML |
 
 ## Development
