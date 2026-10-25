@@ -342,7 +342,7 @@ def test_uhdas_gps_feeds_agree_with_the_primary_gps(
     assert len(distance) == matched and np.median(distance) < median
 
 
-@pytest.mark.map_data
+@pytest.mark.map_data(clipped=True)
 def test_rc0014_canal_is_reported_not_warned_of():
     """Seattle's ship canal, which Natural Earth lacks: up to 3.9 km from its water, beyond
     land_tolerance but within max_inland, so reported and the check passes (#95)

@@ -539,8 +539,10 @@ is in `src/nav_qa_processing/stats.py`, `src/nav_qa_processing/integrations/r2r/
 
 The tests compare this tool with released R2R filesets: their pre-QC records, products, QA
 statistics and QA 2.0 reports. Where the ratings differ, the cause is in
-[docs/navmanager-differences.md](docs/navmanager-differences.md). Fetch them with `r2r fetch-fileset` (into `data/`); the tests
-that need one skip without it and name the command.
+[docs/navmanager-differences.md](docs/navmanager-differences.md). SP2613, SP2503, BH19-30 and
+RC0014 are committed in `tests/data/` and unpacked into `data/` by the tests, so CI downloads
+nothing; fetch the others with `r2r fetch-fileset` (into `data/`). The tests that need one skip
+without it and name the command.
 
 | Fileset | R2R | This tool |
 |---|---|---|
@@ -756,6 +758,12 @@ uv run pytest                                   # all tests
 uv run pytest tests/test_cli.py::test_version   # one test
 uv run ruff check . && uv run ruff format --check .
 ```
+
+CI (`.github/workflows/ci.yml`) runs Ruff and the tests on Linux (Python 3.11 to 3.14), macOS and
+Windows on every pull request and push to `main`. It downloads nothing: the tests unpack the
+reference filesets committed in `tests/data/` and draw on Natural Earth clipped to their areas.
+The tests never download map data either; with `fetch-map-data` run, the tests marked `map_data`
+use the full layers.
 
 ## License
 

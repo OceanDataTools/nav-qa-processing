@@ -8,7 +8,7 @@ dist/
 build/
 *.egg-info/
 # Downloaded R2R filesets (fetch with `nav-qa-processing r2r fetch-fileset`)
-data/
+/data/
 # Generated reports
-output/
+/output/
 .DS_Store
