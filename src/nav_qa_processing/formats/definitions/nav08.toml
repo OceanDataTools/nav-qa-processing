@@ -7,6 +7,7 @@ r2r_formats = [100017]
 position = "Decimal degrees"
 time = "Year, day of year, hour, minute, second, millisecond fields"
 description = "One record per second from the POS/MV: time, position in decimal degrees, HDOP, speed and course over ground, satellite count, fix quality, heading and attitude."
+examples_from = "NavManager's doc/fileformat/format-nav8.txt"
 examples = [
   "2009 200 17 00 07 686 *gpo  21.315698 -157.886312  0.90  0.00 208.40 09 1 68.38 -0.29  0.50  0.03",
   "2009 200 17 00 08 686 *gpo  21.315698 -157.886312  0.90  0.00 220.70 09 1 68.35 -0.31  0.48  0.02",

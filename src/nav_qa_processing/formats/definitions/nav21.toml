@@ -11,6 +11,7 @@ notes = [
   "Positions carry no sign or hemisphere: north and west are assumed.",
   "Columns after the barometric pressure don't line up with the header names.",
 ]
+examples_from = "NavManager's doc/fileformat/format-nav21.txt"
 examples = [
   "9/18/08,00:02:36,42,34.875,131,58.586,42,34.869,131,58.594,215.21,00,8.0,GOOD,217.09,8.36,218.83,309.08,21.50,146.45,17.20,309.25,20.01,144.68,15.81,63.74,17.63,1007.96,29.77,525.69,93.94,17.51730,0.74853,4.27207,32.54859,17.68724,3.68,74.91,1.16,,0.18,308.58",
 ]

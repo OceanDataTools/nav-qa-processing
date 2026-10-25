@@ -1,5 +1,5 @@
 id = "nav22"
-title = "Raw NMEA GGA with no date (date from the file name)"
+title = "Raw NMEA: GGA with no date (dated by the file name)"
 system = "Raw receiver output"
 file_type = "ASCII text, one NMEA sentence per line"
 vessels = ["Roger Revelle", "New Horizon"]
@@ -11,9 +11,26 @@ notes = [
   "Seen in New Horizon's Ashtech ADU2 fileset NH1209 (fileset 107219, files ashtech_YYYYMMDDhhmmss.raw). A file's name can postdate its first fix: ashtech_20120924000000.raw starts 2012-09-23 18:36.",
   "R2R files these filesets under 100010 (nav01's ID) and has made no products or QA from them.",
 ]
-references = ["www.nmea.org"]
-examples = [
-  "$PASHR,ATT,000016.0,082.92,-001.50,-000.47,0.0014,0.0165,0*2F",
-  "$GPGGA,000000.00,2107.6817,N,11957.6289,E,1,08,01.0,+00054,M,,M,,*7D",
-  "$GPVTG,000.00,T,,,000.01,N,000.01,K*1D",
+reader = [
+  "A file's first GGA takes the date that puts it nearest the YYYYMMDDhhmmss stamp in the file's name; each GGA after it the date nearest the fix before (within 12 hours), so a file that runs past midnight moves to the next day there.",
+  "A file without a stamp in its name can't be dated and is reported unread; a GGA without a parseable time is skipped.",
+  "NavManager gives every GGA of a file its name's date, taking the stamp after the first _ of the whole path (R13).",
 ]
+filesets = [
+  "NH1209 (fileset 107219, New Horizon's Ashtech ADU2): R2R made no products from it; its fixes lie within meters of R2R's primary-GPS bestres at the same times. One file named 09-24 holds 09-23's fixes (R13).",
+]
+references = ["www.nmea.org"]
+examples_from = "NH1209, fileset 107219, file ashtech_20120918225733.raw (Ashtech ADU2)"
+examples = [
+  "$PASHR,ATT,255472.0,091.94,+001.50,-001.77,0.0032,0.0412,0*2A",
+  "$GPGGA,225736.00,3408.8635,N,11912.5066,W,1,08,01.2,-00003,M,,M,,*64",
+  "$GPVTG,116.42,T,,,000.08,N,000.15,K*11",
+  "$PASHR,ATT,255473.0,091.95,+001.15,-000.77,0.0034,0.0454,0*2E",
+  "$GPGGA,225737.00,3408.8635,N,11912.5066,W,1,08,01.2,-00003,M,,M,,*65",
+  "$GPVTG,173.91,T,,,000.06,N,000.11,K*16",
+]
+
+[[fields]]
+name = "sentence"
+example = "$GPGGA,…"
+meaning = "NMEA 0183 sentence, with no prefix"

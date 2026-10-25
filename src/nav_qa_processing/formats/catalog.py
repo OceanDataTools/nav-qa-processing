@@ -29,7 +29,10 @@ class FormatDefinition:
     time: str = ""  # where the date and time come from
     description: str = ""
     notes: tuple[str, ...] = ()
+    reader: tuple[str, ...] = ()  # how this package reads it, for a format with a reader (#118)
+    filesets: tuple[str, ...] = ()  # the reference filesets that test the reader
     references: tuple[str, ...] = ()
+    examples_from: str = ""  # where the examples come from
     examples: tuple[str, ...] = ()
     fields: tuple[Field, ...] = ()
 
@@ -89,9 +92,15 @@ def sentences() -> dict[str, SentenceDefinition]:
 
 
 def _wrap(text: str, indent: str, width: int = 99) -> list[str]:
+    """text wrapped to width, its first line after indent and the rest aligned with it (a
+    bullet's "  - " continues under its text)
+    """
     import textwrap
 
-    return textwrap.wrap(text, width, initial_indent=indent, subsequent_indent=indent) or [indent]
+    following = " " * len(indent)
+    return textwrap.wrap(text, width, initial_indent=indent, subsequent_indent=following) or [
+        indent
+    ]
 
 
 def describe(definition: FormatDefinition | SentenceDefinition) -> str:
@@ -119,12 +128,18 @@ def describe(definition: FormatDefinition | SentenceDefinition) -> str:
         for f in definition.fields:
             example = f" (e.g. {f.example})" if f.example else ""
             lines += _wrap(f"{f.name:{width}}  {f.meaning}{example}", "  ")
-    if definition.notes:
-        lines += ["", "Notes:"]
-        for note in definition.notes:
-            lines += _wrap(note, "  - ")
+    for heading, items in [
+        ("Notes", definition.notes),
+        ("How it's read", getattr(definition, "reader", ())),
+        ("Reference filesets", getattr(definition, "filesets", ())),
+    ]:
+        if items:
+            lines += ["", f"{heading}:"]
+            for item in items:
+                lines += _wrap(item, "  - ")
     if definition.examples:
-        lines += ["", "Examples:"]
+        source = getattr(definition, "examples_from", "")
+        lines += ["", *_wrap(f"Examples, from {source}:" if source else "Examples:", "")]
         lines += ["  " + e.replace("\t", "<TAB>") for e in definition.examples]
     references = getattr(definition, "references", ())
     if references:

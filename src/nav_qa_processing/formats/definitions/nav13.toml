@@ -11,6 +11,7 @@ notes = [
   "Latitude and longitude carry no hemisphere or sign: north and west are assumed.",
   "Whether the logger time is UTC isn't documented.",
 ]
+examples_from = "NavManager's doc/fileformat/format-nav13.txt"
 examples = [
   "Date,Time,Trimble-Time,Trimble-Latitute,Trimble-Longitude,Trimble-COG,Trimble-SOG,TRUE-WIND-Spd-Speed,TRUE-WIND-Spd-Direction,Humidity-Value,Barometer-Value,Temperature-Value,PAR-Value,Temp-in-Seachest,Therm-Temperature,Therm-Conductivity,Therm-Salinity,Transmissometer-%-Value,Turner-AU10-Data,WetLabs-microgram-per-liter-Value,Depth-High,Depth-Low,",
   "07/09/2009,00:24:32,002600.80,3009.06390826,08539.97126976,73.8,000.073,12.93,263.87,81.28,1011.5,27.55,25.9,29,28.05949,5.2497858,32.35914,-0.331,4.975,2.61,09.98,00.00,",

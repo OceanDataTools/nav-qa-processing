@@ -11,8 +11,8 @@ notes = [
   "Positions carry no sign or hemisphere: north and west are assumed. nav23 is the same layout with signed degrees.",
   "A position of 0 degrees marks a receiver with no data.",
   "From 2011 the Ashtech differential (YES/NO) column is gone, so every later column moves one place left (second example).",
-  "Examples: PS0921, fileset 101414, file 20091021.txt; PS1104, fileset 104862, file 20110526.txt (both shortened).",
 ]
+examples_from = "PS0921, fileset 101414, file 20091021.txt; PS1104, fileset 104862, file 20110526.txt (both shortened)"
 examples = [
   "$PTSUR, WSC2276, 20091021, 152932, 36,48.361,121,48.967,36,48.364,121,48.978,NO,283.070000,285.46,285.30,283.47,9.47,22.85,12.70,352.48,5.70,25.60,13.00,354.77,6.34,53.76,12.09,1015.86,30.00,92.88",
   "$PTSUR, WSC2276, 20110526, 144208, 36,47.992,121,49.691,36,47.996,121,49.692,258.000000,258.90,258.60,258.07,10.00,10.77,9.93,355.76,2.01,11.33,10.13,350.60,2.13,47.80,8.78,1020.47,30.13,0.70",

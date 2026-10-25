@@ -1,5 +1,5 @@
 id = "nav29"
-title = "STARC logger: timestamp, then NMEA (GGA dated by ZDA)"
+title = "STARC logger: timestamp, then NMEA"
 system = "Scripps STARC serial logger"
 file_type = "ASCII text: logger timestamp, then one NMEA sentence"
 vessels = ["Robert Gordon Sproul", "Roger Revelle", "Sally Ride", "Healy"]
@@ -12,9 +12,25 @@ notes = [
   "R2R lists the comma layout as \"STARC serial_logger/*.raw format from 2016\" (R2R format 100150).",
   "The reader takes the text from the last $ on a line, so either prefix works.",
   "The logger writes each read from the serial port as a line, so a sentence can be split across two lines, each with its own timestamp (Revelle's GP170, 2022-2024: 40 % of GGAs in RR2406). The reader joins the pieces until the checksum is complete.",
-  "Examples: the Unix-time lines are NavManager's sample (2018); the ISO lines are SP2613, fileset 169851, file SP2613_mru_trimble_bx992-2026-07-09.txt (Trimble BX992).",
+]
+reader = [
+  "Each GGA takes the date of the ZDA either side of it whose time of day is nearer, counting across midnight. Times are compared, not places in the stream, so the first GGA after a gap between files goes with the ZDA after it.",
+  "The text from the last $ on a line is the sentence, so any logger prefix is ignored. A sentence split across lines is joined with the following lines until its checksum is complete, and kept only if the checksum matches (register R5).",
+  "Skipped and counted per file: a GGA without a parseable time, and a ZDA without a valid date. With no valid ZDA, no GGA can be dated.",
+  "Every dated GGA is kept, repeated and out-of-order times included, for QC to judge. NavManager drops the last GGA after the final ZDA (R2) and a GGA at 00:00:00 or repeating the last dated time (R3), and rejects correct checksums 0A–0F (R1).",
+]
+filesets = [
+  "SP2613 (fileset 169851, Sproul's Trimble BX992; committed in tests/data/): one day, 56,925 records; G, every result equal to R2R's.",
+  "SP2503 (fileset 167484, Sproul; committed in tests/data/): R for both (completeness 47.34 %, a 13.5-hour gap); R2R's bestres lacks its first fix, at 00:00:00 (R3).",
+  "SP2424 (fileset 161900, Sproul): 150,925 records, past navsogcog's 86,400-record buffer (G3); R2R lacks the final fix (R2).",
+  "SP1925 (fileset 134952, Sproul): 303 fixes flagged by R2R, stale repeats while barely moving (Q7).",
+  "RR2406 (fileset 161075, Revelle's GP170): 40 % of the GGAs split across lines (R5, R6); R on five tests in R2R's report, Y here.",
+  "RR2212 (fileset 151339, Revelle): its files processed out of order by R2R (R7), R there; G here.",
+  "SP2220 (fileset 150139, Sproul's Ashtech ABX-Two): no fix for most of the cruise; R for both.",
+  "SR2612 (fileset 169918, Sally Ride's Seapath 380+, 5 Hz): 100 % complete here, 80.05 % in R2R's report (A8).",
 ]
 references = ["www.nmea.org"]
+examples_from = "the Unix-time lines are NavManager's sample (2018); the ISO lines are SP2613, fileset 169851, file SP2613_mru_trimble_bx992-2026-07-09.txt (Trimble BX992)"
 examples = [
   "1531596045.688 $INZDA,192045.68,14,07,2018,,*7A",
   "1531596045.718 $INGGA,192045.68,4437.541871,N,12402.686139,W,2,07,1.3,-4.31,M,-22.07,M,2.0,0135*4B",

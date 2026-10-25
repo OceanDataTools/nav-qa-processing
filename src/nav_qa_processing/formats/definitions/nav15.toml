@@ -1,5 +1,5 @@
 id = "nav15"
-title = "OSU DAS: DATA records with ISO timestamp and quoted NMEA"
+title = "OSU DAS: DATA, ISO timestamp, then NMEA (quoted or not)"
 system = "Oregon State University data acquisition system"
 file_type = "ASCII text, comma-separated, with META_/VESSEL/CRUISE/SOURCE header records"
 vessels = ["Wecoma", "Oceanus"]
@@ -12,7 +12,17 @@ notes = [
   "From September 2011 the sentence isn't quoted (W1109B, fileset 105076, file gnss_adu5_starboardsuite.20110914T000000.csv): DATA, 2011-09-14T00:00:00.078Z, $GPGGA,…",
   "R2R also files Wecoma's 2009–2010 OregonState SUDS filesets under 100046, but they are nav19's layout (W1004B, fileset 103337).",
 ]
+reader = [
+  "Each GGA takes the date that puts it nearest its line's ISO timestamp, counting across midnight. The time of the fix is the GGA's own, not the logger's.",
+  "A sentence split across lines is joined with the following lines until its checksum is complete (register R5). Skipped and counted per file: a GGA without a parseable time, and one on a line without a logger timestamp.",
+  "Quoted and unquoted sentences are both read. In R2R's products, GGAs logged before the logger's clock reached their time are dated a day early (R12).",
+]
+filesets = [
+  "W1108A (fileset 105073, Wecoma's Ashtech ADU5, quoted sentences): 50,678 records equal to R2R's within R2R's window, the Pacific day (08:00Z).",
+  "W1109B (fileset 105076, unquoted sentences): the same 68,302 records as R2R's, but R2R dates 1,017 of them a day early (R12).",
+]
 references = ["www.nmea.org"]
+examples_from = "NavManager's doc/fileformat/format-nav15.txt"
 examples = [
   "DATA, 2011-04-11T00:00:00.158Z, \"$GPGGA,000000,4437.5473,N,12402.7120,W,2,11,0.8,8.5,M,-21.8,M,,*70\"",
   "DATA, 2011-04-11T00:00:00.286Z, \"$GPGSA,A,3,,23,07,04,13,16,03,20,08,10,30,02,1.3,0.8,1.1*36\"",

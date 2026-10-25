@@ -87,7 +87,9 @@ def test_a_new_site_toml(tmp_path, monkeypatch, capsys):
         "no reader for nav99: one of nav01, nav02, nav03, nav12, nav15, nav20, nav22, nav24, nav25, nav27, nav29, nav30, nav31, nav32, nav33, uhdas"
         in prompts
     )
-    assert "nav33  ISO timestamp, then GGA" in prompts  # the formats with a reader are listed
+    assert (
+        "nav33  SOI logger: ISO timestamp and a comma, then GGA" in prompts
+    )  # the formats with a reader are listed
     assert "outside ±90" in prompts and "southernmost must be <= northernmost" in prompts
     assert "R2R" not in prompts
 

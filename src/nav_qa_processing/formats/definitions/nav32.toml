@@ -1,20 +1,30 @@
 id = "nav32"
-title = "RCRV DAS: RMC"
-system = "Regional Class Research Vessel data acquisition system"
+title = "CORIOLIX: logger date and time, then RMC"
+system = "CORIOLIX, the Regional Class Research Vessels' data acquisition system"
 file_type = "ASCII text: logger date and time, then one NMEA sentence, comma-separated"
 vessels = ["Rachel Carson"]
 sentences = ["RMC"]
 r2r_formats = [100235]
 position = "RMC"
-time = "RMC date and time"
+time = "RMC time of day, dated by the logger's date (RMC's own date isn't used)"
 description = "Rachel Carson's CORIOLIX logs: each line is the logger date (MM/DD/YYYY) and time, then an RMC sentence. Position and time of day come from RMC, the date from the logger (the logger's clock can be a minute or more off the receiver's); the fix quality from RMC's mode indicator, or without one 1 when the status is A and 0 otherwise."
 notes = [
   "RMC has no fix quality, satellite count, HDOP or altitude.",
   "The talker is EC (ECDIS) rather than GP.",
-  "Examples: RC0012, fileset 137927, file GPS-Network-RMC_20181101-030609.Raw.",
   "R2R format 100235 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
+reader = [
+  "Each RMC takes the date that puts it nearest its line's logger date and time, counting across midnight. The time of the fix is the RMC's own, not the logger's.",
+  "A sentence split across lines is joined with the following lines until its checksum is complete (register R5). Skipped and counted per file: a RMC without a parseable time, and one on a line without a logger timestamp.",
+  "Position and time of day come from RMC; an RMC date that differs from the logger's is reported, not used (R15).",
+  "Quality comes from RMC's mode indicator or, without one, the status (A 1, V 0) (R14). There are no satellites, HDOP or altitude.",
+]
+filesets = [
+  "RC0014 (fileset 137928, Rachel Carson's Furuno GP-33; committed in tests/data/): 22,203 records equal to R2R's; R for both (accelerations from 3-decimal minutes every 2 s). Its transit of Seattle's ship canal is reported by the over-water check.",
+  "RC0011 (fileset 137345): 12,936 records equal to R2R's; Y for both.",
+]
 references = ["www.nmea.org"]
+examples_from = "RC0012, fileset 137927, file GPS-Network-RMC_20181101-030609.Raw"
 examples = [
   "11/01/2018,03:06:10.708,$ECRMC,030710,A,4740.811,N,12224.407,W,0.0,241.70,011118,015.63,E*72",
   "11/01/2018,03:06:12.790,$ECRMC,030712,A,4740.811,N,12224.407,W,0.0,241.20,011118,015.63,E*75",

@@ -1,5 +1,5 @@
 id = "metoc_nav"
-title = "Atlantic Explorer METOC: Campbell TOA5 navigation table"
+title = "BIOS METOC: Campbell TOA5 navigation table"
 system = "BIOS METOC system on a Campbell Scientific CR6 logger"
 file_type = "ASCII text, comma-separated Campbell TOA5: four header lines, quoted strings"
 vessels = ["Atlantic Explorer"]
@@ -12,8 +12,8 @@ notes = [
   "No GGA quality, satellite count, HDOP or altitude: those are written NAN.",
   "NavManager's navformat.php labels this format \"USAP Navigation (OpenRVDAS)\", but its parser was added for Atlantic Explorer (NavManager commit 776878e, 2020-09-01) and R2R files the data as format 100232, \"METOC Navigation Format (csv)\" (Atlantic Explorer, at least 2018–2022).",
   "NavManager's reader also accepts decimal Latitude/Longitude columns, but uses the degree and minute columns (since commit 8c3582c, 2022).",
-  "Examples: AE1822, fileset 138309, file MainMetMast_Nav.dat.",
 ]
+examples_from = "AE1822, fileset 138309, file MainMetMast_Nav.dat"
 examples = [
   "\"TOA5\",\"MainMetMast\",\"CR6\",\"8186\",\"CR6.Std.07.02\",\"CPU:MainMetMast_2018July27th_ROC_TWind_v2.CR6\",\"30817\",\"Nav\"",
   "\"TIMESTAMP\",\"RECORD\",\"Lat_deg\",\"Lat_min\",\"Lon_deg\",\"Lon_min\",\"SOG_kts\",\"COG_deg\",\"GPS_HDT_deg\"",

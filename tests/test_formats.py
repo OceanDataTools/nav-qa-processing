@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,52 @@ def test_referenced_sentences_are_defined():
 
 def test_every_reader_has_a_definition():
     assert set(formats.READERS) <= set(catalog.formats())
+
+
+def test_titles_name_the_system_then_the_layout():
+    """`<system>: <what a line holds>`, without vessel names (they're in `vessels`; #118)"""
+    for definition in catalog.formats().values():
+        system, _, layout = definition.title.partition(": ")
+        assert system and layout, definition.id
+        assert not any(v in definition.title for v in definition.vessels), definition.id
+
+
+# nav07 was never implemented: no layout is known. No sample of either has been found (nav23:
+# the Point Sur filesets checked are all nav14)
+UNDOCUMENTED = {"nav07"}
+NO_SAMPLE = {"nav07", "nav23"}
+
+
+def test_definitions_have_the_required_keys():
+    for definition in catalog.formats().values():
+        keys = ["title", "system", "file_type", "vessels", "description"]
+        if definition.id not in UNDOCUMENTED:
+            keys += ["position", "time", "fields"]
+        if definition.id not in NO_SAMPLE:
+            keys += ["examples", "examples_from"]
+        for key in keys:
+            assert getattr(definition, key), (definition.id, key)
+        assert not any(n.startswith("Examples") for n in definition.notes), definition.id
+
+
+def test_formats_with_a_reader_say_how_they_are_read():
+    """A format with a reader says how it's read and which reference filesets test it; one
+    without has no reader text (#118)
+    """
+    for definition in catalog.formats().values():
+        has_reader = definition.id in formats.READERS
+        assert bool(definition.reader) == has_reader, definition.id
+        assert bool(definition.filesets) == has_reader, definition.id
+
+
+def test_register_ids_cited_by_definitions_exist():
+    """Every register row a definition cites (R5, Q7, …) is in docs/navmanager-differences.md"""
+    register = (Path(__file__).parents[1] / "docs" / "navmanager-differences.md").read_text()
+    rows = set(re.findall(r"^\| ([A-Z]\d+) \|", register, re.MULTILINE))
+    for definition in catalog.formats().values():
+        text = " ".join([*definition.notes, *definition.reader, *definition.filesets])
+        cited = set(re.findall(r"\b([RQAGPFDX]\d{1,2})\b", text))
+        assert cited <= rows, (definition.id, cited - rows)
 
 
 def _nmea_parts(example: str):
@@ -94,19 +141,6 @@ def test_r2r_format_ids_are_unique_to_one_definition():
             assert r2r_id not in seen, (r2r_id, seen.get(r2r_id), definition.id)
             seen[r2r_id] = definition.id
     assert seen[100150] == "nav29"
-
-
-def test_examples_cite_their_source():
-    """Every format with examples says which cruise and fileset (or document) they came from,
-    except those whose examples are NavManager's own samples
-    """
-    navmanager_samples = {
-        f"nav{n:02d}"
-        for n in (1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 24, 33)
-    } | {"uhdas"}
-    for definition in catalog.formats().values():
-        if definition.examples and definition.id not in navmanager_samples:
-            assert any("fileset" in note for note in definition.notes), definition.id
 
 
 def test_a_config_with_a_one_digit_id_still_loads():
