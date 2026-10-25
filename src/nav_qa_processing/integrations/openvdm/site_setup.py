@@ -195,25 +195,23 @@ def _ask_extent(prompt: Prompter, default: Extent | None) -> Extent | None:
 def prompt_site_config(
     defaults: SiteConfig, prompt: Prompter | None = None, from_openvdm: dict | None = None
 ) -> SiteConfig:
-    """A site config from answers to prompts, starting from defaults. Fields in from_openvdm
-    (openvdm.yaml's vessel settings, by SiteConfig field) win over the site config, so they
-    aren't asked for and keep their defaults
+    """A site config from answers to prompts, starting from defaults. Each vessel field's
+    default is the site config's value, or else from_openvdm's (openvdm.yaml's vessel settings,
+    by SiteConfig field): the site config's win when the hook runs, and openvdm.yaml fills
+    those left blank (#112)
     """
     prompt = prompt or Prompter()
     from_openvdm = from_openvdm or {}
     prompt.say(f"Enter keeps the [default]; {CLEAR} clears it.\n")
     if from_openvdm:
-        prompt.say(
-            "openvdm.yaml's vessel block has these, and the hook uses them ahead of the site "
-            "config, so they aren't asked for:"
-        )
+        prompt.say("openvdm.yaml's vessel block has these, offered where the site TOML has none:")
         for name, value in from_openvdm.items():
             prompt.say(f"  {name} = {value}")
         prompt.say("")
 
     def ask(field_name: str, label: str, check=None) -> str:
-        default = getattr(defaults, field_name)
-        return default if field_name in from_openvdm else prompt.ask(label, default, check)
+        default = getattr(defaults, field_name) or from_openvdm.get(field_name, "")
+        return prompt.ask(label, default, check)
 
     site = replace(
         defaults,

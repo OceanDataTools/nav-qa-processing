@@ -123,8 +123,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `config-from-openvdm` commands (`tests/test_openvdm.py`, a stand-in API).
 - `integrations/openvdm/site_setup.py` (#50, ported from sbe-qa-processing): `Prompter`,
   `prompt_site_config(defaults, prompt, from_openvdm)`: the `site-config` command's prompts on
-  stderr (the nav format checked against `READERS`; `openvdm.yaml`'s vessel fields not asked
-  for). `tests/test_site_config.py` scripts the input.
+  stderr (the nav format checked against `READERS`; the vessel fields' defaults the site
+  TOML's, else `openvdm.yaml`'s, #112). `tests/test_site_config.py` scripts the input.
 - `integrations/r2r/reports.py`: `run_r2r(fileset, config)` -> `R2RRun`; `write_r2r_reports`
   writes the core reports with R2R's source values and certificate (`notebook_extras`), then
   the XML, by R2R's names. `config.loads_cruise_config` reads a cruise TOML's text (for a

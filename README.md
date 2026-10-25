@@ -559,7 +559,8 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
 - **From OpenVDM's API** (`api/warehouse/getCruiseConfig`): the cruise ID, name, PI, location
   and dates, the cruise extent (which the hook sets), the warehouse directory, the transfer's destination, the extra
   directories and the MD5 summary.
-- **The vessel's name and contact:** from OpenVDM 2.17, the `vessel` block of `openvdm.yaml`.
+- **The vessel's name and contact:** the site TOML's, or where it leaves them blank, from
+  OpenVDM 2.17 on, the `vessel` block of `openvdm.yaml`.
   With `--site-root` instead of `--openvdm-config`, they come from the copy in the cruise's
   `ovdmConfig.json`.
 - **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the primary
@@ -711,7 +712,8 @@ nav-qa-processing site-config [-o SITE_TOML] [--openvdm-config OPENVDM_YAML] [--
 ```
 
 Writes the [site TOML](#site-toml) by prompting, on stderr, for each field OpenVDM doesn't
-store: the vessel name and report contact, the GNSS feed's format (one with a reader; the
+store: the vessel name and report contact (their defaults the site TOML's, else those in
+`openvdm.yaml`'s `vessel` block), the GNSS feed's format (one with a reader; the
 prompt lists them), files glob, device (make, model, serial number, location) and transfer, any
 the vessel's top speed in m s-1 (`[thresholds] max_speed`, default 8.7), other position
 sensors (a name each, then the same; `-` drops one), the GeoCSV attribution, the extra directory and an expected
@@ -723,7 +725,7 @@ field keeps its default, so with no input the file is written back unchanged. Th
 | Argument | Default | Description |
 |---|---|---|
 | `-o`, `--output SITE_TOML` | `configs/site.toml` | The site TOML to write, or `-` for stdout |
-| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml`, when it exists | From OpenVDM 2.17, its `vessel` block's name and contact aren't asked for, since the hook uses them ahead of the site TOML. Without the file, every field is asked for |
+| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml`, when it exists | From OpenVDM 2.17, its `vessel` block's name and contact are the prompts' defaults where the site TOML has none, and are written into it. Without the file, the defaults are the site TOML's, or blank |
 | `--force` | off | Replace an existing site TOML, starting from its values |
 
 ### Site TOML
@@ -733,14 +735,14 @@ The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
 
 | Table | Key | Default | Description |
 |---|---|---|---|
-| `[vessel]` | `name` | blank | The vessel's name, for the report header. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.name` wins |
+| `[vessel]` | `name` | blank | The vessel's name, for the report header. Wins over `openvdm.yaml`'s `vessel.name` (OpenVDM 2.17), which fills it when blank |
 | `[nav]` | `format` | required | The GNSS feed's format ID (`nav-qa-processing formats`), e.g. `nav33` for OpenRVDAS's ISO timestamp + GGA |
 | `[nav]` | `files` | every file | A glob of the GNSS feed's files within the collection system's directory, e.g. `raw/POSMV_GGA-*.txt`. Also what `--changed-files` is matched against |
 | `[nav.device]` | `make`, `model`, `serial_number`, `location` | blank | The receiver or INS, for the reports, as in a [config TOML](#config-toml) |
 | `[[nav]]` | `name`, `primary`, `transfer`, and the keys above | one feed | Several position sensors, as in a [config TOML](#config-toml). `transfer` names the collection system transfer a feed is in; the hook runs the feeds of its `TRANSFER` and those without one |
 | `[extent]` | `westernmost`, `easternmost`, `southernmost`, `northernmost` | none | The expected cruise area, used when the hook doesn't set OpenVDM's `cruiseExtent` and OpenVDM has none. westernmost > easternmost crosses the antimeridian |
 | `[openvdm]` | `output_extra_directory` | `NAV_QA` | The OpenVDM extra directory the reports go into |
-| `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. From OpenVDM 2.17, `openvdm.yaml`'s `vessel.contact` wins |
+| `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. Wins over `openvdm.yaml`'s `vessel.contact` (OpenVDM 2.17), which fills them when blank |
 | `[geocsv]` | `attribution` | blank | The GeoCSV products' attribution |
 | `[thresholds]` | as in a [config TOML](#config-toml) | defaults | QC and QA limits. `max_speed`, the vessel's top speed [m s-1] (default 8.7), is always written: a step faster than it counts as an unreasonable speed |
 | `[theme]` | as in a [config TOML](#config-toml) | none | The reports' look; paths relative to the site TOML |
