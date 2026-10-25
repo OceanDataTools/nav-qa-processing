@@ -45,5 +45,5 @@ line-length = 99
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-  "map_data: uses Natural Earth map data when it's cached (fetch-map-data), never downloading it",
+  "map_data: uses Natural Earth map data when it's cached (fetch-map-data), never downloading it; with clipped=True, the committed clip without it",
 ]

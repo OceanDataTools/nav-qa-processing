@@ -1,6 +1,8 @@
 import os
+import tarfile
 from pathlib import Path
 
+import cartopy
 import pytest
 
 from nav_qa_processing import maps
@@ -11,6 +13,19 @@ ROOT = Path(__file__).parents[1]
 FIXTURES = Path(__file__).parent / "fixtures"
 DATA = ROOT / "data"
 CONFIGS = ROOT / "configs"
+# Reference filesets committed to the repo (#115), unpacked into data/ when they aren't there,
+# so the tests and CI need nothing from R2R; Natural Earth clipped to their areas
+COMMITTED = Path(__file__).parent / "data"
+CLIPPED_MAP_DATA = COMMITTED / "natural_earth"
+
+
+def pytest_sessionstart(session):
+    """Unpack each committed reference fileset that data/ doesn't have (a fetched copy stays)"""
+    for archive in sorted(COMMITTED.glob("*_gnss.tar.xz")):
+        if not (DATA / archive.name.removesuffix(".tar.xz")).exists():
+            DATA.mkdir(exist_ok=True)
+            with tarfile.open(archive) as tar:
+                tar.extractall(DATA, filter="data")
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -27,6 +42,14 @@ def no_map_data():
 
 @pytest.fixture(autouse=True)
 def map_data(request, monkeypatch):
-    """A test marked `map_data` uses Natural Earth when it's already cached, never downloading"""
-    if request.node.get_closest_marker("map_data") and maps.cached():
+    """A test marked `map_data` uses Natural Earth when it's already cached, never downloading.
+    Marked `map_data(clipped=True)`, its area is in the committed clip (the committed filesets'),
+    which it uses without the full data, as in CI
+    """
+    marker = request.node.get_closest_marker("map_data")
+    if marker is None:
+        return
+    if not maps.cached() and marker.kwargs.get("clipped"):
+        monkeypatch.setitem(cartopy.config, "data_dir", str(CLIPPED_MAP_DATA))
+    if maps.cached():
         monkeypatch.delenv(maps.NO_MAP_DATA)

@@ -183,7 +183,12 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
   (`nav_qa_processing.cli:main`). Python ≥3.11.
 - Install: `uv sync`. Tests: `uv run pytest`. One test: `uv run pytest tests/test_x.py::test_name`.
 - Lint and format: `uv run ruff check .` and `uv run ruff format --check .` (line length 99).
-- `data/` (downloaded R2R filesets) and `output/` (generated reports) are gitignored. `configs/`
+- CI (`.github/workflows/ci.yml`, #115): Ruff and pytest on Linux 3.11–3.14, macOS and Windows,
+  downloading nothing. SP2613, SP2503, BH19-30 and RC0014 are committed as
+  `tests/data/*_gnss.tar.xz`, which `tests/conftest.py` unpacks into `data/` when missing; the
+  other references skip. Natural Earth clipped to their areas is in `tests/data/natural_earth/`
+  (`make_natural_earth.py`), used only by tests marked `map_data(clipped=True)`.
+- `/data/` (downloaded R2R filesets) and `/output/` (generated reports) are gitignored. `configs/`
   holds cruise TOMLs plus `site.example.toml`. Downloads and catalog configs are `r2r`
   commands, as in sbe-qa-processing.
 - Outputs follow the same set: an R2R QA 2.0 XML, a PDF report (ReportLab, with the SVGs

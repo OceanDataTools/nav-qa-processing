@@ -15,7 +15,15 @@ These files are unmodified unless noted. The checksums match R2R's `manifest-md5
 This project standardizes descriptions, unit names and coordinate formats (see
 `docs/architecture.md`). Compare these files with our output by parsed values, not byte for byte.
 
-Larger references are fetched into `data/` (gitignored) by the tests' skip messages:
+Larger references are in `data/` (gitignored). Four of them are committed, as
+`tests/data/<CRUISE>_<FILESET>_gnss.tar.xz` (each the raw bag, `products/` and the QA 2.0 report
+where R2R has one; 8.7 MB in all), and the tests unpack each into `data/` when it isn't there
+(`tests/conftest.py`), so they and CI need nothing from R2R (#115): **SP2613, SP2503, BH19-30 and
+RC0014**. The rest are fetched by the tests' skip messages (`r2r fetch-fileset`). Natural Earth's
+layers clipped to the committed filesets' areas are in `tests/data/natural_earth/`
+(`tests/data/make_natural_earth.py` writes them from the full layers); only tests marked
+`map_data(clipped=True)` use them, and only when the full layers aren't downloaded.
+
 
 | Cruise | Raw fileset | Why |
 |---|---|---|
