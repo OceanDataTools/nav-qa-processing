@@ -23,7 +23,12 @@ def source(notebook) -> str:
 
 
 def outputs(cell, kind="stream") -> str:
-    return "".join(o.get("text", "") for o in cell.outputs if o.output_type == kind)
+    """A cell's printed output: stdout, so a warning on stderr can't take its place (#110)"""
+    return "".join(
+        o.get("text", "")
+        for o in cell.outputs
+        if o.output_type == kind and o.get("name", "stdout") == "stdout"
+    )
 
 
 def errors(notebook) -> list:
