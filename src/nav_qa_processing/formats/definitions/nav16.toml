@@ -10,6 +10,7 @@ description = "A Nobeltec export of a vessel track. The track points sit between
 notes = [
   "Track points are typically one per minute (TrackingTimeIntervalSeconds).",
 ]
+examples_from = "NavManager's doc/fileformat/format-nav16.txt"
 examples = [
   "TrackMarks = {{",
   "46 48.43090 N 091 59.56850 W 2011-03-29 08:48:42Z",

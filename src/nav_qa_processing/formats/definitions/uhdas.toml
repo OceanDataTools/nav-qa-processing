@@ -1,20 +1,35 @@
 id = "uhdas"
-title = "UHDAS: GGA dated by UNIXD"
+title = "UHDAS: GGA with UNIXD clock sentences"
 system = "University of Hawaii Data Acquisition System (UHDAS)"
 file_type = "ASCII text, one sentence per line"
+vessels = ["Kilo Moana"]
 sentences = ["UNIXD", "GGA"]
 position = "GGA"
 time = "GGA time of day, dated by the UNIXD day of year and an externally given year"
 description = "UNIXD and GGA sentences in turn. UNIXD is written by the UHDAS computer, not the receiver: its decimal day of year counts from 0 at January 1 00:00 UTC and runs past 365 when a cruise crosses the new year."
 notes = [
   "The year isn't in the file: it comes from UHDAS's file name, <prefix><year>_<day>_<seconds>.gps.",
-  "Examples: KM1519, UHDAS ADCP fileset 119346, file raw/simrad/km2015_323_07200.gps (Kilo Moana's Simrad, 2015). R2R files UHDAS GPS logs only inside UHDAS ADCP filesets (100036).",
+  "R2R files UHDAS GPS logs only inside UHDAS ADCP filesets (100036).",
   "Newer UHDAS writes PYRTM, with the year, instead (nav31): SP2613's UHDAS fileset 169848, 2026.",
 ]
-references = ["www.nmea.org"]
-examples = [
-  "$UNIXD,0.9166745,2.1294175",
-  "$GPGGA,220000.00,0516.07652,S,02858.97884,W,2,6,1.5,25.84,M,-4.77,M,10,0208*72",
-  "$UNIXD,0.9166893,2.1294322",
-  "$GPGGA,220001.00,0516.07628,S,02858.97598,W,2,6,1.5,26.08,M,-4.77,M,9,0208*41",
+reader = [
+  "Each GGA takes the date that puts it nearest the UNIXD before it (the one after it, before the first), counting across midnight, with the year from the file name (<prefix><year>_<day>_<seconds>.gps).",
+  "The time of the fix is the GGA's, not the UHDAS clock's.",
+  "NavManager reads UNIXD only on its uhdas_parser branch.",
 ]
+filesets = [
+  "KM1519 (UHDAS ADCP fileset 119346, Kilo Moana's Simrad, 2015): 12 m from the POS/MV's bestres at its times.",
+]
+references = ["www.nmea.org"]
+examples_from = "KM1519, UHDAS ADCP fileset 119346, file raw/simrad/km2015_323_07200.gps (Kilo Moana's Simrad, 2015)"
+examples = [
+  "$UNIXD,323.0833359,9.3380169",
+  "$GPGGA,020000.00,2118.9368,N,15753.1718,W,2,8,0.9,27,M,,M,,*7F",
+  "$UNIXD,323.0833464,9.3380274",
+  "$GPGGA,020001.00,2118.9368,N,15753.1717,W,2,8,0.9,27,M,,M,,*71",
+]
+
+[[fields]]
+name = "sentence"
+example = "$GPGGA,…"
+meaning = "NMEA 0183 sentence, with no prefix"

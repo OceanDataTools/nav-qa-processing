@@ -8,11 +8,23 @@ r2r_formats = [100011]
 position = "GGA"
 time = "GGA time of day, dated by the logger's date"
 description = "Each line is the logger's date (MM/DD/YYYY) and time (hh:mm:ss.sss, UTC), then a GGA sentence. The logger clock's source isn't recorded."
+notes = [
+  "No ZDA is logged: each GGA is dated by its line's logger date, so the logger's clock must be within 12 hours of UTC.",
+]
+reader = [
+  "Each GGA takes the date that puts it nearest its line's logger date and time, counting across midnight. The time of the fix is the GGA's own, not the logger's.",
+  "A sentence split across lines is joined with the following lines until its checksum is complete (register R5). Skipped and counted per file: a GGA without a parseable time, and one on a line without a logger timestamp.",
+  "Every fix is kept. NavManager drops the 86,400th fix of each buffer (R8), the cruise's last fix (R9) and the earlier of two GGAs with the same time of day (R10).",
+]
+filesets = [
+  "EN735 (fileset 165419, Endeavor's NOAA SCS, Furuno receiver): G here and in R2R's report. R2R lacks every 86,400th fix (R8: 3), the last (R9) and the earlier of 5 repeated times (R10).",
+]
 references = ["www.nmea.org"]
+examples_from = "EN735, fileset 165419, file GPS-Furuno-GGA_20250819-123730.Raw"
 examples = [
-  "03/15/2010,14:08:45.876,$GPGGA,140844,2605.395,N,08006.974,W,2,08,0.90,0,M,,,1196,0017*21",
-  "03/15/2010,14:08:46.876,$GPGGA,140845,2605.395,N,08006.974,W,2,08,0.90,0,M,,,1197,0017*21",
-  "03/15/2010,14:08:47.876,$GPGGA,140847,2605.395,N,08006.974,W,2,08,0.90,0,M,,,1198,0017*2C",
+  "08/19/2025,12:37:31.377,$GPGGA,123730,4129.5473,N,07125.1176,W,2,10,1.5,15.9,M,,M,,*7A",
+  "08/19/2025,12:37:32.365,$GPGGA,123731,4129.5473,N,07125.1176,W,2,10,1.5,15.9,M,,M,,*7B",
+  "08/19/2025,12:37:33.376,$GPGGA,123732,4129.5473,N,07125.1177,W,2,10,1.5,15.9,M,,M,,*79",
 ]
 
 [[fields]]

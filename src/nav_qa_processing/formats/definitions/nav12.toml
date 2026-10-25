@@ -1,20 +1,34 @@
 id = "nav12"
-title = "Device ID and year:day-of-year timestamp, then NMEA"
+title = "Shipboard logger: device ID and year:day-of-year timestamp, then NMEA"
 system = "Shipboard logger"
 file_type = "ASCII text: tab-separated prefix, then one NMEA sentence"
 vessels = ["Healy", "Marcus G. Langseth"]
 sentences = ["ZDA", "GGA", "GLL", "GSA", "VTG"]
 r2r_formats = [100021]
 position = "GGA"
-time = "GGA time of day, dated by ZDA"
+time = "GGA time of day, dated by ZDA; in a file without ZDA, by the logger's year:day-of-year timestamp"
 description = "Each line is a device ID, the logger timestamp as year:day-of-year:hh:mm:ss.ssss, and one NMEA sentence. GGA, GLL, GSA, VTG and ZDA repeat in turn."
+notes = [
+  "Healy's POS/MV (2008) logged ZDA; Langseth's C-Nav 3050 (2015, R2R alias lds) logged only GGA and VTG, so its fixes are dated by the logger's timestamps.",
+]
+reader = [
+  "A file with a valid ZDA is read as nav29 is: each GGA dated by the nearer ZDA. A file without is dated by its lines' timestamps, as nav02 is: the date that puts each GGA nearest its line's timestamp, counting across midnight.",
+  "Consecutive files of one kind are read together, so a ZDA still dates GGAs across a file boundary.",
+  "In a file without ZDA, NavManager drops a GGA line identical to the one before (R16; here kept, and QC flags the repeat) and dates a GGA later than the logger's time the day before, whatever the gap (R17).",
+]
+filesets = [
+  "HLY08TD (fileset 110937, Healy's POS/MV, with ZDA, gzipped files): 363,486 records equal to R2R's but 2 empty HDOPs that R2R writes as 0 (R11).",
+  "MGL1509 (fileset 122372, Langseth's C-Nav 3050, without ZDA): 601,027 records equal to R2R's; Y (a 54-minute gap).",
+]
 references = ["www.nmea.org"]
+examples_from = "HLY08TD, fileset 110937, file HLY08TD-posnav.y2008d128.gz (with ZDA); MGL1509, fileset 122372, file MGL-cnav3050.y2015d141 (without)"
 examples = [
-  "cnav\t2010:258:00:00:00.0656\t$GPZDA,235959.00,14,9,2010,+0,+0*58",
-  "cnav\t2010:258:00:00:00.6557\t$GPGGA,000000.00,2118.98294,N,15753.17430,W,2,8,1.2,25.62,M,6.61,M,10,0108*4C",
-  "cnav\t2010:258:00:00:00.7676\t$GPGLL,2118.98293,N,15753.17429,W,000000.00,A*19",
-  "cnav\t2010:258:00:00:01.0227\t$GPZDA,000000.00,15,9,2010,+0,+0*58",
-  "cnav\t2010:258:00:00:02.0127\t$GPGGA,000001.00,2118.98295,N,15753.17431,W,2,8,1.2,25.61,M,6.61,M,10,0108*4E",
+  "posnav\t2008:128:16:15:58.5010\t$INGGA,161558.259,5354.23212,N,16631.50683,W,2,06,1.4,8.86,M,,,43,0296*3D",
+  "posnav\t2008:128:16:15:58.5510\t$INHDT,53.1,T*12",
+  "posnav\t2008:128:16:15:58.5510\t$INVTG,23.7,T,,M,0.0,N,0.1,K*47",
+  "posnav\t2008:128:16:15:59.0509\t$INZDA,161559.0035,07,05,2008,,*77",
+  "cnav3050\t2015:141:00:00:00.0570\t$GNGGA,000000.00,4012.4085,N,07341.8625,W,2,19,0.6,-13.4,M,0.0,M,2.0,0446*6A",
+  "cnav3050\t2015:141:00:00:00.1050\t$GNVTG,0.0,T,,M,0.16,N,0.30,K,D*12",
 ]
 
 [[fields]]

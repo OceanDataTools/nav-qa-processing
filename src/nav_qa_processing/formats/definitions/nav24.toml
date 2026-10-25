@@ -1,5 +1,5 @@
 id = "nav24"
-title = "Logger ID and ISO timestamp, then NMEA (Sikuliaq)"
+title = "Shipboard logger: logger ID and ISO timestamp, then NMEA"
 system = "Shipboard logger"
 file_type = "ASCII text: whitespace-separated prefix, then one NMEA sentence"
 vessels = ["Sikuliaq"]
@@ -12,13 +12,26 @@ notes = [
   "Seen with a C-Nav 3050 receiver (logger gnss_cnav) and a Seapath (ins_seapath_position).",
   "R2R format 100103 (\"C-Nav3050 on Sikuliaq\") is matched to this ID by layout; R2R's format page cites only C-Nav3050.txt. R2R files Sikuliaq's Seapath 380+ filesets under it too (e.g. SKQ202516S, fileset 165743: ins_seapath_position, with ZDA, GGA, GLL, VTG, RMC, HDT and PSXN at 1 Hz).",
 ]
+reader = [
+  "Each GGA takes the date of the ZDA either side of it whose time of day is nearer, counting across midnight. Times are compared, not places in the stream, so the first GGA after a gap between files goes with the ZDA after it.",
+  "The text from the last $ on a line is the sentence, so any logger prefix is ignored. A sentence split across lines is joined with the following lines until its checksum is complete, and kept only if the checksum matches (register R5).",
+  "Skipped and counted per file: a GGA without a parseable time, and a ZDA without a valid date. With no valid ZDA, no GGA can be dated.",
+  "Every dated GGA is kept, repeated and out-of-order times included, for QC to judge. NavManager drops the last GGA after the final ZDA (R2) and a GGA at 00:00:00 or repeating the last dated time (R3), and rejects correct checksums 0A–0F (R1).",
+]
+filesets = [
+  "SKQ202516S (fileset 165743, Sikuliaq's Seapath 380+): G here and in R2R's report, the same results and 62 flags; R2R lacks the final fix (R2).",
+]
 references = ["www.nmea.org"]
+examples_from = "SKQ202516S, fileset 165743, file ins_seapath_position.20250829T1838Z (Seapath 380+)"
 examples = [
-  "gnss_cnav  2014-12-11T00:00:01.0020Z  $GNZDA,000001.00,11,12,2014,00,00*7D",
-  "gnss_cnav  2014-12-11T00:00:01.0811Z  $GNRMC,000001.00,A,2304.167961,N,16553.836924,W,7.87,100.6,111214,0,E,D*17",
-  "gnss_cnav  2014-12-11T00:00:01.2517Z  $GNGGA,000001.00,2304.167961,N,16553.836924,W,2,11,1.0,44.542,M,0.000,M,2.0,0103*43",
-  "ins_seapath_position\t2018-11-28T02:03:53.7248Z\t$GPZDA,020353.69,28,11,2018,,*6F",
-  "ins_seapath_position\t2018-11-28T02:03:53.8110Z\t$GPGGA,020353.69,6007.115740,N,14925.627470,W,2,12,1.3,9.04,M,10.04,M,1.4,0001*5A",
+  "ins_seapath_position\t2025-08-29T18:38:23.0010Z\t$GPZDA,183822.97,29,08,2025,,*6C",
+  "ins_seapath_position\t2025-08-29T18:38:23.0864Z\t$GPGGA,183822.97,6429.644146,N,16526.297781,W,2,10,0.8,0.06,M,7.66,M,1.0,1022*6F",
+  "ins_seapath_position\t2025-08-29T18:38:23.1427Z\t$GPGLL,6429.644146,N,16526.297781,W,183822.97,A,D*7A",
+  "ins_seapath_position\t2025-08-29T18:38:23.1875Z\t$GPVTG,283.12,T,275.73,M,0.0,N,0.1,K,D*29",
+  "ins_seapath_position\t2025-08-29T18:38:23.2687Z\t$GPRMC,183822.97,A,6429.644146,N,16526.297781,W,0.0,283.12,290825,7.4,E,D*1B",
+  "ins_seapath_position\t2025-08-29T18:38:23.2895Z\t$GPHDT,194.96,T*06",
+  "ins_seapath_position\t2025-08-29T18:38:23.3114Z\t$PSXN,20,0,0,0,0*3B",
+  "ins_seapath_position\t2025-08-29T18:38:23.3500Z\t$PSXN,23,-0.07,-0.03,194.96,0.00*3F",
 ]
 
 [[fields]]

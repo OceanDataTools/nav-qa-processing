@@ -10,10 +10,10 @@ description = "MetAcq's corrected data files (*.MET, one per day). Header line 2
 notes = [
   "Only the *.MET files are read; a MetAcq fileset also holds *.COR ($WICOR sentences), *.DCC (SAMOS) and *.LOG files.",
   "-99 marks a missing value.",
-  "Examples: SP2613, fileset 169850, file 260707.MET (header line 4 and data lines shortened after LO).",
   "R2R format 100039 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
 references = ["https://service.rvdata.us/info/format/100039/MetAcq.pdf"]
+examples_from = "SP2613, fileset 169850, file 260707.MET (header line 4 and data lines shortened after LO)"
 examples = [
   "# R/V Sproul MET System,CRUISE:SP2613",
   "# Tue 07-Jul-26  20:42:04",

@@ -1,5 +1,5 @@
 id = "nav25"
-title = "Seapath stamp, timestamp, then NMEA (Healy)"
+title = "Seapath logger: logger ID and ISO timestamp, then NMEA"
 system = "Seapath logger"
 file_type = "ASCII text, comma-separated: logger ID, ISO 8601 UTC time, NMEA sentence"
 vessels = ["Healy"]
@@ -9,10 +9,19 @@ position = "GGA"
 time = "GGA time of day, dated by ZDA"
 description = "Each line is the Seapath logger ID, an ISO 8601 UTC timestamp with whole seconds, a comma and one NMEA sentence: ZDA, GGA, VTG, GST, HDT and PSXN repeat in turn. GGA gives the fix; ZDA gives the date. R2R's \"DAS: Healy .csv files\" from the Kongsberg Seapath 330+, 2014–2015."
 notes = [
-  "Examples: HLY14TF, fileset 114739 (Kongsberg Seapath 330+), file gnss_seapath_330-20140915T00Z.bare.csv.",
   "R2R format 100091 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
+reader = [
+  "Each GGA takes the date of the ZDA either side of it whose time of day is nearer, counting across midnight. Times are compared, not places in the stream, so the first GGA after a gap between files goes with the ZDA after it.",
+  "The text from the last $ on a line is the sentence, so any logger prefix is ignored. A sentence split across lines is joined with the following lines until its checksum is complete, and kept only if the checksum matches (register R5).",
+  "Skipped and counted per file: a GGA without a parseable time, and a ZDA without a valid date. With no valid ZDA, no GGA can be dated.",
+  "Every dated GGA is kept, repeated and out-of-order times included, for QC to judge. NavManager drops the last GGA after the final ZDA (R2) and a GGA at 00:00:00 or repeating the last dated time (R3), and rejects correct checksums 0A–0F (R1).",
+]
+filesets = [
+  "HLY14TF (fileset 114739, Healy's Seapath 330+): 349,199 records equal to R2R's, record for record, none flagged.",
+]
 references = ["www.nmea.org"]
+examples_from = "HLY14TF, fileset 114739 (Kongsberg Seapath 330+), file gnss_seapath_330-20140915T00Z.bare.csv"
 examples = [
   "gnss_seapath_330,2014-09-14T23:59:56Z,$INZDA,235956.24,14,09,2014,,*75",
   "gnss_seapath_330,2014-09-14T23:59:56Z,$INGGA,235956.24,4735.432106,N,12220.460931,W,1,12,0.7,-4.41,M,-18.47,M,,*64",

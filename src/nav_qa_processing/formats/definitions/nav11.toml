@@ -10,6 +10,7 @@ description = "The fields of each GGA sentence written as tab-separated columns,
 notes = [
   "The logger time has an extra colon before its fraction (12:00:03:.245).",
 ]
+examples_from = "NavManager's doc/fileformat/format-nav11.txt"
 examples = [
   "01/26/2009\t12:00:00:.245\t115843.682\t25\t37.794330\tN\t80\t7.186390\tW\t-2.860000\t0.000000\t1.000000\t10\t1\t$INGGA\t19",
   "01/26/2009\t12:00:01:.245\t115844.682\t25\t37.796370\tN\t80\t7.186680\tW\t-2.990000\t0.000000\t1.000000\t10\t1\t$INGGA\t12",

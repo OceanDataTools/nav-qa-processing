@@ -19,7 +19,9 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `formats/definitions/*.toml`: a definition of every R2R raw nav format ID (layout, sentences,
   vessels, examples) plus `sentences.toml`, written in this project's words (see its README).
   `formats/catalog.py` loads them and `nav-qa-processing formats [ID]` prints them. Add or fix a
-  format's description there, not in code.
+  format's description there, not in code; a format with a reader also says how it's read
+  (`reader`, citing the register) and which reference `filesets` test it (#118). Conventions
+  in the definitions' README, checked by `tests/test_formats.py`.
 - `formats/__init__.py`: the registry. `READERS` maps format IDs to a `Reader` (`read`, and
   `span`: a file's first and last time, to select and order files by): so far `nav01`,
   `nav20`, `nav24`, `nav25` and `nav29` (`GGA_ZDA`), `nav33` (`TIMESTAMPED_GGA`), `nav02`

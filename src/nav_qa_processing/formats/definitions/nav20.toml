@@ -1,5 +1,5 @@
 id = "nav20"
-title = "NAV tag, logger date and time, device tag, then NMEA"
+title = "Shipboard logger: NAV tag, logger date and time, device tag, then NMEA"
 system = "Shipboard logger"
 file_type = "ASCII text: space-separated prefix, then one NMEA sentence"
 vessels = ["Knorr"]
@@ -8,12 +8,24 @@ r2r_formats = [100079]
 position = "GGA"
 time = "GGA time of day, dated by ZDA"
 description = "Each line is the tag NAV, the logger date (YYYY/MM/DD) and time, a device tag and one NMEA sentence. GGA, RMC, VTG and ZDA repeat in turn. Used on Knorr from 2013."
+reader = [
+  "Each GGA takes the date of the ZDA either side of it whose time of day is nearer, counting across midnight. Times are compared, not places in the stream, so the first GGA after a gap between files goes with the ZDA after it.",
+  "The text from the last $ on a line is the sentence, so any logger prefix is ignored. A sentence split across lines is joined with the following lines until its checksum is complete, and kept only if the checksum matches (register R5).",
+  "Skipped and counted per file: a GGA without a parseable time, and a ZDA without a valid date. With no valid ZDA, no GGA can be dated.",
+  "Every dated GGA is kept, repeated and out-of-order times included, for QC to judge. NavManager drops the last GGA after the final ZDA (R2) and a GGA at 00:00:00 or repeating the last dated time (R3), and rejects correct checksums 0A–0F (R1).",
+]
+filesets = [
+  "KN220-02 (fileset 114491, Knorr's C-Nav 2000): 227,436 records equal to R2R's; R2R flags 2 more (Q3). Alongside on Charleston's Cooper River for 5 hours.",
+]
 references = ["www.nmea.org"]
+examples_from = "KN220-02, fileset 114491, file kn20140614_1300.GPS (C-Nav 2000)"
 examples = [
-  "NAV 2013/11/20 05:00:00.644 GPS $GPGGA,050000.00,4131.43842,N,07040.33599,W,2,8,0.9,29.17,M,-30.68,M,9,0907*6B",
-  "NAV 2013/11/20 05:00:00.798 GPS $GPRMC,050000.00,A,4131.43842,N,07040.33599,W,0.05,291.3,201113,0.0,E*7B",
-  "NAV 2013/11/20 05:00:00.873 GPS $GPVTG,291.3,T,,M,0.05,N,0.09,K*65",
-  "NAV 2013/11/20 05:00:00.952 GPS $GPZDA,050000.00,20,11,2013,+0,+0*61",
+  "NAV 2014/06/14 13:00:00.019 GPS $GPZDA,125959.00,14,6,2014,+0,+0*51",
+  "NAV 2014/06/14 13:00:00.697 GPS $GPGGA,130000.00,3251.80028,N,07958.00581,W,2,7,1.2,26.23,M,-32.65,M,10,0908*59",
+  "NAV 2014/06/14 13:00:00.897 GPS $GPRMC,130000.00,A,3251.80028,N,07958.00581,W,0.01,326.3,140614,0.0,E*73",
+  "NAV 2014/06/14 13:00:00.897 GPS $GPVTG,326.3,T,,M,0.01,N,0.02,K*67",
+  "NAV 2014/06/14 13:00:00.982 GPS $GPZDA,130000.00,14,6,2014,+0,+0*50",
+  "NAV 2014/06/14 13:00:02.024 GPS $GPGGA,130001.00,3251.80028,N,07958.00581,W,2,7,1.2,26.23,M,-32.65,M,9,0908*60",
 ]
 
 [[fields]]

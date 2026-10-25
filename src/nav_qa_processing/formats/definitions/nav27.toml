@@ -1,5 +1,5 @@
 id = "nav27"
-title = "Raw NMEA: GLL dated by ZDA (Sproul, no GGA)"
+title = "Raw NMEA: GLL dated by ZDA, no GGA"
 system = "Shipboard logger"
 file_type = "ASCII text, one NMEA sentence per line, CRLF line ends"
 vessels = ["Robert Gordon Sproul"]
@@ -11,10 +11,18 @@ description = "For Sproul navigation logged without GGA: GLL gives the position 
 notes = [
   "Records from GLL have no fix quality, satellite count, HDOP or altitude.",
   "ZDA's local zone field is set (-08 in the example) but the ZDA time is UTC.",
-  "Examples: SP1531, fileset 119707, file gp90_20151209000000.raw (Furuno GP-90).",
   "R2R format 100140 is matched to this ID by layout; R2R's format page doesn't cite a NavManager document for it.",
 ]
+reader = [
+  "Each GLL takes the date of the ZDA either side of it whose time of day is nearer, counting across midnight, as nav29's GGAs are.",
+  "A GLL is read as a fix without satellites, HDOP or altitude. Its quality comes from the mode indicator (A 1, D 2, E 6, …) or, without one, the status (A 1, V 0); NavManager uses the status alone (R14).",
+  "QC judges each criterion where its field is reported; NavManager judges a fix only when quality and satellites are both reported, so a quality-0 GLL passes (Q9).",
+]
+filesets = [
+  "SP1531 (fileset 119707, Sproul's Furuno GP-90): 93,417 records equal to R2R's, the quality column included; R2R doesn't flag its one quality-0 fix (Q9).",
+]
 references = ["www.nmea.org"]
+examples_from = "SP1531, fileset 119707, file gp90_20151209000000.raw (Furuno GP-90)"
 examples = [
   "$GPDTM,W84,,00.0000,N,00.0000,E,,W84*41",
   "$GPGLL,3241.7854,N,11709.3193,W,000001.00,A,A*76",
@@ -22,3 +30,8 @@ examples = [
   "$GPZDA,000001.00,09,12,2015,-08,00*4E",
   "$GPGBS,000001.00,,,,,,,*6E",
 ]
+
+[[fields]]
+name = "sentence"
+example = "$GPGGA,…"
+meaning = "NMEA 0183 sentence, with no prefix"

@@ -10,6 +10,7 @@ description = "One line per minute: date, the minute of the day, latitude and lo
 notes = [
   "When the longitude is negative, its minus sign can directly follow the latitude minutes with no space between them (e.g. 42.4610-117).",
 ]
+examples_from = "NavManager's doc/fileformat/format-nav9.txt"
 examples = [
   "03 01 2009\t0000  32 42.4610-117 14.2030\t\tpc10\t0.5",
   "03 01 2009\t0001  32 42.4610-117 14.2040\t\tpc10\t0.5",

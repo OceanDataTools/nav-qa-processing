@@ -10,8 +10,6 @@ notes = [
   "NavManager's own description of this format is mislabeled as nav14.",
   "No signed sample has been found: the Point Sur UDAS filesets checked (PS0921, PS1104, PS1218) are all unsigned (nav14). NavManager's own description reused the nav14 sample.",
 ]
-examples = [
-]
 
 [[fields]]
 name = "…"

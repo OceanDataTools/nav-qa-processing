@@ -1,5 +1,5 @@
 id = "nav01"
-title = "Raw NMEA: GGA dated by ZDA"
+title = "Raw NMEA: GGA dated by ZDA, no logger prefix"
 system = "Raw receiver output"
 file_type = "ASCII text, one NMEA 0183 sentence per line"
 vessels = ["Melville", "Roger Revelle"]
@@ -12,12 +12,26 @@ notes = [
   "Checksums may be missing; sentences without one are accepted.",
   "R2R also files Healy's 2016–2025 GNSS logs under 100010, although most of them have a Unix or ISO 8601 timestamp and a space before each sentence, the nav29 layouts (e.g. HLY18TB fileset 131211, HLY25TA fileset 166763).",
 ]
-references = ["www.nmea.org"]
-examples = [
-  "$GPVTG,336.8,T,340.7,M,1.5,N,2.8",
-  "$GPZDA,235600,24,05,2009,00,00*42",
-  "$GPGGA,235601,2600.4311,N,12229.8443,E,2,7,0.4,45,M,,M",
-  "$GPVTG,336.3,T,340.2,M,1.5,N,2.8",
-  "$GPZDA,235601,24,05,2009,00,00*43",
-  "$GPGGA,235602,2600.4315,N,12229.8441,E,2,7,0.4,45,M,,M",
+reader = [
+  "Each GGA takes the date of the ZDA either side of it whose time of day is nearer, counting across midnight. Times are compared, not places in the stream, so the first GGA after a gap between files goes with the ZDA after it.",
+  "The text from the last $ on a line is the sentence, so any logger prefix is ignored. A sentence split across lines is joined with the following lines until its checksum is complete, and kept only if the checksum matches (register R5).",
+  "Skipped and counted per file: a GGA without a parseable time, and a ZDA without a valid date. With no valid ZDA, no GGA can be dated.",
+  "Every dated GGA is kept, repeated and out-of-order times included, for QC to judge. NavManager drops the last GGA after the final ZDA (R2) and a GGA at 00:00:00 or repeating the last dated time (R3), and rejects correct checksums 0A–0F (R1).",
 ]
+filesets = [
+  "RR1802 (fileset 132277, Revelle's Furuno GP-150): 28,527 records equal to R2R's, record for record; R2R flags 292 stale repeats at the dock (register Q7).",
+]
+references = ["www.nmea.org"]
+examples_from = "RR1802, fileset 132277, file gp150_20180227141442.raw (Furuno GP-150)"
+examples = [
+  "$GPGGA,141442,4533.9373,N,12243.6025,W,2,8,2.1,18,M,,M,,*5F",
+  "$GPGLL,4533.9373,N,12243.6025,W,141442,A*36",
+  "$GPRMC,141442,A,4533.9373,N,12243.6025,W,0.0,322.9,270218,14.4,E*5F",
+  "$GPVTG,322.9,T,308.5,M,0.0,N,0.0,K*4A",
+  "$GPZDA,141442,27,02,2018,00,00*42",
+]
+
+[[fields]]
+name = "sentence"
+example = "$GPGGA,…"
+meaning = "NMEA 0183 sentence, with no prefix"

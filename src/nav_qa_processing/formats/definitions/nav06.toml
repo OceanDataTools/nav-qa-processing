@@ -1,5 +1,5 @@
 id = "nav06"
-title = "UDel Surface Mapping System (SMS) records"
+title = "UDel SMS: multiplexed underway records every 10 s"
 system = "University of Delaware Surface Mapping System (SMS)"
 file_type = "ASCII text, comma-separated; CRLF line ends, records may contain LF"
 vessels = ["Hugh R. Sharp"]
@@ -12,6 +12,7 @@ notes = [
   "The decimal-longitude column doesn't agree with the degrees-and-minutes longitude in the sample; use the degrees-and-minutes columns.",
   "-99 marks a missing value.",
 ]
+examples_from = "NavManager's doc/fileformat/format-nav6.txt"
 examples = [
   "HRS110302GF,3/2/2011,10:01:00,5:1:0,,3847.3009,N,38.788348,07509.6838,W,15.494730,180.1,0.0,0.0,0.0,0.0,  5.9, 224,  6.9, 214,188.9,6.0,0.44,  75, 1023,-99,-99, 1.914  ,,3.15,-99",
   "HRS110302GF,3/2/2011,10:01:10,5:1:10,,3847.3011,N,38.788352,07509.6833,W,15.494722,82.2,0.0,0.0,0.0,0.0,  5.5, 218,  7.6, 216,198.9,7.0,0.44,  75, 1023, 23.5219,-99, 1.903  ,,3.15,-99",

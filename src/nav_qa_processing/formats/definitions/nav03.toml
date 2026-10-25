@@ -10,9 +10,17 @@ time = "Logger date and time"
 description = "The nav02 layout, but the sentences are mostly GLL and VTG, with an occasional GGA. GLL sentences may be cut short after the longitude, so the logger's timestamp is the record time."
 notes = [
   "Records from GLL have no fix quality, satellite count, HDOP or altitude.",
-  "Examples: BH10-17, fileset 105061, file NEMA-Serial_20100916-131207.Raw (Northstar 941X): 6,299 GLLs and 231 GGAs over two days, with VTG, ZDA and a few RMC.",
+]
+reader = [
+  "Every fix, GGA included, takes its line's logger date and time: a GLL cut short after the longitude has no time of its own, and one clock serves the whole stream.",
+  "A GLL needs its position (five fields) to be read; without a status its quality is missing. A GGA keeps its quality, satellites, HDOP and altitude.",
+  "NavManager's parse_nav3() does the same.",
+]
+filesets = [
+  "BH10-17 (fileset 105061, Blue Heron's Northstar 941X): 6,530 fixes on Lake Superior, equal to R2R's bestres record for record, the GLLs' missing quality included; 4 stale repeats flagged here and not by R2R (Q7).",
 ]
 references = ["www.nmea.org"]
+examples_from = "BH10-17, fileset 105061, file NEMA-Serial_20100916-131207.Raw (Northstar 941X): 6,299 GLLs and 231 GGAs over two days, with VTG, ZDA and a few RMC"
 examples = [
   "09/16/2010,13:12:09.546,$GPGLL,4646.622,N,09204.105,W",
   "09/16/2010,13:12:19.640,$GPVTG,122,T,123,M,8.9,N,16.4,K",
