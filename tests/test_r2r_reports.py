@@ -59,7 +59,7 @@ def test_products_have_r2rs_structure_and_source(written, product):
 def test_products_and_report_share_the_run_time(written):
     xml = next(written.glob("*.xml"))
     created = geocsv.read(written / "SP2613_control.geoCSV").keywords["creation_date"]
-    assert xml.name == f"SP2613_169851_qa.2.0.{created}.xml"
+    assert xml.name == f"SP2613_169851_qa.2.0.{created.replace(':', '')}.xml"
 
 
 def test_a_second_run_refuses_to_overwrite(written, capsys):

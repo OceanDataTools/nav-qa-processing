@@ -168,4 +168,5 @@ def test_r2rs_file_name():
         cruise_id="SP2613", fileset_id="169851", depart_date=DAY, arrive_date=DAY
     )
     finished = datetime(2026, 7, 31, 20, 5, 56, tzinfo=UTC)
-    assert qa_xml_name(config, finished) == "SP2613_169851_qa.2.0.2026-07-31T20:05:56Z.xml"
+    # R2R's is SP2613_169851_qa.2.0.2026-07-31T20:05:56Z.xml; no colons here (#119)
+    assert qa_xml_name(config, finished) == "SP2613_169851_qa.2.0.2026-07-31T200556Z.xml"

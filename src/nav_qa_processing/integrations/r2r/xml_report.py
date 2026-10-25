@@ -223,5 +223,7 @@ def write_qa_xml(result: NavQAResult, r2r: R2RResult, path: Path | str) -> Path:
 
 
 def qa_xml_name(config: CruiseConfig, finished: datetime) -> str:
-    """R2R's name for the report: <CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml"""
-    return f"{config.identifier}_qa.2.0.{_timestamp(finished)}.xml"
+    """R2R's name for the report, <CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml, without the
+    timestamp's colons (2026-07-31T200556Z), which Windows doesn't allow in a file name (#119)
+    """
+    return f"{config.identifier}_qa.2.0.{_timestamp(finished).replace(':', '')}.xml"

@@ -656,7 +656,8 @@ def _add_r2r_commands(commands) -> None:
         description=(
             "Runs the QA on a GNSS fileset with a cruise TOML, then R2R's six tests. Writes "
             "<CRUISE_ID>_bestres|1min|control.geoCSV and "
-            "<CRUISE_ID>_<FILESET_ID>_qa.2.0.<time>.xml, as R2R names them."
+            "<CRUISE_ID>_<FILESET_ID>_qa.2.0.<time>.xml, as R2R names them but for the "
+            "time's colons (2026-07-31T200556Z)."
         ),
     )
     run.add_argument(

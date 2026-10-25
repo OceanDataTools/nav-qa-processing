@@ -342,7 +342,7 @@ uv run nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_g
 | Output | Contents |
 |---|---|
 | `<CRUISE>_bestres.geoCSV`, `_1min.geoCSV`, `_control.geoCSV` | The products, as `run` writes them, with R2R's attribution, repository and DOIs |
-| `<CRUISE>_<FILESET>_qa.2.0.<TIME>.xml` | R2R QA 2.0 report: R2R's structure, tests, bounds, infos and ranges, with its stylesheet reference. `<TIME>` is the run's, as in the products' `creation_date` |
+| `<CRUISE>_<FILESET>_qa.2.0.<TIME>.xml` | R2R QA 2.0 report: R2R's structure, tests, bounds, infos and ranges, with its stylesheet reference. `<TIME>` is the run's, as in the products' `creation_date`, without its colons (`2026-07-31T200556Z`; R2R's names have them, which Windows doesn't allow) |
 | `<CRUISE>_plots/`, `<CRUISE>_qa_report.pdf` | The figures and PDF, as `run` writes them, with R2R's certificate after the title block: R2R's fileset, vessel, ports, receiver and format, the rating as a G/Y/R banner in the theme's rating colors, each test's rating, result, G and Y bounds and detail, and the infos. The PDF's subject is the rating, e.g. `R2R rating G` |
 | `<CRUISE>_qa.ipynb` | The notebook, as `run` writes it, loading the cruise TOML (or, for a config built in Python, the cruise TOML written into it), then running R2R's tests, showing the certificate's tables, and writing the reports with the certificate and a new QA 2.0 XML, named by the notebook's run time |
 

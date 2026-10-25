@@ -286,7 +286,8 @@ points. NavManager has no GeoCSV writer: its
 `geocsv` branch only switches to comma delimiters and `#` headers, so R2R's GeoCSV header block
 comes from R2R's own tooling.
 
-Nav QA reports are named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`. Find them through the
+R2R names nav QA reports `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml` (ours drop the timestamp's
+colons, X2, #119). Find them through the
 `documents` field of `service.rvdata.us/api/qa_info/?fileset_id=…`. The product bag is in
 `api/product/?cruise_id=…`. First parity reference: SP2613 (raw GNSS fileset 169851, format
 nav29-style ISO-timestamp + NMEA; product fileset 620146; QA rated G). Others: SP2424 (past navsogcog's buffer), SP1925 (flagged
