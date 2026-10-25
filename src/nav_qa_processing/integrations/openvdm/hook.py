@@ -11,7 +11,8 @@ feed, ``[nav] format`` and ``files`` (e.g. ``raw/POSMV_GGA-*.txt`` within an ``O
 collection system), and the GeoCSV attribution. OpenVDM 2.17 keeps the vessel's name and
 contact in ``openvdm.yaml``'s ``vessel`` block, which it copies into each cruise's
 ``ovdmConfig.json``; the hook reads it from ``openvdm.yaml`` when it has that file, else from
-``ovdmConfig.json``. Its values win over the site TOML's. Its R2R IDs aren't used: the hook writes
+``ovdmConfig.json``. The site TOML's values win; OpenVDM's fill the fields it leaves blank (#112),
+and `site-config` offers them as defaults. Its R2R IDs aren't used: the hook writes
 the core reports, not R2R's.
 
 The hook sets OpenVDM 2.17's ``cruiseExtent`` from the fixes that pass QC (`set_cruise_extent`),
@@ -90,7 +91,7 @@ class SiteFeed:
 @dataclass
 class SiteConfig:
     """Per-ship settings OpenVDM doesn't store, from an optional TOML. From OpenVDM 2.17, the
-    vessel name and contact are in openvdm.yaml, whose values win over these::
+    vessel name and contact are also in openvdm.yaml, which fills these where they're blank::
 
     [vessel]
     name = "Roger Revelle"
@@ -206,8 +207,8 @@ def site_config_to_toml(site: SiteConfig) -> str:
     lines = [
         "# Per-ship settings for the OpenVDM hook (nav-qa-processing openvdm --site-config ...).",
         "# OpenVDM supplies the cruise ID, name, PI, location and dates. From OpenVDM 2.17,",
-        "# openvdm.yaml's vessel block supplies the vessel name and contact, and wins over the",
-        "# same fields here.",
+        "# openvdm.yaml's vessel block has the vessel name and contact too; these win, and",
+        "# openvdm.yaml fills any left blank.",
         "",
         "[vessel]",
         entry("name", site.vessel_name),
@@ -493,15 +494,15 @@ def resolve(
     if vessel is None:
         config_filename = warehouse.get("cruiseConfigFn") or "ovdmConfig.json"
         vessel = cruise_vessel(cruise_dir, config_filename)
-    # OpenVDM's vessel settings win over the site config's, field by field
+    # The site config's vessel settings win; OpenVDM's fill those it leaves blank (#112)
     ship = {}
     for name in VESSEL_SETTINGS:
         theirs, ours = vessel.settings.get(name, ""), getattr(site, name)
-        ship[name] = theirs or ours
+        ship[name] = ours or theirs
         if theirs and ours and theirs != ours:
             notes.append(
-                f"{name} is {theirs!r} in OpenVDM's {vessel.source} and {ours!r} in the site "
-                f"config; using {vessel.source}'s"
+                f"{name} is {ours!r} in the site config and {theirs!r} in OpenVDM's "
+                f"{vessel.source}; using the site config's"
             )
     config = QAConfig(
         cruise_id=cruise_id,

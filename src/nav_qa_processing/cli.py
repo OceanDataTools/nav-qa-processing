@@ -358,7 +358,7 @@ def _site_config(args: argparse.Namespace) -> int:
 
     if _refuse_overwrite(args.output, args.force):
         return 1
-    # OpenVDM 2.17's vessel settings win over the site config's, so they aren't asked for
+    # OpenVDM 2.17's vessel settings are the defaults where the site config has none
     openvdm_yaml = args.openvdm_config
     if openvdm_yaml is not None and not openvdm_yaml.exists():
         raise OpenVDMError(f"no openvdm.yaml at {openvdm_yaml}; check --openvdm-config")
@@ -374,7 +374,15 @@ def _site_config(args: argparse.Namespace) -> int:
         )
     from_openvdm = {}
     if openvdm_yaml is not None:
-        from_openvdm = vessel_settings(load_openvdm_yaml(openvdm_yaml).get("vessel"), "").settings
+        block = load_openvdm_yaml(openvdm_yaml).get("vessel")
+        from_openvdm = vessel_settings(block, "").settings
+        if not block:
+            # e.g. an openvdm.yaml carried over from OpenVDM 2.16 (#112)
+            print(
+                f"{openvdm_yaml} has no vessel block (OpenVDM 2.17 adds one: see its "
+                "openvdm.yaml.dist); the vessel fields' defaults are the site TOML's, or blank.\n",
+                file=sys.stderr,
+            )
     # Re-running over an existing file starts from its values
     existing = str(args.output) != STDOUT and args.output.exists()
     defaults = load_site_config(args.output) if existing else SiteConfig()
@@ -621,8 +629,8 @@ def _add_openvdm_commands(commands) -> None:
         metavar="OPENVDM_YAML",
         type=Path,
         help=(
-            "openvdm.yaml whose vessel settings (OpenVDM 2.17) aren't asked for again (default "
-            f"{DEFAULT_OPENVDM_CONFIG}, when it exists)"
+            "openvdm.yaml whose vessel settings (OpenVDM 2.17) are the defaults where the site "
+            f"TOML has none (default {DEFAULT_OPENVDM_CONFIG}, when it exists)"
         ),
     )
     site.add_argument("--force", action="store_true", help="overwrite an existing site TOML")

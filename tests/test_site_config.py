@@ -172,12 +172,17 @@ vessel:
 """
 
 
-def test_settings_in_openvdm_yaml_are_not_asked_for(tmp_path, monkeypatch, capsys):
+def test_openvdm_yaml_values_are_the_defaults_and_are_written(tmp_path, monkeypatch, capsys):
+    """openvdm.yaml's vessel settings are offered where the site TOML has none, and written into
+    it (#112)
+    """
     openvdm_yaml = tmp_path / "openvdm.yaml"
     openvdm_yaml.write_text(OPENVDM_YAML)
     answer(
         monkeypatch,
-        "tech@example.org",  # contact email: empty in openvdm.yaml, so asked
+        "",  # vessel name: openvdm.yaml's
+        "",  # contact institution: openvdm.yaml's
+        "tech@example.org",  # contact email: empty in openvdm.yaml
         "",  # top speed: the default
         "nav33",
         "",  # every file
@@ -191,12 +196,31 @@ def test_settings_in_openvdm_yaml_are_not_asked_for(tmp_path, monkeypatch, capsy
     output = tmp_path / "site.toml"
     assert main(["site-config", "--openvdm-config", str(openvdm_yaml), "-o", str(output)]) == 0
     site = load_site_config(output)
-    assert (site.vessel_name, site.contact_institution) == ("", "")
-    assert (site.contact_email, site.primary.format) == ("tech@example.org", "nav33")
+    assert (site.vessel_name, site.contact_institution, site.contact_email) == (
+        "Roger Revelle",
+        "Scripps Institution of Oceanography",
+        "tech@example.org",
+    )
+    assert 'name = "Roger Revelle"' in output.read_text()
     prompts = capsys.readouterr().err
-    assert "vessel_name = Roger Revelle" in prompts and "Vessel name" not in prompts
-    assert "Contact email" in prompts
+    assert "vessel_name = Roger Revelle" in prompts
+    assert "Vessel name (e.g. Roger Revelle) [Roger Revelle]" in prompts
     assert "No openvdm.yaml" not in prompts
+
+
+def test_the_site_tomls_values_win_over_openvdm_yamls_as_defaults(tmp_path, monkeypatch):
+    openvdm_yaml = tmp_path / "openvdm.yaml"
+    openvdm_yaml.write_text(OPENVDM_YAML)
+    output = tmp_path / "site.toml"
+    output.write_text(site_config_to_toml(EXISTING))  # vessel name "Revelle"
+    answer(monkeypatch)  # end of input: every default kept
+    assert (
+        main(["site-config", "--openvdm-config", str(openvdm_yaml), "-o", str(output), "--force"])
+        == 0
+    )
+    site = load_site_config(output)
+    assert site.vessel_name == "Revelle"  # the site TOML's, not openvdm.yaml's Roger Revelle
+    assert site.contact_institution == "Scripps Institution of Oceanography"  # blank there
 
 
 def test_openvdm_yaml_without_a_vessel_block(tmp_path, monkeypatch, capsys):
@@ -207,7 +231,7 @@ def test_openvdm_yaml_without_a_vessel_block(tmp_path, monkeypatch, capsys):
     output = tmp_path / "site.toml"
     assert main(["site-config", "--openvdm-config", str(openvdm_yaml), "-o", str(output)]) == 0
     assert load_site_config(output).vessel_name == "Roger Revelle"
-    assert "aren't asked for" not in capsys.readouterr().err
+    assert "has no vessel block (OpenVDM 2.17 adds one" in capsys.readouterr().err
 
 
 def test_says_when_openvdm_yaml_is_not_at_the_default_path(tmp_path, monkeypatch, capsys):

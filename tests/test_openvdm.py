@@ -234,7 +234,8 @@ def test_vessel_settings(block, expected):
     assert openvdm.vessel_settings(block, "openvdm.yaml").settings == expected
 
 
-def test_resolve_prefers_openvdms_vessel_settings(tmp_path):
+def test_resolve_prefers_the_site_configs_vessel_settings(tmp_path):
+    """The site TOML's vessel settings win; openvdm.yaml's fill those it leaves blank (#112)"""
     site = openvdm.SiteConfig(vessel_name="R/V Sproul", contact_email="site@example.org")
     vessel = openvdm.vessel_settings(
         {"name": "Robert Gordon Sproul", "contact": {"institution": "SIO"}}, "openvdm.yaml"
@@ -242,12 +243,15 @@ def test_resolve_prefers_openvdms_vessel_settings(tmp_path):
     run = openvdm.resolve(cruise_config(tmp_path), site, "OpenRVDAS", vessel)
     config = run.config
     assert (config.vessel_name, config.contact_institution, config.contact_email) == (
-        "Robert Gordon Sproul",
-        "SIO",
+        "R/V Sproul",  # the site config's
+        "SIO",  # blank there: openvdm.yaml's
         "site@example.org",
     )
     assert run.vessel_source == "openvdm.yaml"
-    assert "vessel_name is 'Robert Gordon Sproul' in OpenVDM's openvdm.yaml" in " ".join(run.notes)
+    assert (
+        "vessel_name is 'R/V Sproul' in the site config and 'Robert Gordon Sproul' in OpenVDM's "
+        "openvdm.yaml; using the site config's"
+    ) in " ".join(run.notes)
 
 
 def test_resolve_reads_the_vessel_from_ovdmconfig_json(tmp_path, caplog):
