@@ -15,7 +15,8 @@ def bag(tmp_path, files: dict[str, str], manifest: dict[str, str] | None = None)
     (tmp_path / "bagit.txt").write_text("BagIt-Version: 0.97\n")
     for name, text in files.items():
         (tmp_path / "data" / name).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / "data" / name).write_text(text)
+        # bytes, so Windows doesn't write \r\n and change the MD5s (#119)
+        (tmp_path / "data" / name).write_bytes(text.encode())
     listed = manifest if manifest is not None else {n: md5(t) for n, t in files.items()}
     (tmp_path / "manifest-md5.txt").write_text(
         "".join(f"{digest}  data/{name}\n" for name, digest in listed.items())
@@ -52,7 +53,7 @@ def test_bad_checksum_missing_and_unlisted_files(tmp_path):
 
 def test_a_plain_directory_with_an_external_manifest(tmp_path):
     (tmp_path / "gps").mkdir()
-    (tmp_path / "gps" / "a.txt").write_text("1\n")
+    (tmp_path / "gps" / "a.txt").write_bytes(b"1\n")
     (tmp_path / "md5.txt").write_text(f"{md5('1' + chr(10))} gps/a.txt\n**** gps/huge.txt\n")
     fileset = load_fileset(tmp_path / "gps", manifest_path=tmp_path / "md5.txt")
     assert not fileset.is_bag and [e.path for e in fileset.manifest] == ["a.txt"]

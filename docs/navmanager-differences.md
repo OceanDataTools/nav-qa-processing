@@ -67,6 +67,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | A7 | xmltools2 | Ratings of values as written; gaps at the receiver's time precision; uncomputable results | A gap just over a bound; division by zero | Rated as written through `quantities.py`; no result is R (#27) |
 | A8 | navqa | Steps truncated to whole milliseconds from float seconds: at 5 Hz one step in five reads 199 ms and is merged with the next | Completeness ~80 % for an unbroken 5 Hz feed: every recent Sally Ride cruise rated Y (SR2609–SR2612) | Slots counted in integer nanoseconds: 100 % (#108) |
 | X1 | R2R QA XML | Duplicate `<r2r:id>` in `cruise`, PHP number printing, mixed unit names, a double space | Text only | R2R's structure, standardized text (#27) |
+| X2 | R2R QA XML | File name with an ISO timestamp's colons (`…_qa.2.0.2026-07-31T20:05:56Z.xml`) | Can't be written on Windows or SMB shares | The colons dropped: `…T200556Z.xml` (#119) |
 
 ## Reader (navdatalist, navcopy, nmeatools)
 
@@ -436,6 +437,14 @@ acceleration results differ (A5).
 - **Evidence:** `tests/test_r2r_xml.py`: SP2613's and SP2503's element paths equal R2R's but for the second `<r2r:id>`; SP2613's fileset, manifest, references and cruise elements equal R2R's.
 - **Why (suspected):** the report is assembled from a template filled from R2R's database (`r2r_catalog_qa_bootstrap.php`, not in NavManager), with the certificate from `xml_write2`; the duplicate looks like a template slip.
 - **Effect:** text only; values parse the same.
+
+### X2. Colons in the report's file name
+
+- **R2R:** the report is named `<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml` with an extended ISO 8601 timestamp, e.g. `SP2613_169851_qa.2.0.2026-07-31T20:05:56Z.xml` (from `api/qa_info`'s `documents`).
+- **Here:** the same name without the colons, `SP2613_169851_qa.2.0.2026-07-31T200556Z.xml` (`xml_report.qa_xml_name`, #119), on every platform. The `<time>` in the report and the GeoCSV `creation_date` keep theirs: they are values, not names.
+- **Evidence:** CI's first Windows run (#117): writing R2R's name failed with `OSError: [Errno 22] Invalid argument`.
+- **Why (suspected):** R2R's server is Unix, where a colon is legal in a file name, and the timestamp is written as the report's `<time>` is.
+- **Effect:** a name R2R's own tools don't produce. Windows, SMB shares and some archive tools refuse colons, and macOS's Finder shows them as `/`, so the name is kept portable; to be raised with R2R.
 
 ## Not NavManager: R2R's catalog and the data
 
