@@ -187,8 +187,8 @@ threshold to see its effect. `run --execute-notebook` saves it with its outputs 
 from nav_qa_processing.qa import run_qa
 from nav_qa_processing.reports import write_reports
 
-result = run_qa("openrvdas_raw", "ODT1204.toml")    # or a QAConfig built in Python
-print(result.stats.verdict[1])                       # 7 of 8 checks pass. n/a: Within the expected area.
+result = run_qa("openrvdas_raw", "ODT1204.toml")  # or a QAConfig built in Python
+print(result.stats.verdict[1])  # 7 of 8 checks pass. n/a: Within the expected area.
 print([c.name for c in result.stats.checks if c.status == "warn"])
 written = write_reports(result, "output/ODT1204", notebook=False)
 ```
@@ -295,8 +295,8 @@ from nav_qa_processing import geocsv
 
 ours = geocsv.read("output/BH19-30/BH19-30_bestres.geoCSV")
 r2rs = geocsv.read("data/BH19-30_136141_gnss/products/data/BH19-30_bestres.geoCSV")
-print(len(ours.records), len(r2rs.records))                            # 9097 9097
-print(ours.records["flagged"].sum(), r2rs.records["flagged"].sum())    # 115 162
+print(len(ours.records), len(r2rs.records))  # 9097 9097
+print(ours.records["flagged"].sum(), r2rs.records["flagged"].sum())  # 115 162
 ```
 
 The same 9,097 records. Both flag 106; R2R flags 56 that we don't, 51 of them a position
