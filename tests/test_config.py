@@ -385,3 +385,16 @@ def test_a_table_at_the_wrong_level_is_pointed_to_its_place(text, hint):
 
     with pytest.raises(ValueError, match=hint):
         loads_config(text)
+
+
+def test_the_site_toml_shares_cores_schemas():
+    """#134: the tables the site TOML shares with the config TOML are core's own schemas, so a
+    key added to core is accepted in both
+    """
+    from nav_qa_processing.config import CORE_KEYS, INTEGRATION_KEYS
+    from nav_qa_processing.integrations.openvdm.hook import SITE_KEYS
+
+    for table in ("provenance", "geocsv", "thresholds", "theme"):
+        assert SITE_KEYS[table] is CORE_KEYS[table], table
+    assert SITE_KEYS["extent"] is CORE_KEYS["cruise"]["extent"]
+    assert SITE_KEYS["nav"] == CORE_KEYS["nav"] | INTEGRATION_KEYS["nav"]

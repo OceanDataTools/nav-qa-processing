@@ -41,12 +41,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from nav_qa_processing.config import (
-    CHECKED,
-    EXTENT_KEYS,
+    CORE_KEYS,
     INTEGRATION_KEYS,
     KEY,
-    NAV_KEYS,
-    THRESHOLD_KEYS,
     Extent,
     NavDevice,
     QAConfig,
@@ -169,15 +166,14 @@ class SiteConfig:
 
 
 # The site TOML's keys (#123): any other is an error naming where it belongs
+# The tables it shares with the config TOML are core's, so a key added there is accepted here
+# too (#134); [vessel], the top-level [extent] and a feed's transfer are the site's own
 SITE_KEYS = {
     "vessel": {"name": KEY},
-    "nav": NAV_KEYS | {"transfer": KEY},
-    "extent": EXTENT_KEYS,
+    "nav": CORE_KEYS["nav"] | INTEGRATION_KEYS["nav"],
+    "extent": CORE_KEYS["cruise"]["extent"],
     "openvdm": INTEGRATION_KEYS["openvdm"],
-    "provenance": dict.fromkeys(("contact_institution", "contact_email"), KEY),
-    "geocsv": {"attribution": KEY},
-    "thresholds": THRESHOLD_KEYS,
-    "theme": CHECKED,
+    **{table: CORE_KEYS[table] for table in ("provenance", "geocsv", "thresholds", "theme")},
 }
 
 
