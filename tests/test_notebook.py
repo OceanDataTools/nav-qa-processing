@@ -112,3 +112,21 @@ def test_the_theme_file_is_kept(tmp_path):
     theme.write_text('page_size = "A4"\n')
     text = source(build_notebook(result, tmp_path / "out", theme_file=theme))
     assert f"THEME_FILE = Path({str(theme.resolve())!r})" in text
+
+
+def test_the_notebook_is_its_template_with_every_marker_filled(tmp_path):
+    """#144: the cells are notebook_template.py's, in order (an integration's where `# @cells`
+    is), with no marker or placeholder left
+    """
+    from nav_qa_processing import notebook
+
+    template = notebook._template()
+    extras = NotebookExtras(cells=[new_markdown_cell("## Extra")])
+    built = build_notebook(cruise(tmp_path / "in"), tmp_path / "out", extras)
+    kinds = [kind for kind, lines in template if "# @cells" not in lines]
+    at = next(i for i, (_, lines) in enumerate(template) if "# @cells" in lines)
+    kinds.insert(at, "markdown")
+    assert [cell.cell_type for cell in built.cells] == kinds
+    text = source(built)
+    assert "# @" not in text and "# fmt:" not in text
+    assert not any(f"{{{name}}}" in text for name in ("cruise_id", "nav_format", "versions"))

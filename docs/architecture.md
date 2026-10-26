@@ -399,6 +399,7 @@ src/nav_qa_processing/
   maps.py           cartopy trackline map with Natural Earth; degrades without coastlines
   land.py           Natural Earth's land under the fixes, for the "Over water" check
   notebook.py       nbformat notebook that re-runs the assessment; NotebookExtras
+  notebook_template.py  the notebook's cells, as Python (percent format), filled by notebook.py
   network.py        reaching(service, url): unreachable servers become a one-line NetworkError
   readable.py       Readable: results and configs print as short text in Python and Jupyter
   -- integrations --
