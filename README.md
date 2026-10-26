@@ -283,9 +283,11 @@ max_accel = 1.0
 The QC rules are described in `src/nav_qa_processing/qc.py`.
 
 Parsing rules:
-- An unknown key in `[thresholds]` or `[theme]` is an error, so a typo doesn't go unnoticed.
-- Other tables and keys are ignored, so an [R2R cruise TOML](#r2r-cruise-toml) works as a config
-  too.
+- An unknown key, in any table, is an error that says where a misplaced key or table belongs, or
+  the closest key to a misspelled one (`[thresholds] max_gpa: did you mean max_gap?`). So is a
+  value of the wrong shape: a value where a table belongs, or a table where a value does.
+- The keys of an [R2R cruise TOML](#r2r-cruise-toml) are accepted, so it works as a config too,
+  as is the site TOML's `[openvdm] output_extra_directory`.
 - `[fileset] manifest` and theme fonts and logo are relative to the TOML file; `[nav] files` to
   the fileset.
 

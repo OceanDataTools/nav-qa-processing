@@ -65,10 +65,11 @@ each). The primary's products and reports are named after the cruise, the others
 cruise and the feed (`QAConfig.stem`: `<CRUISE>_seapath_bestres.geoCSV`, ...; #58). A single
 `[nav]` table is the primary unless it says `primary = false` (a non-primary feed's snapshot).
 
-Tables and keys only the integrations use (R2R's IDs and ports, the site TOML's [openvdm], a
-feed's `transfer`) are ignored; any other key is an error that says where it belongs, e.g. a
-top-level `cruise_id` (`[cruise] id`; #123). Threshold defaults are NavManager's (`include/globals.inc.php`, `navtools.inc.php`,
-`navqc.inc.php`) except where noted.
+The keys only the integrations read (R2R's IDs and ports, the site TOML's [openvdm], a feed's
+`transfer`) are accepted and left to them (`INTEGRATION_KEYS`); any other key, or a value of
+the wrong shape, is an error that says where it belongs, e.g. a top-level `cruise_id`
+(`[cruise] id`; #123, #127). Threshold defaults are NavManager's (`include/globals.inc.php`,
+`navtools.inc.php`, `navqc.inc.php`) except where noted.
 """
 
 import difflib
@@ -312,8 +313,8 @@ def thresholds_from_table(table: dict) -> Thresholds:
 
 
 def load_config(path: Path | str, nav: str | None = None) -> QAConfig:
-    """A config TOML, for the feed named nav (the primary by default). Tables and keys only the
-    integrations use are ignored
+    """A config TOML, for the feed named nav (the primary by default). The keys only the
+    integrations read are accepted; any other key is an error (`check_keys`)
     """
     with open(path, "rb") as file:
         data = tomllib.load(file)
