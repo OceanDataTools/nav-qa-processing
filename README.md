@@ -359,7 +359,7 @@ uv run nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_g
 
 ```text
 nav-qa-processing r2r run [-o OUTPUT_DIR] [--force] [--theme THEME_TOML] [--execute-notebook]
-                          CRUISE_TOML FILESET_DIR
+                          [--r2rnav] CRUISE_TOML FILESET_DIR
 ```
 
 Runs the QA as `run` does, then R2R's six tests, and writes the products, figures, PDF with
@@ -373,6 +373,7 @@ R2R's certificate, notebook and QA 2.0 XML.
 | `--force` | off | Replace existing products |
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the cruise TOML's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook and save its outputs |
+| `--r2rnav` | off | Also write the products as legacy r2rnav, `<CRUISE>_bestres\|1min\|control.r2rnav`, the format NavManager wrote them in (`format-r2rnav.txt`: tab-separated, three `//` header lines, a flagged bestres record as `#` and time through antenna height). R2R itself now publishes GeoCSV |
 
 It prints the R2R rating and each test's rating and result, then the core summary.
 

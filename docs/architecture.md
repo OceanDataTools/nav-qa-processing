@@ -393,7 +393,6 @@ src/nav_qa_processing/
   stats.py          QA statistics on the pre-QC data, and core checks (pass/warn/fail/info)
   qa.py             run_qa(fileset, config=None) -> NavQAResult
   geocsv.py         read/write GeoCSV 2.0 products (R2R's structure; Source passed in)
-  r2rnav.py         read/write legacy .r2rnav files
   reports.py        write_reports: GeoCSV products, PDF, SVGs, notebook
   pdf_report.py     ReportLab PDF embedding the SVGs; integrations add `front` pages
   plots.py          one matplotlib Figure per function
@@ -412,6 +411,7 @@ src/nav_qa_processing/
     certificate.py  the certificate's PDF page and notebook cells
     reports.py      run_r2r, write_r2r_reports (core reports with the certificate + XML; R2R's GeoCSV Source)
     download.py     r2r fetch-fileset (replaced scripts/fetch_r2r_fileset.py)
+    r2rnav.py       legacy .r2rnav products, for r2r run --r2rnav (#146)
     cli.py          the r2r group: run, config-from-catalog, config-from-qa, fetch-fileset
   integrations/openvdm/
     hook.py         QAConfig from OpenVDM's API and the site TOML; skip/chown/pending-checksum

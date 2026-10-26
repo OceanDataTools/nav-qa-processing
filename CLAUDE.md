@@ -40,7 +40,6 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `skipped_lines`, the sentences each reader couldn't use per file and reason, from its
   `Result.skipped` with `gga_zda`'s reasons, and `unread_files`, #67). It selects files by the reader's span (first to last
   ZDA, or logger timestamp), as navdatalist does.
-- `r2rnav.py`: read/write legacy r2rnav.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
 - `config.py`: `QAConfig` (every field optional; integration tables ignored; one feed:
@@ -112,6 +111,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   api/fileset, info/vessel/…/device/…, filled from R2R's QA report where the API has nothing:
   port coordinates, format alias, catalog dates), `config_from_qa_report`, `nav_format` (R2R
   format ID -> ours via the definitions' `r2r_formats`), `R2RError`.
+- `integrations/r2r/r2rnav.py`: read/write legacy r2rnav; `write_products(result, output)`, the
+  three products with the GeoCSV products' columns, for `r2r run --r2rnav` (#146).
 - `integrations/r2r/download.py`: `download_fileset` -> `data/<CRUISE>_<FILESET>_gnss/` (raw
   bag, `r2r_qa.2.0.xml` via api/qa_info, `products/` via api/product).
 - `integrations/r2r/certificate.py`: `certificate(result, r2r)` (a `FrontPages`: R2R's facts,
@@ -273,7 +274,8 @@ Preserve the receiver's precision as the spec describes.
 
 **R2R now publishes the products as GeoCSV 2.0** (`<CRUISE>_bestres|1min|control.geoCSV`, R2R
 format 100157). The columns are the same, but the files have a `#keyword: value` header block
-and are comma-delimited. GeoCSV is the primary output and `.r2rnav` is secondary. R2R's header
+and are comma-delimited. GeoCSV is the output; `.r2rnav` only from `r2r run --r2rnav`
+(`integrations/r2r/r2rnav.py`, #146), since only R2R's users want it. R2R's header
 layout is described in `docs/architecture.md` ("What R2R actually publishes today").
 
 **Datatypes, formats, units and descriptions are standardized across the entire project**:
