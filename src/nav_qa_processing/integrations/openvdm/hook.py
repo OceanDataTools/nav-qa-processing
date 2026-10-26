@@ -45,6 +45,7 @@ from nav_qa_processing.config import (
     EXTENT_KEYS,
     KEY,
     NAV_KEYS,
+    THRESHOLD_KEYS,
     Extent,
     NavDevice,
     QAConfig,
@@ -174,7 +175,7 @@ SITE_KEYS = {
     "openvdm": {"output_extra_directory": KEY},
     "provenance": dict.fromkeys(("contact_institution", "contact_email"), KEY),
     "geocsv": {"attribution": KEY},
-    "thresholds": CHECKED,
+    "thresholds": THRESHOLD_KEYS,
     "theme": CHECKED,
 }
 
@@ -194,7 +195,7 @@ def load_site_config(path: Path | str | None) -> SiteConfig:
             primary=nav["primary"],
             format=canonical_id(nav.get("format", "")),
             files=nav.get("files", ""),
-            device=nav_device_from_table(nav.get("device", {}), str(path)),
+            device=nav_device_from_table(nav.get("device", {})),
             transfer=nav.get("transfer", ""),
         )
         for nav in nav_tables(data, str(path))
