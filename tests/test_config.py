@@ -216,6 +216,58 @@ def test_core_knows_the_keys_r2r_reads():
     assert r2r.loads_cruise_config(text) == full
 
 
+class Recording(dict):
+    """A TOML table that records which keys a loader reads"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.read: set[str] = set()
+
+    def get(self, key, default=None):
+        self.read.add(key)
+        return super().get(key, default)
+
+    def __getitem__(self, key):
+        self.read.add(key)
+        return super().__getitem__(key)
+
+    def __contains__(self, key):
+        self.read.add(key)
+        return super().__contains__(key)
+
+
+def _tables_read(load) -> dict[str, set[str]]:
+    """The keys a loader reads from each of a config TOML's tables, given every table"""
+    data = Recording(
+        cruise=Recording(id="X", depart_date=date(2026, 1, 5), arrive_date=date(2026, 1, 6)),
+        fileset=Recording(),
+        provenance=Recording(),
+        geocsv=Recording(),
+    )
+    load(data)
+    return {name: table.read for name, table in data.items() if table.read}
+
+
+def test_every_key_a_loader_reads_is_in_the_schema():
+    """#133: what R2R's cruise TOML loader (and core's) actually reads, not only what R2R's
+    writer writes, so a key read but never written can't be missing from INTEGRATION_KEYS
+    (which would reject a hand-written cruise TOML using it)
+    """
+    from pathlib import Path
+
+    from nav_qa_processing import config
+    from nav_qa_processing.integrations.r2r import config as r2r
+
+    readers = {
+        "core": lambda data: config._config(data, Path.cwd(), "test"),
+        "R2R": lambda data: r2r._cruise_config(data, config.QAConfig(), "test"),
+    }
+    for who, load in readers.items():
+        for table, keys in _tables_read(load).items():
+            missing = keys - set(config.CONFIG_KEYS[table])
+            assert not missing, f"{who} reads [{table}] {sorted(missing)}: not in CONFIG_KEYS"
+
+
 def test_unknown_site_keys_say_where_they_belong(tmp_path):
     from nav_qa_processing.integrations.openvdm.hook import load_site_config
 
