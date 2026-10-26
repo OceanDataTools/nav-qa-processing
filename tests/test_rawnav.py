@@ -6,7 +6,7 @@ import pytest
 from conftest import CONFIGS, DATA, FIXTURES
 from test_gga_zda import gga, zda
 
-from nav_qa_processing import geocsv, r2rnav, rawnav
+from nav_qa_processing import geocsv, rawnav
 
 SP2613 = DATA / "SP2613_169851_gnss"
 FETCH = "uv run nav-qa-processing r2r fetch-fileset SP2613 169851"
@@ -36,36 +36,6 @@ def test_read_fileset_selects_files_by_zda_window(tmp_path):
 def test_unknown_format():
     with pytest.raises(ValueError, match="is unknown"):
         rawnav.read_fileset([], "nav99")
-
-
-def test_r2rnav_round_trip(tmp_path):
-    frame = pd.DataFrame(
-        {
-            "time": pd.to_datetime(
-                ["2026-07-09T15:11:57.5Z", "2026-07-09T15:11:58Z"], format="ISO8601"
-            ),
-            "lon": [-117.2337714755, np.nan],
-            "lat": [32.7028130227, 32.7027991935],
-            "quality": pd.array([2, None], dtype="Int64"),
-            "nsat": pd.array([13, 13], dtype="Int64"),
-            "hdop": [0.8, 0.8],
-            "alt": [7.76, 7.887],
-        }
-    )
-    path = tmp_path / "x.r2rnav"
-    r2rnav.write(
-        path,
-        frame,
-        rawnav.QUANTITIES,
-        {"time": 2, "lon": 10, "lat": 10, "hdop": 1, "alt": 3},
-        flagged=np.array([False, True]),
-    )
-    lines = path.read_text().splitlines()
-    assert lines[3] == "2026-07-09T15:11:57.50Z\t-117.2337714755\t32.7028130227\t2\t13\t0.8\t7.760"
-    assert lines[4].startswith("#2026-07-09T15:11:58.00Z\tNAN\t")
-    back = r2rnav.read(path)
-    assert list(back["flagged"]) == [False, True]
-    assert back["alt"].tolist() == [7.76, 7.887]
 
 
 @pytest.fixture(scope="module")

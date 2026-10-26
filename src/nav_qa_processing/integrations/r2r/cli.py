@@ -30,12 +30,19 @@ def _r2r_run(args: argparse.Namespace) -> int:
     # The XML's name has the run's time, so only the products can already exist
     config = load_cruise_config(args.cruise_toml)
     theme = resolve_theme(args.theme, config)  # a bad theme fails before the run
-    paths = reports.report_paths(args.output, config.stem)
-    if refuse_existing_reports(paths.values(), args.force):
+    paths = list(reports.report_paths(args.output, config.stem).values())
+    if args.r2rnav:
+        from nav_qa_processing.integrations.r2r import r2rnav
+
+        paths += r2rnav.paths(args.output, config.stem)
+    if refuse_existing_reports(paths, args.force):
         return 1
     run = run_r2r(args.fileset_dir, args.cruise_toml)
     print(run)
-    print_written(write_r2r_reports(run, args.output, theme, args.theme, args.execute_notebook))
+    written = write_r2r_reports(
+        run, args.output, theme, args.theme, args.execute_notebook, r2rnav=args.r2rnav
+    )
+    print_written(written)
     return 0
 
 
@@ -150,6 +157,14 @@ def add_commands(commands) -> None:
         help="BagIt bag or directory of GNSS files",
     )
     add_report_output(run)
+    run.add_argument(
+        "--r2rnav",
+        action="store_true",
+        help=(
+            "also write the products as legacy r2rnav (<CRUISE_ID>_bestres|1min|control.r2rnav), "
+            "the format NavManager wrote them in"
+        ),
+    )
     run.set_defaults(handler=_r2r_run)
 
     from_catalog = commands.add_parser(
