@@ -55,6 +55,11 @@ Without `-c`, the products are named after the fileset directory, every fix in i
 the expected-area check is n/a. A [config TOML](#config-toml) sets the cruise's ID, dates and
 area, the GNSS files and their format, and the thresholds; every field is optional.
 
+**[COOKBOOK.md](COOKBOOK.md)** walks through whole workflows with real output: a directory of a
+ship's raw nav files (finding the format, a config TOML, several sensors, the notebook, Python),
+and an R2R fileset (downloading it, its cruise TOML, R2R's assessment, comparing with R2R's
+products).
+
 ### Command line
 
 `nav-qa-processing --help` lists the commands, and `nav-qa-processing COMMAND --help` (or

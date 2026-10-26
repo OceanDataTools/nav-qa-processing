@@ -203,6 +203,8 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
 - Install: `uv sync`. Tests: `uv run pytest`. One test: `uv run pytest tests/test_x.py::test_name`.
   `INSTALL.md` has the install per OS and Linux distribution, for the OpenVDM hook and offline
   (#111); its Linux commands were run in clean containers, so re-run them after changing it.
+  `COOKBOOK.md` has worked examples (a directory of raw files; an R2R fileset) whose commands
+  and output come from real runs: re-run them when a command or its output changes.
 - Lint and format: `uv run ruff check .` and `uv run ruff format --check .` (line length 99).
 - CI (`.github/workflows/ci.yml`, #115): Ruff and pytest on Linux 3.11–3.14, macOS and Windows,
   downloading nothing. SP2613, SP2503, BH19-30 and RC0014 are committed as

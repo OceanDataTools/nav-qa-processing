@@ -331,3 +331,6 @@ uv sync --no-dev --extra openvdm --no-managed-python   # the same options as the
 
 `uv sync` installs exactly the versions in `uv.lock`, so every install of a commit runs the same
 packages.
+
+Installed: [COOKBOOK.md](COOKBOOK.md) has worked examples, on a directory of raw files and on an
+R2R fileset.
