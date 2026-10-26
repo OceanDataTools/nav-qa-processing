@@ -576,10 +576,14 @@ def merge_keys(*schemas: dict) -> dict:
 CONFIG_KEYS = merge_keys(CORE_KEYS, INTEGRATION_KEYS)
 
 
-def _leaf_paths(schema: dict, path: tuple[str, ...] = ()) -> list[tuple[str, ...]]:
+def _paths(schema: dict, path: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], bool]]:
+    """Every path in the schema, tables as well as keys, each with whether it's a table"""
     paths = []
     for key, value in schema.items():
-        paths += _leaf_paths(value, (*path, key)) if isinstance(value, dict) else [(*path, key)]
+        here = (*path, key)
+        paths.append((here, value != KEY))
+        if isinstance(value, dict):
+            paths += _paths(value, here)
     return paths
 
 
@@ -607,7 +611,7 @@ def check_keys(data: dict, schema: dict, where: str) -> None:
     value where a table belongs or a table where a value does (#127), which the loaders would
     otherwise fail on with a traceback
     """
-    unknown: list[tuple[tuple[str, ...], str, dict]] = []
+    unknown: list[tuple[tuple[str, ...], str, dict, object]] = []
     shapes: list[str] = []
 
     def name(path: tuple[str, ...], key: str) -> str:
@@ -616,7 +620,7 @@ def check_keys(data: dict, schema: dict, where: str) -> None:
     def walk(table: dict, known: dict, path: tuple[str, ...]) -> None:
         for key, value in table.items():
             if key not in known:
-                unknown.append((path, key, known))
+                unknown.append((path, key, known, value))
                 continue
             here = (*path, key)
             if known[key] == KEY:
@@ -640,12 +644,17 @@ def check_keys(data: dict, schema: dict, where: str) -> None:
     walk(data, schema, ())
     if not unknown and not shapes:
         return
-    leaves = _leaf_paths(schema)
+    paths = _paths(schema)
 
-    def described(path: tuple[str, ...], key: str, known: dict) -> str:
-        elsewhere = [p for p in leaves if key in (p[-1], "_".join(p))]
+    def described(path: tuple[str, ...], key: str, known: dict, value: object) -> str:
+        # The key elsewhere in the schema, as a key or a whole table (a top-level [extent]:
+        # [cruise.extent], #130): those of the value's kind first, at most two
+        elsewhere = [(p, table) for p, table in paths if key in (p[-1], "_".join(p))]
+        is_table = isinstance(value, dict)
+        elsewhere.sort(key=lambda match: match[1] != is_table)
         if elsewhere:
-            return f"{name(path, key)}: did you mean {_where_in(schema, elsewhere[0])}?"
+            listed = " or ".join(_where_in(schema, p) for p, _ in elsewhere[:2])
+            return f"{name(path, key)}: did you mean {listed}?"
         close = difflib.get_close_matches(key, list(known), n=1, cutoff=0.75)
         return f"{name(path, key)}: did you mean {close[0]}?" if close else name(path, key)
 
