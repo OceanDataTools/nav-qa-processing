@@ -377,8 +377,9 @@ core through hooks (PDF `front` pages, `NotebookExtras`), never by core knowing 
 
 ```
 src/nav_qa_processing/
-  cli.py            every command: run, formats, openvdm, config-from-openvdm, site-config,
-                    and the r2r group (run, config-from-catalog, config-from-qa, fetch-fileset)
+  cli.py            core's commands (run, formats, fetch-map-data), build_parser and main; adds
+                    each integration's commands through its cli.add_commands (#145)
+  clitools.py       what the commands share: refusing to overwrite, writing TOMLs and reports
   -- core --
   quantities.py     the project-wide quantity table: name, description, datatype, unit, format
   config.py         QAConfig (every field optional; integration tables ignored), Extent, NavSource,
@@ -411,9 +412,11 @@ src/nav_qa_processing/
     certificate.py  the certificate's PDF page and notebook cells
     reports.py      run_r2r, write_r2r_reports (core reports with the certificate + XML; R2R's GeoCSV Source)
     download.py     r2r fetch-fileset (replaced scripts/fetch_r2r_fileset.py)
+    cli.py          the r2r group: run, config-from-catalog, config-from-qa, fetch-fileset
   integrations/openvdm/
     hook.py         QAConfig from OpenVDM's API and the site TOML; skip/chown/pending-checksum
     site_setup.py   site-config prompts
+    cli.py          openvdm, config-from-openvdm, site-config
 ```
 
 What exists today: everything above but `site_setup.py` (#50); `CLAUDE.md` lists the modules.
