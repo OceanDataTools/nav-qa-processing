@@ -163,11 +163,18 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   source=None, theme=None, pdf_front, pdf_subject, theme_file, notebook=True, execute_notebook,
   notebook_extras)`: the GeoCSV products, the SVGs in `<CRUISE>_plots/`,
   `<CRUISE>_qa_report.pdf` and `<CRUISE>_qa.ipynb` (the notebook itself passes `notebook=False`).
-- `cli.py`: `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]`, `fetch-map-data`, and the `r2r` group (`run`,
-  `config-from-catalog`, `config-from-qa`, `fetch-fileset`). Conventions in its docstring
-  (`-o`/`--force`, integer fileset IDs, uppercase metavars, `-v`/`-vv` on every parser, expected
-  errors one line), checked for every command by `tests/test_cli.py`. Document every command,
-  argument and TOML key in the README's tables when adding one.
+- `cli.py`: core's commands, `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]` and
+  `fetch-map-data`, plus `build_parser` and `main`. Each integration's commands are in its own
+  `cli.py` (`integrations/r2r/cli.py`: the `r2r` group, `run`, `config-from-catalog`,
+  `config-from-qa`, `fetch-fileset`; `integrations/openvdm/cli.py`: `openvdm`,
+  `config-from-openvdm`, `site-config`), each with `add_commands(commands)` and
+  `EXPECTED_ERRORS`; core's `cli.py` adds them (`INTEGRATIONS`), importing nothing else of them
+  (`tests/test_boundaries.py`; #145). `clitools.py` has what both sides share (refusing to
+  overwrite, writing a cruise TOML or reports, the report-output arguments). The hook's
+  "every error one line" is its parser default `every_error_one_line`. Conventions in
+  `cli.py`'s docstring (`-o`/`--force`, integer fileset IDs, uppercase metavars, `-v`/`-vv` on
+  every parser, expected errors one line), checked for every command by `tests/test_cli.py`.
+  Document every command, argument and TOML key in the README's tables when adding one.
 
 SP2613's and SP2424's pre-QC records match R2R's full bestres by value (SP2424 has one more:
 the final fix, which NavManager drops) (`tests/test_rawnav.py`; R2R evidently ran it
