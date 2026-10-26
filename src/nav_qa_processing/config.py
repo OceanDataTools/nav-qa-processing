@@ -554,7 +554,8 @@ INTEGRATION_KEYS = {
     | {"device": dict.fromkeys(("id", "make_id", "model_id", "model_name", "location_name"), KEY)},
     "provenance": dict.fromkeys(("distro_type", "contact_institution_id"), KEY),
     "nav": {"transfer": KEY},
-    "openvdm": CHECKED,
+    # the site TOML's [openvdm], which the hook's SITE_KEYS uses too, so the two agree (#126)
+    "openvdm": {"output_extra_directory": KEY},
 }
 
 
