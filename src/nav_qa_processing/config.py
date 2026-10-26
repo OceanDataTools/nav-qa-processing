@@ -540,9 +540,9 @@ CORE_KEYS = {
     "theme": CHECKED,
 }
 # The keys the integrations read from the same file, which core leaves to them: R2R's cruise
-# TOML (integrations/r2r/config.py, kept in step by tests/test_r2r_config.py), a feed's
-# OpenVDM transfer and the site TOML's [openvdm]. Written out here, as core never imports an
-# integration
+# TOML (integrations/r2r/config.py, kept in step by
+# tests/test_config.py::test_core_knows_the_keys_r2r_reads), a feed's OpenVDM transfer and
+# the site TOML's [openvdm]. Written out here, as core never imports an integration
 PORT_KEYS = dict.fromkeys(
     ("name", "port_id", "country_id", "state_id", "longitude", "latitude"), KEY
 )
