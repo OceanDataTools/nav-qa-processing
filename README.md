@@ -1,9 +1,8 @@
 # nav-qa-processing
 
 > [!WARNING]
-> **Under heavy development.** The core QA, the GeoCSV products and R2R's QA 2.0 XML work; the
-> PDF report, figures, notebook and OpenVDM hook are still to come. The command line, config
-> format and Python API may change without notice.
+> **Under heavy development.** The command line, config format and Python API may change without
+> notice.
 
 A Python port of R2R's [NavManager](https://github.com/rvdata/NavManager), built in the same style
 as [sbe-qa-processing](https://github.com/OceanDataTools/sbe-qa-processing). From a research
@@ -17,11 +16,12 @@ vessel's raw GNSS files and a small cruise config, it produces:
 - QA statistics and checks: completeness, gaps, records out of sequence, bad quality indicators,
   unreasonable speeds and accelerations, and the satellite, HDOP, altitude, speed and
   acceleration ranges.
+- a **PDF report**, every figure as an **SVG**, and a **Jupyter notebook** that re-runs the
+  assessment.
 - with the [R2R commands](#r2r), an **R2R QA 2.0 XML** report with R2R's six tests, ratings and
   bounds.
 
-Still to come: a **PDF report**, every figure as an **SVG**, a **Jupyter notebook** that
-re-runs the assessment, and an [OpenVDM](https://github.com/OceanDataTools/openvdm)
+It runs from the command line or as an [OpenVDM](https://github.com/OceanDataTools/openvdm)
 post-transfer hook.
 
 Values are computed soundly rather than by reproducing NavManager's arithmetic, and units,
@@ -31,7 +31,10 @@ and the report is R2R's. Every difference from NavManager is listed, with its ca
 
 ## Setup
 
-Needs [uv](https://docs.astral.sh/uv/) (`brew install uv`) and git.
+Needs Python 3.11+, [uv](https://docs.astral.sh/uv/) and git. **[INSTALL.md](INSTALL.md)** has
+the commands for macOS, Debian and Ubuntu, RHEL, AlmaLinux and Rocky Linux, and Windows, the
+install for the OpenVDM hook, the map data, and installing for a ship without internet. In
+short:
 
 ```bash
 git clone https://github.com/OceanDataTools/nav-qa-processing.git
@@ -578,8 +581,10 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
   logging several position sensors lists each as a `[[nav]]` table.
 
 1. **Install** this project with the `openvdm` extra (pyyaml, to read `openvdm.yaml`) somewhere
-   OpenVDM's worker can run it. It has its own environment, not OpenVDM's venv. Fetch the map
-   data too:
+   OpenVDM's workers can run it, in its own environment, not OpenVDM's venv, and fetch the map
+   data as the user the workers run as (root, as OpenVDM installs them).
+   [INSTALL.md](INSTALL.md#install-for-the-openvdm-hook) has the commands for each Linux
+   distribution; on Debian 12, Ubuntu 24.04 or RHEL-family 8 and 9 with uv installed:
 
    ```bash
    sudo mkdir -p /opt/nav-qa-processing && sudo chown "$USER": /opt/nav-qa-processing
@@ -589,8 +594,7 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
    sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing fetch-map-data
    ```
 
-   Run `fetch-map-data` as the user OpenVDM's transfer workers run as, since cartopy caches the
-   maps in that user's home. Leave out `--no-dev` to use the hook's `--execute-notebook`.
+   Leave out `--no-dev` to use the hook's `--execute-notebook`.
 2. **Add an extra directory** for the reports in OpenVDM (Configuration > Extra Directories).
    It's named `NAV_QA` by default, e.g. with destination `Products/NAV_QA`.
 3. **Write the ship's site TOML** with `site-config`, which prompts for each field (or by
