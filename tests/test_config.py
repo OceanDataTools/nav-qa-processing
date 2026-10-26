@@ -303,3 +303,11 @@ def test_openvdm_keys_in_a_config_toml_are_checked():
         loads_config('[openvdm]\noutput_extra_directroy = "NAV_QA"\n')
     with pytest.raises(ValueError, match=r"unknown key: \[openvdm\] anything$"):
         loads_config("[openvdm]\nanything = 1\n")
+
+
+def test_a_misplaced_table_is_suggested_as_a_table():
+    """#129: [theme] (a table its own loader checks) is suggested as [theme], not "[] theme\""""
+    from nav_qa_processing.config import loads_config
+
+    with pytest.raises(ValueError, match=r"\[cruise\] theme: did you mean \[theme\]\?$"):
+        loads_config("[cruise]\ntheme = 1\n")

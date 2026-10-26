@@ -587,6 +587,19 @@ def _leaf_paths(schema: dict, path: tuple[str, ...] = ()) -> list[tuple[str, ...
 TABLE_ARRAYS = {("nav",)}
 
 
+def _where_in(schema: dict, path: tuple[str, ...]) -> str:
+    """How a TOML writes a schema path: a table as [table] (a CHECKED one included, #129), a
+    key as [table] key, or at the top level
+    """
+    node: object = schema
+    for key in path:
+        node = node[key]  # type: ignore[index]
+    if node != KEY:
+        return f"[{'.'.join(path)}]"
+    *table, leaf = path
+    return f"[{'.'.join(table)}] {leaf}" if table else f"{leaf} at the top level"
+
+
 def check_keys(data: dict, schema: dict, where: str) -> None:
     """Raises ValueError naming every key of data the schema doesn't know, each with where it
     belongs when the schema has it elsewhere (a top-level `cruise_id`: `[cruise] id`), or the
@@ -632,8 +645,7 @@ def check_keys(data: dict, schema: dict, where: str) -> None:
     def described(path: tuple[str, ...], key: str, known: dict) -> str:
         elsewhere = [p for p in leaves if key in (p[-1], "_".join(p))]
         if elsewhere:
-            *table, leaf = elsewhere[0]
-            return f"{name(path, key)}: did you mean [{'.'.join(table)}] {leaf}?"
+            return f"{name(path, key)}: did you mean {_where_in(schema, elsewhere[0])}?"
         close = difflib.get_close_matches(key, list(known), n=1, cutoff=0.75)
         return f"{name(path, key)}: did you mean {close[0]}?" if close else name(path, key)
 
