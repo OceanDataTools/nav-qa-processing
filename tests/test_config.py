@@ -311,3 +311,25 @@ def test_a_misplaced_table_is_suggested_as_a_table():
 
     with pytest.raises(ValueError, match=r"\[cruise\] theme: did you mean \[theme\]\?$"):
         loads_config("[cruise]\ntheme = 1\n")
+
+
+@pytest.mark.parametrize(
+    "text, hint",
+    [
+        ("[extent]\nwesternmost = 1\n", r"extent .top level.: did you mean \[cruise.extent\]\?$"),
+        ("[cruise]\nthresholds = 1\n", r"\[cruise\] thresholds: did you mean \[thresholds\]\?$"),
+        (
+            '[device]\nmodel = "x"\n',
+            r"device .top level.: did you mean \[fileset.device\] or \[nav.device\]\?$",
+        ),
+        ('id = "X"\n', r"id .top level.: did you mean \[cruise\] id or \[fileset\] id\?$"),
+    ],
+)
+def test_a_table_at_the_wrong_level_is_pointed_to_its_place(text, hint):
+    """#130: whole tables are matched as well as keys (the site TOML's top-level [extent] is
+    [cruise.extent] in a config TOML), at most two places when the name fits several
+    """
+    from nav_qa_processing.config import loads_config
+
+    with pytest.raises(ValueError, match=hint):
+        loads_config(text)
