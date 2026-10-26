@@ -303,10 +303,7 @@ def as_date(value) -> date:
 
 
 def thresholds_from_table(table: dict) -> Thresholds:
-    known = {f.name: f for f in fields(Thresholds)}
-    unknown = set(table) - set(known)
-    if unknown:
-        raise ValueError(f"unknown thresholds: {', '.join(sorted(unknown))}")
+    """A [thresholds] table whose keys `check_keys` has checked (THRESHOLD_KEYS)"""
     defaults = Thresholds()
     values = {
         k: as_date(v) if isinstance(getattr(defaults, k), date) else v for k, v in table.items()
@@ -391,7 +388,7 @@ def _configs(data: dict, base: Path, where: str) -> list[QAConfig]:
             shared,
             nav_format=canonical_id(nav.get("format", "")),
             nav_files=nav.get("files", ""),
-            nav_device=nav_device_from_table(nav.get("device", {}), where),
+            nav_device=nav_device_from_table(nav.get("device", {})),
             nav_name=nav.get("name", ""),
             nav_primary=nav["primary"],
         )
@@ -476,10 +473,8 @@ def nav_toml(config: QAConfig) -> list[str]:
     return lines + nav_device_toml(config.nav_device)
 
 
-def nav_device_from_table(table: dict, where: str) -> NavDevice:
-    unknown = set(table) - set(fields_of(NavDevice))
-    if unknown:
-        raise ValueError(f"{where}: unknown [nav.device] keys: {', '.join(sorted(unknown))}")
+def nav_device_from_table(table: dict) -> NavDevice:
+    """A [nav.device] table whose keys `check_keys` has checked (NAV_DEVICE_KEYS)"""
     return NavDevice(**{k: str(v) for k, v in table.items()})
 
 
@@ -523,11 +518,14 @@ def fields_of(cls) -> list[str]:
 
 
 # Key schemas (#123): a key maps to KEY (a value), a schema (a table, or each of an array of
-# tables) or CHECKED (a table whose own loader checks its keys: [thresholds], [theme],
-# [nav.device])
+# tables) or CHECKED (a table whose own loader checks its keys: [theme], whose keys theme.py
+# has, and which imports this module)
 KEY, CHECKED = "key", "checked"
 EXTENT_KEYS = dict.fromkeys(fields_of(Extent), KEY)
-NAV_KEYS = dict.fromkeys(("name", "format", "files", "primary"), KEY) | {"device": CHECKED}
+# [thresholds] and [nav.device] here too, so their keys get the same errors and hints (#128)
+THRESHOLD_KEYS = dict.fromkeys(fields_of(Thresholds), KEY)
+NAV_DEVICE_KEYS = dict.fromkeys(fields_of(NavDevice), KEY)
+NAV_KEYS = dict.fromkeys(("name", "format", "files", "primary"), KEY) | {"device": NAV_DEVICE_KEYS}
 CORE_KEYS = {
     "cruise": dict.fromkeys(
         ("id", "name", "pi", "location", "vessel_name", "depart_date", "arrive_date", "doi"), KEY
@@ -537,7 +535,7 @@ CORE_KEYS = {
     "nav": NAV_KEYS,
     "provenance": dict.fromkeys(("contact_institution", "contact_email"), KEY),
     "geocsv": {"attribution": KEY},
-    "thresholds": CHECKED,
+    "thresholds": THRESHOLD_KEYS,
     "theme": CHECKED,
 }
 # The keys the integrations read from the same file, which core leaves to them: R2R's cruise

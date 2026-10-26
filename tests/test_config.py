@@ -103,14 +103,17 @@ def test_nav_device():
 def test_unknown_nav_device_keys_are_an_error(tmp_path):
     path = tmp_path / "bad.toml"
     path.write_text('[nav.device]\nmodle = "BX992"\n')
-    with pytest.raises(ValueError, match=r"unknown \[nav.device\] keys: modle"):
+    with pytest.raises(ValueError, match=r"bad.toml: unknown key: \[nav.device\] modle: did yo"):
         load_config(path)
 
 
 def test_unknown_thresholds_are_an_error(tmp_path):
+    """With the file and a suggestion, as for every other key (#128)"""
     path = tmp_path / "bad.toml"
     path.write_text("[thresholds]\nmax_sped = 9.0\n")
-    with pytest.raises(ValueError, match="unknown thresholds: max_sped"):
+    with pytest.raises(
+        ValueError, match=r"bad.toml: unknown key: \[thresholds\] max_sped: did you mean max_spe"
+    ):
         load_config(path)
 
 
@@ -272,3 +275,20 @@ def test_the_cli_reports_a_badly_shaped_config_in_one_line(tmp_path, capsys):
     assert main(["run", str(tmp_path), "-c", str(config)]) == 1
     err = capsys.readouterr().err
     assert err.count("\n") == 1 and "cruise (top level) must be a table" in err
+
+
+def test_a_threshold_key_out_of_place_is_pointed_to_thresholds(tmp_path):
+    """[thresholds] in the key schema (#128): a threshold at the top level or in another table
+    is pointed to it, and the site TOML's thresholds get the same errors
+    """
+    from nav_qa_processing.config import loads_config
+    from nav_qa_processing.integrations.openvdm.hook import load_site_config
+
+    with pytest.raises(ValueError, match=r"max_gap .top level.: did you mean \[thresholds\] max_"):
+        loads_config("max_gap = 600\n")
+    with pytest.raises(ValueError, match=r"\[cruise\] max_speed: did you mean \[thresholds\] max"):
+        loads_config("[cruise]\nmax_speed = 6\n")
+    site = tmp_path / "site.toml"
+    site.write_text('[nav]\nformat = "nav29"\n[thresholds]\nmax_sped = 6\n')
+    with pytest.raises(ValueError, match=r"\[thresholds\] max_sped: did you mean max_speed\?"):
+        load_site_config(site)
