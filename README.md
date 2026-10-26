@@ -190,7 +190,8 @@ would rewrite the reports just written; run that one yourself to write them agai
 
 A config TOML describes the cruise, the GNSS feed and the thresholds. Every table and key is
 optional, but a key that isn't one of them is an error, which says where a misplaced or
-misspelled key belongs (`cruise_id (top level): did you mean [cruise] id?`). The keys of an
+misspelled key belongs (`cruise_id (top level): did you mean [cruise] id?`), as is a value
+where a table belongs or a table where a value does (`[cruise] extent must be a table`). The keys of an
 [R2R cruise TOML](#r2r-cruise-toml) are accepted too. A complete example:
 
 ```toml

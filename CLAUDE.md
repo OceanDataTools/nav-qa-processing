@@ -54,7 +54,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `config_to_toml` (configs print as their TOML). Unknown keys are an error saying where they
   belong (`check_keys` against `CONFIG_KEYS`: core's plus `INTEGRATION_KEYS`, R2R's written
   out as strings and checked against its loader by `tests/test_config.py`; the site TOML's
-  `SITE_KEYS` in the hook; #123).
+  `SITE_KEYS` in the hook; #123), as are values of the wrong shape, a value for a table or a
+  table for a value (#127).
 - `fileset.py`: `load_fileset(path, files, manifest_path)` -> `Fileset` (a bag or a directory;
   the nav files by glob; the bag's manifest with R2R's file ids, or an external one);
   `verify_manifest` lists problems as text.
