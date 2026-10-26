@@ -39,6 +39,9 @@ class NavQAResult(Readable):
     finished: datetime
     versions: dict[str, str] = field(default_factory=dict)
     config_path: Path | None = None  # set when the config was loaded from a file
+    # What the reader of a report must know before its checks, e.g. nav files outside the
+    # cruise window (#122)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def source(self) -> geocsv.Source:
@@ -79,6 +82,7 @@ class NavQAResult(Readable):
                 f"({self.config.nav_format}) from {plural(len(self.nav.files), 'file')} "
                 f"in {self.fileset.root}"
             ),
+            *(f"  warning: {warning}" for warning in self.warnings),
             f"  receiver: {self.receiver}",
             f"  run {timestamp(self.started)}, {seconds:.1f} s"
             + (f"; {versions}" if versions else ""),
@@ -128,6 +132,41 @@ def cruise_window(config: QAConfig) -> tuple[datetime | None, datetime | None]:
     return start, end
 
 
+def _window_text(config: QAConfig) -> str:
+    """The cruise window as its dates, both inclusive"""
+    depart, arrive = config.depart_date, config.arrive_date
+    if depart and arrive:
+        return f"{depart} to {arrive}"
+    return f"from {depart}" if depart else f"to {arrive}"
+
+
+def window_warnings(config: QAConfig, nav: rawnav.RawNav) -> list[str]:
+    """Nav files outside the cruise window, said plainly (#122): every one of them, which
+    leaves nothing to assess and most likely means the cruise's dates are wrong, or some
+    """
+    spans = nav.skipped_spans
+    if not spans:
+        return []
+    first = min(start for start, _ in spans.values())
+    last = max(end for _, end in spans.values())
+    when = f"{first:%Y-%m-%d %H:%M} to {last:%Y-%m-%d %H:%M} UTC"
+    window = _window_text(config)
+    if not nav.files:
+        text = (
+            f"every nav file is outside the cruise window ({window}): "
+            f"{plural(len(spans), 'file')} with fixes from {when}; check the cruise's dates"
+        )
+        return [text]
+    names = sorted(spans)
+    listed = ", ".join(names[:3]) + (f" and {len(names) - 3} more" if len(names) > 3 else "")
+    total = len(spans) + len(nav.files)
+    text = (
+        f"{len(spans)} of {total} nav files are outside the cruise window ({window}), "
+        f"with fixes from {when}: {listed}"
+    )
+    return [text]
+
+
 def run_qa(
     fileset: Fileset | Path | str, config: QAConfig | Path | str | None = None
 ) -> NavQAResult:
@@ -150,6 +189,9 @@ def run_qa(
     window = {k: v for k, v in (("start", start), ("end", end)) if v is not None}
     nav = rawnav.read_fileset(fileset.files, config.nav_format, **window)
     errors += nav.errors
+    warnings = window_warnings(config, nav)
+    for warning in warnings:
+        logger.info("%s: %s", config.identifier, warning)  # the summary prints it
     logger.info(
         "read %s (%s) from %s",
         plural(len(nav.frame), "fix", "fixes"),
@@ -174,6 +216,7 @@ def run_qa(
         finished=datetime.now(UTC),
         versions=_versions(),
         config_path=config_path,
+        warnings=warnings,
     )
 
 

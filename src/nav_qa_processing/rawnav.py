@@ -57,6 +57,8 @@ class RawNav:
     # and files it couldn't read at all, with why
     skipped_lines: dict[str, dict[str, int]] = field(default_factory=dict)
     unread_files: dict[str, str] = field(default_factory=dict)
+    # Each skipped file's span (first and last time), to say where it lies (#122)
+    skipped_spans: dict[str, tuple[datetime, datetime]] = field(default_factory=dict)
 
 
 def read_lines(path: Path) -> list[str]:
@@ -79,7 +81,7 @@ def read_fileset(
     spec = formats.get(format_id)
     errors: list[str] = []
     selected: list[tuple[datetime, str, list[str]]] = []
-    skipped: list[str] = []
+    skipped: dict[str, tuple[datetime, datetime]] = {}
     unread: dict[str, str] = {}
     for path in sorted(paths, key=lambda p: _natural_key(p.name)):
         try:
@@ -93,7 +95,7 @@ def read_fileset(
             errors.append(f"{path.name}: no {spec.reader.dated_by}, skipped")
             unread[path.name] = f"no {spec.reader.dated_by}"
         elif span[1] < start or span[0] > end:
-            skipped.append(path.name)
+            skipped[path.name] = span
         else:
             selected.append((span[0], path.name, lines))
     selected.sort(key=lambda s: s[0])
@@ -134,9 +136,10 @@ def read_fileset(
         frame,
         decimals,
         [name for _, name, _ in selected],
-        skipped,
+        list(skipped),
         errors,
         talkers=talkers,
         skipped_lines=result.skipped,
         unread_files=unread,
+        skipped_spans=skipped,
     )

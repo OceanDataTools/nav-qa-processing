@@ -165,7 +165,7 @@ def flag(
     accel_limit = th.max_accel
     resolution = _resolution(nav, lat)
     noise = 4 * resolution / th.accel_time_base**2  # [m s-2] quantization alone
-    if noise > accel_limit:
+    if len(t) and noise > accel_limit:  # no fixes, no resolution to allow for (#122)
         accel_limit = noise
         notes.append(
             f"Coordinates resolve {resolution:.2f} m, so the acceleration limit is raised from "

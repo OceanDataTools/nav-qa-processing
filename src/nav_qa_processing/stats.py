@@ -142,6 +142,12 @@ class NavStats(Readable):
         warn), and which didn't pass with their values, e.g. "2 of 7 checks warn: Completeness
         6.02 %; Longest gap 102103.500 s." Info checks are left out; n/a ones are named
         """
+        if not self.records:  # nothing read or nothing usable: a warning, not "n/a" (#122)
+            read = not self.checks or self.checks[0].detail != "no fixes"
+            return (
+                "warn",
+                f"{'No fix is usable' if read else 'No fixes were read'}, so no check could be made.",
+            )
         judged = [c for c in self.checks if c.status in ("pass", "warn", "fail")]
         missing = [c.name for c in self.checks if c.status == "n/a"]
         total = len(judged) + len(missing)
@@ -177,6 +183,17 @@ COUNTED = {
     "flagged": "Flagged by QC",
 }
 SKIPPED = "outside the cruise window"
+# The checks other than the QC count, in order
+CHECK_NAMES = (
+    "Completeness",
+    "Longest gap",
+    "Records out of sequence",
+    "Bad quality indicator",
+    "Unreasonable speeds",
+    "Unreasonable accelerations",
+    "Within the expected area",
+    "Over water",
+)
 SKIPPED_SENTENCES = "Skipped sentences"  # counts_by_file's column of what the reader couldn't use
 
 
@@ -422,6 +439,13 @@ def _status(ok: bool | None) -> str:
 
 
 def _checks(stats: NavStats, qc_result, th, extent) -> list[CheckResult]:
+    if not stats.records:
+        # Every check n/a, for that reason, not the ones a check gives for a missing field (#122)
+        reason = "no fixes" if not len(qc_result.flags) else "no usable fixes"
+        checks = [CheckResult(name, "n/a", "n/a", reason) for name in CHECK_NAMES]
+        flagged = str(int((qc_result.flags != 0).sum()))
+        return [*checks, CheckResult("Fixes flagged by QC", "info", flagged)]
+
     def pct(value):
         return "n/a" if value is None else f"{value:.2f} %"
 
