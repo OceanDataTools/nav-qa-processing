@@ -189,7 +189,9 @@ would rewrite the reports just written; run that one yourself to write them agai
 ### Config TOML
 
 A config TOML describes the cruise, the GNSS feed and the thresholds. Every table and key is
-optional. A complete example:
+optional, but a key that isn't one of them is an error, which says where a misplaced or
+misspelled key belongs (`cruise_id (top level): did you mean [cruise] id?`). The keys of an
+[R2R cruise TOML](#r2r-cruise-toml) are accepted too. A complete example:
 
 ```toml
 [cruise]
@@ -735,7 +737,7 @@ field keeps its default, so with no input the file is written back unchanged. Th
 ### Site TOML
 
 The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
-`configs/site.example.toml` shows every key.
+`configs/site.example.toml` shows every key. Any other key is an error, as in a config TOML.
 
 | Table | Key | Default | Description |
 |---|---|---|---|

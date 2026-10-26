@@ -147,3 +147,76 @@ def test_extent_across_the_antimeridian():
 )
 def test_extent_around(lons, lats, expected):
     assert Extent.around(lons, lats) == expected
+
+
+def test_unknown_keys_say_where_they_belong():
+    """#123: cruise keys at the top level, a typo and a key in the wrong table"""
+    from nav_qa_processing.config import loads_config
+
+    text = 'cruise_id = "X"\ndepart_date = 2026-01-05\n[nav]\nformat = "nav33"\nfiels = "*"\n'
+    with pytest.raises(ValueError) as error:
+        loads_config(text)
+    assert str(error.value) == (
+        "config: unknown keys: cruise_id (top level): did you mean [cruise] id?; "
+        "depart_date (top level): did you mean [cruise] depart_date?; "
+        "[nav] fiels: did you mean files?"
+    )
+    with pytest.raises(ValueError, match=r"unknown key: \[fileset\] attribution: did you mean "):
+        loads_config('[fileset]\nattribution = "x"\n')
+    with pytest.raises(ValueError, match=r"unknown key: \[cruise.extent\] west$"):
+        loads_config("[cruise.extent]\nwest = 1\n")
+    with pytest.raises(ValueError, match=r"unknown key: \[nav\] colour$"):
+        loads_config('[[nav]]\nname = "a"\nformat = "nav29"\ncolour = 1\n')
+
+
+def test_every_committed_config_loads():
+    """The cruise TOMLs in configs/ (R2R's keys included) and the example site TOML"""
+    from conftest import CONFIGS
+
+    from nav_qa_processing.integrations.openvdm.hook import load_site_config
+
+    for path in sorted(CONFIGS.glob("*_*.toml")):
+        assert load_config(path).cruise_id, path
+    assert load_site_config(CONFIGS / "site.example.toml").feeds
+
+
+def test_core_knows_the_keys_r2r_reads():
+    """config.INTEGRATION_KEYS, written out as core never imports an integration, against R2R's
+    cruise TOML: its ports and device, and a full config written and read back by core
+    """
+    from nav_qa_processing.config import INTEGRATION_KEYS, fields_of, loads_config
+    from nav_qa_processing.integrations.r2r import config as r2r
+
+    assert list(INTEGRATION_KEYS["cruise"]["depart_port"]) == fields_of(r2r.Port)
+    assert list(INTEGRATION_KEYS["fileset"]["device"]) == fields_of(r2r.Device)
+    full = r2r.CruiseConfig(
+        cruise_id="X",
+        depart_date=date(2026, 1, 5),
+        arrive_date=date(2026, 1, 6),
+        fileset_id="1",
+        vessel_id="V",
+        operator_id="O",
+        scheduler_id="S",
+        date_issued="2026-01-07",
+        date_modified="2026-01-08",
+        depart_port=r2r.Port(*"abcd", 1.0, 2.0),
+        arrive_port=r2r.Port(*"efgh", 3.0, 4.0),
+        fileset_date_created="2026-01-09",
+        format_id="100150",
+        format_alias="starc_raw",
+        device=r2r.Device(*"ijklm"),
+        distro_type="post-cruise",
+        contact_institution_id="I",
+    )
+    text = r2r.config_to_toml(full)
+    assert loads_config(text).cruise_id == "X"
+    assert r2r.loads_cruise_config(text) == full
+
+
+def test_unknown_site_keys_say_where_they_belong(tmp_path):
+    from nav_qa_processing.integrations.openvdm.hook import load_site_config
+
+    path = tmp_path / "site.toml"
+    path.write_text('[vessel]\nvessel_name = "Sproul"\n[nav]\nformat = "nav29"\n')
+    with pytest.raises(ValueError, match=r"unknown key: \[vessel\] vessel_name: did you mean "):
+        load_site_config(path)

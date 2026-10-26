@@ -41,10 +41,15 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from nav_qa_processing.config import (
+    CHECKED,
+    EXTENT_KEYS,
+    KEY,
+    NAV_KEYS,
     Extent,
     NavDevice,
     QAConfig,
     Thresholds,
+    check_keys,
     config_to_toml,
     fields_of,
     nav_device_from_table,
@@ -161,11 +166,25 @@ class SiteConfig:
         return [feed for feed in self.feeds if feed.transfer in ("", transfer)]
 
 
+# The site TOML's keys (#123): any other is an error naming where it belongs
+SITE_KEYS = {
+    "vessel": {"name": KEY},
+    "nav": NAV_KEYS | {"transfer": KEY},
+    "extent": EXTENT_KEYS,
+    "openvdm": {"output_extra_directory": KEY},
+    "provenance": dict.fromkeys(("contact_institution", "contact_email"), KEY),
+    "geocsv": {"attribution": KEY},
+    "thresholds": CHECKED,
+    "theme": CHECKED,
+}
+
+
 def load_site_config(path: Path | str | None) -> SiteConfig:
     if path is None:
         return SiteConfig()
     with open(path, "rb") as file:
         data = tomllib.load(file)
+    check_keys(data, SITE_KEYS, str(path))
     vessel, openvdm = data.get("vessel", {}), data.get("openvdm", {})
     provenance = data.get("provenance", {})
     defaults = SiteConfig()
