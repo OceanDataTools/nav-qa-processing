@@ -22,7 +22,6 @@ install like the OpenVDM hook's, `/opt/nav-qa-processing/.venv/bin/nav-qa-proces
   - [Run R2R's assessment](#run-r2rs-assessment)
   - [Compare with R2R's products](#compare-with-r2rs-products)
   - [Without R2R's tests](#without-r2rs-tests)
-  - [Without a connection to R2R](#without-a-connection-to-r2r)
 - [An OpenVDM cruise, by hand](#an-openvdm-cruise-by-hand)
 
 ## A directory of raw nav files
@@ -315,20 +314,6 @@ R2R's tests, certificate or XML:
 ```bash
 nav-qa-processing run data/BH19-30_136141_gnss -c configs/BH19-30_136141.toml -o output/BH19-30-core
 ```
-
-### Without a connection to R2R
-
-R2R's servers aren't always reachable, and ships at sea rarely are. Fetch filesets in port, or
-use the four reference filesets committed in this repository (SP2613, SP2503, BH19-30, RC0014),
-whose cruise TOMLs are in `configs/`:
-
-```bash
-tar -xJf tests/data/SP2613_169851_gnss.tar.xz -C data
-nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_gnss -o output/SP2613
-```
-
-`configs/` has cruise TOMLs for every reference fileset in the tests; fetch the others with
-`r2r fetch-fileset`.
 
 ## An OpenVDM cruise, by hand
 
