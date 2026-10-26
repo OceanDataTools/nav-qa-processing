@@ -1,12 +1,14 @@
 """Writes a Jupyter notebook that re-runs a fileset's QA step by step: the config, `run_qa`,
 the checks, statistics and QC flags, every figure, the products, and writing the reports.
 
-Import lines and calls are written as text, so renaming a public function or module changes
-the notebook; `tests/test_notebook.py` executes it. Integrations add their imports and cells
-through `NotebookExtras` (R2R's tests and XML), never by core knowing about them.
+The cells are `notebook_template.py`, a Python file Ruff checks, with markers this module fills
+for the run (#144); `tests/test_notebook.py` executes the result. Integrations add their imports
+and cells through `NotebookExtras` (R2R's tests and XML), never by core knowing about them.
 """
 
+import re
 from dataclasses import dataclass, field
+from importlib.resources import files
 from pathlib import Path
 
 import nbformat
@@ -14,6 +16,10 @@ from nbformat.v4 import new_code_cell, new_markdown_cell, new_notebook
 
 from nav_qa_processing.config import config_to_toml, load_config
 from nav_qa_processing.qa import NavQAResult
+
+# The notebook's cells, as Python (#144); see its docstring for the markers
+TEMPLATE = files("nav_qa_processing") / "notebook_template.py"
+MARKER = re.compile(r"^.*# @(?P<name>\w+)$")
 
 
 @dataclass
@@ -60,154 +66,87 @@ def _config_code(result: NavQAResult, extras: NotebookExtras) -> tuple[str, str,
     return f"CONFIG = Path({str(path)!r})\n", lines, imports
 
 
+def _template() -> list[tuple[str, list[str]]]:
+    """notebook_template.py's cells, (kind, lines), in order"""
+    cells: list[tuple[str, list[str]]] = []
+    for line in TEMPLATE.read_text().splitlines():
+        if line.startswith("# %%"):
+            cells.append(("markdown" if line == "# %% [markdown]" else "code", []))
+        elif cells:
+            cells[-1][1].append(line)
+    return cells
+
+
+def _code(lines: list[str], code: dict[str, str]) -> str:
+    """A template code cell with its markers filled"""
+    out: list[str] = []
+    for line in lines:
+        if line in ("# fmt: off", "# fmt: on"):
+            continue
+        if line.startswith("# @raw "):
+            out.append(line.removeprefix("# @raw "))
+        elif marker := MARKER.match(line):
+            if replacement := code[marker["name"]].strip("\n"):
+                out.append(replacement)
+        elif line or (out and out[-1]):  # an empty marker leaves no second blank line
+            out.append(line)
+    return "\n".join(out).strip("\n")
+
+
+def _text(lines: list[str], values: dict[str, str]) -> str:
+    """A template markdown cell with its `{name}`s filled"""
+    text = "\n".join(line.removeprefix("#").removeprefix(" ") for line in lines).strip("\n")
+    for name, value in values.items():
+        text = text.replace(f"{{{name}}}", value)
+    return text
+
+
 def build_notebook(
     result: NavQAResult,
     output_dir: Path,
     extras: NotebookExtras | None = None,
     theme_file: Path | None = None,
 ) -> nbformat.NotebookNode:
-    """theme_file is the --theme file the reports were written with, if any"""
+    """The notebook in notebook_template.py, for this run (theme_file is the --theme file the
+    reports were written with, if any)
+    """
     config = result.config
     extras = extras or NotebookExtras()
     config_line, config_lines, config_imports = _config_code(result, extras)
-    versions = ", ".join(f"{name} {version}" for name, version in result.versions.items())
-    cells = [
-        new_markdown_cell(
-            f"# Navigation QA: {config.cruise_id}{extras.heading}\n\n"
-            f"{config.cruise_name}\n\n"
-            "Re-runs the quality assessment behind this fileset's products and PDF report"
-            + extras.reports
-            + f": it reads the primary GNSS feed ({config.nav_format}), flags bad fixes, makes "
-            "bestres, 1min and control, and computes the QA statistics and checks"
-            + extras.checks
-            + ". Edit the paths or the config's `[thresholds]` and re-run to change the "
-            f"assessment.\n\nGenerated with {versions}."
+    values = {
+        "cruise_id": config.cruise_id,
+        "heading": extras.heading,
+        "cruise_name": config.cruise_name,
+        "reports": extras.reports,
+        "nav_format": config.nav_format,
+        "checks": extras.checks,
+        "versions": ", ".join(f"{name} {version}" for name, version in result.versions.items()),
+    }
+    code = {
+        "config_path": config_line,
+        "fileset": f"FILESET = Path({str(Path(result.fileset.root).resolve())!r})",
+        "theme_file": (
+            f"THEME_FILE = Path({str(Path(theme_file).resolve())!r})"
+            if theme_file
+            else "THEME_FILE = None  # a --theme file; the config's [theme] applies on top"
         ),
-        new_code_cell(
-            "from pathlib import Path\n\n"
-            "# Inputs and outputs\n"
-            + config_line
-            + f"FILESET = Path({str(Path(result.fileset.root).resolve())!r})\n"
-            + (
-                f"THEME_FILE = Path({str(Path(theme_file).resolve())!r})\n"
-                if theme_file
-                else "THEME_FILE = None  # a --theme file; the config's [theme] applies on top\n"
-            )
-            + f"OUTPUT_DIR = Path({str(Path(output_dir).resolve())!r})"
-        ),
-        new_code_cell(
-            "%matplotlib inline\n"
-            "import matplotlib.pyplot as plt\n"
-            "import pandas as pd\n"
-            "from IPython.display import display\n\n"
-            "from nav_qa_processing import plots, reports, stats\n"
-            "from nav_qa_processing import quantities as q\n"
-            "from nav_qa_processing.qa import run_qa\n"
-            "from nav_qa_processing.qc import DESCRIPTIONS, Flag\n"
-            "from nav_qa_processing.theme import resolve_theme\n"
-            + config_imports
-            + extras.imports
-            + '\npd.set_option("display.max_colwidth", 120)\n\n'
-            + config_lines
-            + "result = run_qa(FILESET, config)\n"
-            "theme = resolve_theme(THEME_FILE, result.config)\n"
-            "print(result)\n"
-            "print(result.stats.verdict[1])  # the checks in a line" + extras.after_run
-        ),
-        *extras.cells,
-        new_markdown_cell(
-            "## Checks\n\n"
-            "Completeness, gaps, records out of sequence, bad quality indicators, unreasonable "
-            "speeds and accelerations, and the expected area, against the config's "
-            "`[thresholds]`."
-        ),
-        new_code_cell("display(pd.DataFrame([vars(c) for c in result.stats.checks]))"),
-        new_markdown_cell(
-            "### Checks by file\n\n"
-            "What each check counted, per nav file. A speed, a step out of sequence or a gap is "
-            "counted in the file of the fix that ends it."
-        ),
-        new_code_cell(
-            "display(stats.counts_by_file(result.nav, result.stats))\n"
-            "# The sentences the reader couldn't use, and why\n"
-            "display(stats.skipped_by_file(result.nav))"
-        ),
-        new_markdown_cell(
-            "### Gaps\n\nThe steps of `max_gap` or longer between fixes, the longest first, "
-            "with the files either side."
-        ),
-        new_code_cell(
-            "gaps = stats.gaps(result.nav, result.qc, result.config.thresholds)\n"
-            "# The length in seconds, and as hh:mm:ss\n"
-            'gaps.insert(3, "hh:mm:ss", gaps["length"].map(q.SAMPLING_INTERVAL.format_duration))\n'
-            "display(gaps)"
-        ),
-        new_markdown_cell("## Statistics"),
-        new_code_cell(
-            "s = result.stats\n"
-            "ranges = {\n"
-            '    q.NSV: ("nsv", s.nsv, None),\n'
-            '    q.HDOP: ("hdop", s.hdop, result.nav.decimals.get("hdop")),\n'
-            '    q.ANTENNA_HEIGHT: ("altitude", s.altitude, result.nav.decimals.get("alt")),\n'
-            '    q.SPEED_MADE_GOOD: ("speed", s.speed, None),\n'
-            '    q.HORIZONTAL_ACCELERATION: ("acceleration", s.acceleration, None),\n'
-            "}\n"
-            "# Over every record, as R2R reports them, and over the fixes that pass QC\n"
-            "display(pd.DataFrame(\n"
-            '    [{"quantity": quantity.label, "minimum": quantity.format(r.minimum, places),\n'
-            '      "maximum": quantity.format(r.maximum, places),\n'
-            '      "good minimum": quantity.format(getattr(s.good, name).minimum, places),\n'
-            '      "good maximum": quantity.format(getattr(s.good, name).maximum, places)}\n'
-            "     for quantity, (name, r, places) in ranges.items()],\n"
-            "))\n"
-            "print(q.FIXES.label, q.FIXES.format(s.records))\n"
-            'print(q.FIXES.label, "that pass QC", q.FIXES.format(s.good.records))\n'
-            "print(q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval))\n"
-            "print(q.LONGEST_GAP.clock_label, q.LONGEST_GAP.format_duration(s.longest_gap))"
-        ),
-        new_markdown_cell(
-            "## Quality control\n\n"
-            "Records flagged by each flag (a record can have more than one), QC's notes, and "
-            "the reader's and manifest's errors."
-        ),
-        new_code_cell(
-            "display(pd.DataFrame(\n"
-            '    [{"flag": f.name, "meaning": DESCRIPTIONS[f], "records": result.qc.count(f)}\n'
-            "     for f in Flag if result.qc.count(f)],\n"
-            "))\n"
-            "for note in result.qc.notes:\n"
-            "    print(note)\n"
-            "for error in result.errors:\n"
-            '    print("error:", error)'
-        ),
-        new_markdown_cell("## Figures"),
-        new_code_cell(
-            "for name, make in plots.FIGURES.items():\n"
-            "    figure = make(result, theme)\n"
-            "    display(figure)\n"
-            "    plt.close(figure)"
-        ),
-        new_markdown_cell(
-            "## Products\n\n"
-            "bestres is every record, with its QC flags (0 for a good fix) and speed and course "
-            "over ground; 1min is the good fix nearest each whole minute; control is "
-            "Douglas–Peucker on 1min."
-        ),
-        new_code_cell(
-            "display(result.bestres.head())\n"
-            "display(result.one_minute.head())\n"
-            "display(result.control)"
-        ),
-        new_markdown_cell("## Write the reports"),
-        new_code_cell(
-            "written = reports.write_reports(\n"
-            "    result, OUTPUT_DIR, theme_file=THEME_FILE, notebook=False"
-            + extras.report_arguments
-            + "\n)\n"
-            "for path in written:\n"
-            "    print(path)\n" + extras.write
-        ),
-    ]
+        "output_dir": f"OUTPUT_DIR = Path({str(Path(output_dir).resolve())!r})",
+        "config_imports": config_imports,
+        "extras_imports": extras.imports,
+        "config_lines": config_lines,
+        "after_run": extras.after_run,
+        "report_arguments": "    result, OUTPUT_DIR, theme_file=THEME_FILE, notebook=False"
+        + extras.report_arguments,
+        "write": extras.write,
+    }
+    cells = []
+    for kind, lines in _template():
+        if kind == "markdown":
+            cells.append(new_markdown_cell(_text(lines, values)))
+        elif [line for line in lines if line.strip()] == ["# @cells"]:
+            cells += extras.cells
+        else:
+            cells.append(new_code_cell(_code(lines, code)))
     notebook = new_notebook(cells=cells)
     notebook.metadata["kernelspec"] = {
         "name": "python3",

@@ -155,9 +155,10 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `notebook.py`: `build_notebook`/`write_notebook(result, path, output_dir, execute, extras,
   theme_file)`: re-runs the QA step by step; a config without a file goes in as TOML
   (`config.loads_config`, or the integration's `config_toml`/`loads_config`); `NotebookExtras`
-  for integrations. `execute` runs every cell but the last, which rewrites the reports. Its
-  code is text: renaming a public function changes it (`tests/test_notebook.py` and
-  `tests/test_r2r_certificate.py` execute it).
+  for integrations. `execute` runs every cell but the last, which rewrites the reports. The
+  cells are `notebook_template.py`, a Python file in jupytext's percent format that Ruff
+  checks, with `# @name` markers `build_notebook` fills (#144; markers in its docstring).
+  `tests/test_notebook.py` and `tests/test_r2r_certificate.py` execute the result.
 - `reports.py` (core): `report_paths`, `write_figures`, `write_reports(result, output,
   source=None, theme=None, pdf_front, pdf_subject, theme_file, notebook=True, execute_notebook,
   notebook_extras)`: the GeoCSV products, the SVGs in `<CRUISE>_plots/`,
@@ -345,8 +346,9 @@ steps to whole milliseconds, A8); see
 - One `qa.run_qa(config, fileset)` entry point returns a result object that every writer
   consumes. `plots.py` has one matplotlib Figure per function, shared by the PDF and the
   notebook. `cli.py` forces the `Agg` backend.
-- `notebook.py` writes import lines and calls as strings, so renaming a public function or
-  module changes the generated notebook. Check by hand with `run ... --execute-notebook`.
+- The notebook's code is `notebook_template.py`: edit the notebook there, as Python. An
+  integration's cells and imports (`NotebookExtras`, e.g. R2R's certificate cells) are still
+  strings. Check by hand with `run ... --execute-notebook`.
 - Tests are plain pytest functions. Use small synthetic inputs, and use downloaded R2R filesets
   for end-to-end parity. Parity tests skip when the data is absent, and the skip message names
   the fetch command. No test downloads Natural Earth (#110): `conftest.py` sets
