@@ -43,6 +43,7 @@ from pathlib import Path
 from nav_qa_processing.config import (
     CHECKED,
     EXTENT_KEYS,
+    INTEGRATION_KEYS,
     KEY,
     NAV_KEYS,
     THRESHOLD_KEYS,
@@ -172,7 +173,7 @@ SITE_KEYS = {
     "vessel": {"name": KEY},
     "nav": NAV_KEYS | {"transfer": KEY},
     "extent": EXTENT_KEYS,
-    "openvdm": {"output_extra_directory": KEY},
+    "openvdm": INTEGRATION_KEYS["openvdm"],
     "provenance": dict.fromkeys(("contact_institution", "contact_email"), KEY),
     "geocsv": {"attribution": KEY},
     "thresholds": THRESHOLD_KEYS,

@@ -292,3 +292,14 @@ def test_a_threshold_key_out_of_place_is_pointed_to_thresholds(tmp_path):
     site.write_text('[nav]\nformat = "nav29"\n[thresholds]\nmax_sped = 6\n')
     with pytest.raises(ValueError, match=r"\[thresholds\] max_sped: did you mean max_speed\?"):
         load_site_config(site)
+
+
+def test_openvdm_keys_in_a_config_toml_are_checked():
+    """#126: [openvdm] has one key, in a config TOML as in the site TOML"""
+    from nav_qa_processing.config import loads_config
+
+    assert loads_config('[openvdm]\noutput_extra_directory = "NAV_QA"\n')
+    with pytest.raises(ValueError, match=r"\[openvdm\] output_extra_directroy: did you mean "):
+        loads_config('[openvdm]\noutput_extra_directroy = "NAV_QA"\n')
+    with pytest.raises(ValueError, match=r"unknown key: \[openvdm\] anything$"):
+        loads_config("[openvdm]\nanything = 1\n")
