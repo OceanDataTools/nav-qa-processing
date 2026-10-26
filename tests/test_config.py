@@ -220,3 +220,55 @@ def test_unknown_site_keys_say_where_they_belong(tmp_path):
     path.write_text('[vessel]\nvessel_name = "Sproul"\n[nav]\nformat = "nav29"\n')
     with pytest.raises(ValueError, match=r"unknown key: \[vessel\] vessel_name: did you mean "):
         load_site_config(path)
+
+
+@pytest.mark.parametrize(
+    "text, message",
+    [
+        ('cruise = "X"\n', "cruise .top level. must be a table, not a value"),
+        ("[cruise]\nextent = 3\n", r"\[cruise\] extent must be a table, not a value"),
+        ("[cruise.id]\na = 1\n", r"\[cruise\] id must be a value, not a table"),
+        ("thresholds = 1\n", "thresholds .top level. must be a table, not a value"),
+        ('[nav]\ndevice = "abc"\n', r"\[nav\] device must be a table, not a value"),
+        ("nav = [1, 2]\n", "nav .top level. must be a table, not a value"),
+        ('[[cruise]]\nid = "X"\n', r"\[\[cruise\]\] must be one table, \[cruise\]"),
+        (
+            'cruise = "X"\nfoo = 1\n',
+            r"cruise .top level. must be a table, not a value; unknown key: foo .top level.$",
+        ),
+    ],
+)
+def test_values_of_the_wrong_shape_are_one_line_errors(text, message):
+    """#127: a value where a table belongs, or a table where a value does, is a ValueError
+    (one line from the CLI), not a traceback from the loader
+    """
+    from nav_qa_processing.config import loads_config
+
+    with pytest.raises(ValueError, match=message):
+        loads_config(text)
+
+
+def test_several_nav_feeds_are_an_array_of_tables():
+    from nav_qa_processing.config import loads_config
+
+    text = '[[nav]]\nname = "a"\nformat = "nav29"\n[[nav]]\nname = "b"\nformat = "nav33"\n'
+    assert loads_config(text, nav="b").nav_format == "nav33"
+
+
+def test_a_site_toml_value_where_a_table_belongs(tmp_path):
+    from nav_qa_processing.integrations.openvdm.hook import load_site_config
+
+    path = tmp_path / "site.toml"
+    path.write_text('extent = "everywhere"\n[nav]\nformat = "nav29"\n')
+    with pytest.raises(ValueError, match="extent .top level. must be a table, not a value"):
+        load_site_config(path)
+
+
+def test_the_cli_reports_a_badly_shaped_config_in_one_line(tmp_path, capsys):
+    from nav_qa_processing.cli import main
+
+    config = tmp_path / "bad.toml"
+    config.write_text('cruise = "X"\n[nav]\nformat = "nav33"\n')
+    assert main(["run", str(tmp_path), "-c", str(config)]) == 1
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and "cruise (top level) must be a table" in err

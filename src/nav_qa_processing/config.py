@@ -584,38 +584,65 @@ def _leaf_paths(schema: dict, path: tuple[str, ...] = ()) -> list[tuple[str, ...
     return paths
 
 
+# The tables that may also be arrays of tables: [nav], or [[nav]] for several feeds
+TABLE_ARRAYS = {("nav",)}
+
+
 def check_keys(data: dict, schema: dict, where: str) -> None:
     """Raises ValueError naming every key of data the schema doesn't know, each with where it
     belongs when the schema has it elsewhere (a top-level `cruise_id`: `[cruise] id`), or the
-    table's key it's closest to (`fromat`: `format`)
+    table's key it's closest to (`fromat`: `format`); and every value of the wrong shape, a
+    value where a table belongs or a table where a value does (#127), which the loaders would
+    otherwise fail on with a traceback
     """
     unknown: list[tuple[tuple[str, ...], str, dict]] = []
+    shapes: list[str] = []
+
+    def name(path: tuple[str, ...], key: str) -> str:
+        return f"[{'.'.join(path)}] {key}" if path else f"{key} (top level)"
 
     def walk(table: dict, known: dict, path: tuple[str, ...]) -> None:
         for key, value in table.items():
             if key not in known:
                 unknown.append((path, key, known))
+                continue
+            here = (*path, key)
+            if known[key] == KEY:
+                if isinstance(value, dict) or (
+                    isinstance(value, list) and any(isinstance(v, dict) for v in value)
+                ):
+                    shapes.append(f"{name(path, key)} must be a value, not a table")
+                continue
+            items = value if isinstance(value, list) and here in TABLE_ARRAYS else [value]
+            tables = isinstance(value, list) and value and all(isinstance(v, dict) for v in value)
+            if tables and here not in TABLE_ARRAYS:
+                table = ".".join(here)
+                shapes.append(f"[[{table}]] must be one table, [{table}]")
+                continue
+            if not all(isinstance(item, dict) for item in items):
+                shapes.append(f"{name(path, key)} must be a table, not a value")
             elif isinstance(known[key], dict):
-                for item in value if isinstance(value, list) else [value]:
-                    if isinstance(item, dict):
-                        walk(item, known[key], (*path, key))
+                for item in items:
+                    walk(item, known[key], here)
 
     walk(data, schema, ())
-    if not unknown:
+    if not unknown and not shapes:
         return
     leaves = _leaf_paths(schema)
 
     def described(path: tuple[str, ...], key: str, known: dict) -> str:
-        name = f"[{'.'.join(path)}] {key}" if path else f"{key} (top level)"
         elsewhere = [p for p in leaves if key in (p[-1], "_".join(p))]
         if elsewhere:
             *table, leaf = elsewhere[0]
-            return f"{name}: did you mean [{'.'.join(table)}] {leaf}?"
+            return f"{name(path, key)}: did you mean [{'.'.join(table)}] {leaf}?"
         close = difflib.get_close_matches(key, list(known), n=1, cutoff=0.75)
-        return f"{name}: did you mean {close[0]}?" if close else name
+        return f"{name(path, key)}: did you mean {close[0]}?" if close else name(path, key)
 
-    listed = "; ".join(described(*entry) for entry in unknown)
-    raise ValueError(f"{where}: unknown {'key' if len(unknown) == 1 else 'keys'}: {listed}")
+    problems = list(shapes)
+    if unknown:
+        listed = "; ".join(described(*entry) for entry in unknown)
+        problems.append(f"unknown {'key' if len(unknown) == 1 else 'keys'}: {listed}")
+    raise ValueError(f"{where}: {'; '.join(problems)}")
 
 
 def toml_value(value) -> str:
