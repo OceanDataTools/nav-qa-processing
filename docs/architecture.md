@@ -425,8 +425,9 @@ package common to both projects; that is not a prerequisite.
 As in sbe-qa-processing, three TOMLs, with the same `[cruise]`, `[cruise.extent]`, port,
 `[fileset]` and `[provenance]` tables, so a ship running both tools sees one convention:
 
-- **Config TOML** (`config.QAConfig`): every field optional; the QA runs without one. Tables
-  only an integration uses are ignored.
+- **Config TOML** (`config.QAConfig`): every field optional; the QA runs without one. The keys
+  an integration reads are accepted (R2R's cruise TOML works as a config); any other key is an
+  error naming where it belongs (`config.check_keys`, #123).
 - **R2R cruise TOML** (`integrations/r2r/config.CruiseConfig`): the config TOML plus R2R's IDs,
   ports, fileset and provenance; written by `r2r config-from-catalog` or `r2r config-from-qa`.
 - **Site TOML**: per-ship settings for the OpenVDM hook, written by `site-config`; OpenVDM's own
