@@ -66,10 +66,12 @@ cruise and the feed (`QAConfig.stem`: `<CRUISE>_seapath_bestres.geoCSV`, ...; #5
 `[nav]` table is the primary unless it says `primary = false` (a non-primary feed's snapshot).
 
 Tables and keys only the integrations use (R2R's IDs and ports, the site TOML's [openvdm], a
-feed's `transfer`) are ignored. Threshold defaults are NavManager's (`include/globals.inc.php`, `navtools.inc.php`,
+feed's `transfer`) are ignored; any other key is an error that says where it belongs, e.g. a
+top-level `cruise_id` (`[cruise] id`; #123). Threshold defaults are NavManager's (`include/globals.inc.php`, `navtools.inc.php`,
 `navqc.inc.php`) except where noted.
 """
 
+import difflib
 import re
 import tomllib
 from dataclasses import dataclass, field, fields, replace
@@ -382,6 +384,7 @@ def nav_tables(data: dict, where: str) -> list[dict]:
 
 
 def _configs(data: dict, base: Path, where: str) -> list[QAConfig]:
+    check_keys(data, CONFIG_KEYS, where)
     shared = _config(data, base, where)
     return [
         replace(
@@ -517,6 +520,102 @@ def with_thresholds(config: QAConfig, **changes) -> QAConfig:
 
 def fields_of(cls) -> list[str]:
     return [f.name for f in fields(cls)]
+
+
+# Key schemas (#123): a key maps to KEY (a value), a schema (a table, or each of an array of
+# tables) or CHECKED (a table whose own loader checks its keys: [thresholds], [theme],
+# [nav.device])
+KEY, CHECKED = "key", "checked"
+EXTENT_KEYS = dict.fromkeys(fields_of(Extent), KEY)
+NAV_KEYS = dict.fromkeys(("name", "format", "files", "primary"), KEY) | {"device": CHECKED}
+CORE_KEYS = {
+    "cruise": dict.fromkeys(
+        ("id", "name", "pi", "location", "vessel_name", "depart_date", "arrive_date", "doi"), KEY
+    )
+    | {"extent": EXTENT_KEYS},
+    "fileset": dict.fromkeys(("doi", "manifest"), KEY),
+    "nav": NAV_KEYS,
+    "provenance": dict.fromkeys(("contact_institution", "contact_email"), KEY),
+    "geocsv": {"attribution": KEY},
+    "thresholds": CHECKED,
+    "theme": CHECKED,
+}
+# The keys the integrations read from the same file, which core leaves to them: R2R's cruise
+# TOML (integrations/r2r/config.py, kept in step by tests/test_r2r_config.py), a feed's
+# OpenVDM transfer and the site TOML's [openvdm]. Written out here, as core never imports an
+# integration
+PORT_KEYS = dict.fromkeys(
+    ("name", "port_id", "country_id", "state_id", "longitude", "latitude"), KEY
+)
+INTEGRATION_KEYS = {
+    "cruise": dict.fromkeys(
+        ("vessel_id", "operator_id", "scheduler_id", "date_issued", "date_modified"), KEY
+    )
+    | {"depart_port": PORT_KEYS, "arrive_port": PORT_KEYS},
+    "fileset": dict.fromkeys(("id", "date_created", "format_id", "format_alias"), KEY)
+    | {"device": dict.fromkeys(("id", "make_id", "model_id", "model_name", "location_name"), KEY)},
+    "provenance": dict.fromkeys(("distro_type", "contact_institution_id"), KEY),
+    "nav": {"transfer": KEY},
+    "openvdm": CHECKED,
+}
+
+
+def merge_keys(*schemas: dict) -> dict:
+    """The schemas' keys together, tables merged"""
+    merged: dict = {}
+    for schema in schemas:
+        for key, value in schema.items():
+            mine = merged.get(key)
+            merged[key] = (
+                merge_keys(mine, value)
+                if isinstance(mine, dict) and isinstance(value, dict)
+                else value
+            )
+    return merged
+
+
+CONFIG_KEYS = merge_keys(CORE_KEYS, INTEGRATION_KEYS)
+
+
+def _leaf_paths(schema: dict, path: tuple[str, ...] = ()) -> list[tuple[str, ...]]:
+    paths = []
+    for key, value in schema.items():
+        paths += _leaf_paths(value, (*path, key)) if isinstance(value, dict) else [(*path, key)]
+    return paths
+
+
+def check_keys(data: dict, schema: dict, where: str) -> None:
+    """Raises ValueError naming every key of data the schema doesn't know, each with where it
+    belongs when the schema has it elsewhere (a top-level `cruise_id`: `[cruise] id`), or the
+    table's key it's closest to (`fromat`: `format`)
+    """
+    unknown: list[tuple[tuple[str, ...], str, dict]] = []
+
+    def walk(table: dict, known: dict, path: tuple[str, ...]) -> None:
+        for key, value in table.items():
+            if key not in known:
+                unknown.append((path, key, known))
+            elif isinstance(known[key], dict):
+                for item in value if isinstance(value, list) else [value]:
+                    if isinstance(item, dict):
+                        walk(item, known[key], (*path, key))
+
+    walk(data, schema, ())
+    if not unknown:
+        return
+    leaves = _leaf_paths(schema)
+
+    def described(path: tuple[str, ...], key: str, known: dict) -> str:
+        name = f"[{'.'.join(path)}] {key}" if path else f"{key} (top level)"
+        elsewhere = [p for p in leaves if key in (p[-1], "_".join(p))]
+        if elsewhere:
+            *table, leaf = elsewhere[0]
+            return f"{name}: did you mean [{'.'.join(table)}] {leaf}?"
+        close = difflib.get_close_matches(key, list(known), n=1, cutoff=0.75)
+        return f"{name}: did you mean {close[0]}?" if close else name
+
+    listed = "; ".join(described(*entry) for entry in unknown)
+    raise ValueError(f"{where}: unknown {'key' if len(unknown) == 1 else 'keys'}: {listed}")
 
 
 def toml_value(value) -> str:

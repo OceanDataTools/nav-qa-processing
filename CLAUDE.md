@@ -51,7 +51,10 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   location; #58), `Extent`
   (`Extent.around`: the box around positions, OpenVDM's largest-gap rule across 180°),
   `Thresholds` (QC and QA limits, TOML-friendly: dates and day counts), `load_config`,
-  `config_to_toml` (configs print as their TOML).
+  `config_to_toml` (configs print as their TOML). Unknown keys are an error saying where they
+  belong (`check_keys` against `CONFIG_KEYS`: core's plus `INTEGRATION_KEYS`, R2R's written
+  out as strings and checked against its loader by `tests/test_config.py`; the site TOML's
+  `SITE_KEYS` in the hook; #123).
 - `fileset.py`: `load_fileset(path, files, manifest_path)` -> `Fileset` (a bag or a directory;
   the nav files by glob; the bag's manifest with R2R's file ids, or an external one);
   `verify_manifest` lists problems as text.
