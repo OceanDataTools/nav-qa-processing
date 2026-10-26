@@ -665,9 +665,21 @@ def _track_map(result: NavQAResult, theme: Theme) -> Figure:
     if len(result.control):
         occupied_x = np.concatenate([occupied_x, control_x])
         occupied_lat = np.concatenate([occupied_lat, result.control["lat"].to_numpy(float)])
-    _place_legend_and_inset(
-        figure, axis, frame, (occupied_x, occupied_lat), corners, center_lat, central, theme
-    )
+    if axis.get_legend_handles_labels()[0]:
+        _place_legend_and_inset(
+            figure, axis, frame, (occupied_x, occupied_lat), corners, center_lat, central, theme
+        )
+    else:  # nothing drawn, so no legend (#122)
+        axis.text(
+            0.5,
+            0.5,
+            "No fixes to draw",
+            transform=axis.transAxes,
+            ha="center",
+            va="center",
+            fontsize=_pt(theme, 9),
+            color="0.4",
+        )
     axis.set_title(f"{result.config.identifier}: trackline", fontsize=_pt(theme, 10))
     return figure
 

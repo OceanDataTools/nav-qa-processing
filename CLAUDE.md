@@ -57,7 +57,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `verify_manifest` lists problems as text.
 - `qa.py`: `run_qa(fileset, config=None)` -> `NavQAResult` (the core pipeline: reader within
   the cruise-date window, QC, products; `source` for GeoCSV; `track_extent`, the box around
-  the good fixes; errors as text). `ConfigError`
+  the good fixes; errors as text; `warnings`, e.g. nav files outside the cruise window with
+  their span, in the summary and the PDF's title block, #122). `ConfigError`
   when the config can't run the QA (no `[nav] format`).
 - `stats.py`: `compute(nav, qc_result, thresholds, extent)` -> `NavStats` (navqa's statistics on
   the pre-QC records, done soundly: completeness from interval slots, QC's acceleration) and the
@@ -67,6 +68,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   thresholds)` lists the gaps, longest first, with their files (#65). `NavStats.good`
   (`GoodFixes`) has the ranges over the fixes that pass QC, beside navqa's pre-QC ones (#66).
   `NavStats.verdict` is the checks in a line, (status, text), under the PDF's title (#68).
+  With no usable fixes every check is n/a ("no fixes" or "no usable fixes") and the verdict
+  warns (#122).
   `compute(..., land)` adds the "Over water" check (#79): `NavStats.inland` [m] per record,
   `counted["over_land"]` beyond `Thresholds.max_inland` (warn); fixes beyond `land_tolerance`
   but within it are reported in the detail (#95); n/a without the land.

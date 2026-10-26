@@ -66,3 +66,94 @@ def test_a_bad_checksum_is_an_error_not_an_exception(tmp_path):
     result = qa.run_qa(tmp_path, QAConfig(nav_format="nav29"))
     assert "data/gps.txt: checksum doesn't match the manifest" in result.errors
     assert any("no ZDA" in error for error in result.errors) and len(result.bestres) == 0
+
+
+def _gga_file(path, day: str, seconds: int = 60, at_null_island: bool = False):
+    """A nav33 file of one fix a second from midnight of `day`, drifting east (or at 0, 0)"""
+    lines = []
+    for s in range(seconds):
+        where = (
+            "0000.00000,N,00000.00000,E"
+            if at_null_island
+            else (f"2635.03241,N,09331.{21859 + s:05d},W")
+        )
+        body = f"GPGGA,00{s // 60:02d}{s % 60:02d}.00,{where},2,09,1.1,10.0,M,,M,,"
+        checksum = 0
+        for char in body:
+            checksum ^= ord(char)
+        lines.append(f"{day}T00:{s // 60:02d}:{s % 60:02d}.100000Z,${body}*{checksum:02X}")
+    path.write_text("\n".join(lines) + "\n")
+
+
+def _config(depart, arrive):
+    return QAConfig(cruise_id="X", nav_format="nav33", depart_date=depart, arrive_date=arrive)
+
+
+def test_every_file_outside_the_cruise_window_is_said_plainly(tmp_path):
+    """#122: the OpenVDM sample's 2012 files for a cruise dated 2026"""
+    from datetime import date
+
+    _gga_file(tmp_path / "a.txt", "2012-04-28")
+    _gga_file(tmp_path / "b.txt", "2012-04-29")
+    result = qa.run_qa(tmp_path, _config(date(2026, 1, 5), date(2026, 1, 20)))
+    assert result.warnings == [
+        (
+            "every nav file is outside the cruise window (2026-01-05 to 2026-01-20): 2 files "
+            "with fixes from 2012-04-28 00:00 to 2012-04-29 00:00 UTC; check the cruise's dates"
+        )
+    ]
+    assert "  warning: every nav file is outside the cruise window" in str(result)
+    assert result.stats.verdict == ("warn", "No fixes were read, so no check could be made.")
+    assert {(c.status, c.detail) for c in result.stats.checks[:-1]} == {("n/a", "no fixes")}
+    assert result.qc.notes == []  # no resolution to allow for without fixes
+
+
+def test_some_files_outside_the_cruise_window_are_named(tmp_path):
+    from datetime import date
+
+    _gga_file(tmp_path / "a.txt", "2026-01-04")
+    _gga_file(tmp_path / "b.txt", "2026-01-05")
+    result = qa.run_qa(tmp_path, _config(date(2026, 1, 5), None))
+    assert result.nav.files == ["b.txt"] and len(result.nav.frame) == 60
+    assert result.warnings == [
+        (
+            "1 of 2 nav files are outside the cruise window (from 2026-01-05), with fixes from "
+            "2026-01-04 00:00 to 2026-01-04 00:00 UTC: a.txt"
+        )
+    ]
+    assert result.stats.verdict[0] != "n/a"
+
+
+def test_files_inside_the_cruise_window_give_no_warning(tmp_path):
+    from datetime import date
+
+    _gga_file(tmp_path / "a.txt", "2026-01-05")
+    assert qa.run_qa(tmp_path, _config(date(2026, 1, 5), date(2026, 1, 5))).warnings == []
+
+
+def test_fixes_none_of_them_usable(tmp_path):
+    from datetime import date
+
+    _gga_file(tmp_path / "a.txt", "2026-01-05", at_null_island=True)
+    result = qa.run_qa(tmp_path, _config(date(2026, 1, 5), date(2026, 1, 5)))
+    assert len(result.nav.frame) == 60 and result.warnings == []
+    assert result.stats.verdict == ("warn", "No fix is usable, so no check could be made.")
+    assert {c.detail for c in result.stats.checks[:-1]} == {"no usable fixes"}
+    assert result.stats.checks[-1].value == "60"  # every fix flagged
+
+
+def test_a_run_without_fixes_draws_and_writes_without_warnings(tmp_path):
+    import warnings
+    from datetime import date
+
+    from nav_qa_processing import plots, reports
+    from nav_qa_processing.theme import DEFAULT_THEME
+
+    _gga_file(tmp_path / "a.txt", "2012-04-28")
+    result = qa.run_qa(tmp_path, _config(date(2026, 1, 5), date(2026, 1, 20)))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        for figure in plots.FIGURES.values():
+            figure(result, DEFAULT_THEME)
+    paths = reports.write_reports(result, tmp_path / "out", notebook=False)
+    assert all(path.exists() for path in paths)

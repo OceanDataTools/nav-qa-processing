@@ -301,15 +301,21 @@ def _title(lay: Layout, result: NavQAResult) -> list[Flowable]:
 
 def _verdict(lay: Layout, result: NavQAResult) -> Table:
     """The checks in a line (#68), on the worst status's color: whether anything is wrong,
-    without reading the checks table
+    without reading the checks table; then the run's warnings (#122), on the warn color
     """
     status, text = result.stats.verdict
+    rows = [[Paragraph(escape(text), lay.cell_bold)]]
+    rows += [
+        [Paragraph(escape(f"Warning: {w[:1].upper()}{w[1:]}."), lay.cell)] for w in result.warnings
+    ]
     line = Table(
-        [[Paragraph(escape(text), lay.cell_bold)]],
+        rows,
         colWidths=[lay.frame_width],
         style=[
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(lay.colors.status[status])),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(lay.colors.status[status])),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor(lay.colors.status["warn"])),
             ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor(lay.colors.table_grid)),
+            ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor(lay.colors.table_grid)),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ],
