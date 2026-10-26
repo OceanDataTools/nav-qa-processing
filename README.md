@@ -580,58 +580,33 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
   GNSS feed, or their format, so the ship's site TOML says (`[nav] format` and `files`). A ship
   logging several position sensors lists each as a `[[nav]]` table.
 
-1. **Install** this project with the `openvdm` extra (pyyaml, to read `openvdm.yaml`) somewhere
-   OpenVDM's workers can run it, in its own environment, not OpenVDM's venv, and fetch the map
-   data as the user the workers run as (root, as OpenVDM installs them).
-   [INSTALL.md](INSTALL.md#install-for-the-openvdm-hook) has the commands for each Linux
-   distribution; on Debian 12, Ubuntu 24.04 or RHEL-family 8 and 9 with uv installed:
+**Setting it up** takes five steps, each described in
+[INSTALL.md](INSTALL.md#install-for-the-openvdm-hook):
 
-   ```bash
-   sudo mkdir -p /opt/nav-qa-processing && sudo chown "$USER": /opt/nav-qa-processing
-   git clone https://github.com/OceanDataTools/nav-qa-processing.git /opt/nav-qa-processing
-   cd /opt/nav-qa-processing
-   uv sync --no-dev --extra openvdm --no-managed-python      # a system Python 3.11+
-   sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing fetch-map-data
+1. install this project with the `openvdm` extra, and fetch the map data as root, which
+   OpenVDM's workers run as;
+2. add an extra directory for the reports in OpenVDM, `NAV_QA` by default;
+3. write the ship's [site TOML](#site-toml) with `site-config`: the GNSS feed's format and a
+   glob of its files, and the vessel's details;
+4. add the hook to `openvdm.yaml`, under the collection system that logs the GNSS, and restart
+   OpenVDM's `post_hooks` worker:
+
+   ```yaml
+   postHookCommands:
+       postCollectionSystemTransfer:
+           - collectionSystemTransferName: OpenRVDAS
+             commandList:
+             - name: "Navigation QA"
+               command:
+               - /opt/nav-qa-processing/.venv/bin/nav-qa-processing
+               - openvdm
+               - "{collectionSystemTransferName}"
+               - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
+               - "--site-config=/opt/nav-qa-processing/configs/site.toml"
+               - "--changed-files={newFiles}"
+               - "--changed-files={updatedFiles}"
    ```
-
-   Leave out `--no-dev` to use the hook's `--execute-notebook`.
-2. **Add an extra directory** for the reports in OpenVDM (Configuration > Extra Directories).
-   It's named `NAV_QA` by default, e.g. with destination `Products/NAV_QA`.
-3. **Write the ship's site TOML** with `site-config`, which prompts for each field (or by
-   hand, starting from `configs/site.example.toml`). The essentials are the GNSS feed's format
-   and a glob of its files within the collection system:
-
-   ```bash
-   cd /opt/nav-qa-processing
-   .venv/bin/nav-qa-processing site-config   # writes configs/site.toml
-   ```
-
-   ```toml
-   [nav]
-   format = "nav33"                 # nav-qa-processing formats
-   files = "raw/POSMV_GGA-*.txt"    # within the collection system's directory
-   ```
-
-   Run it again with `--force` to change the file; its current values are the defaults. QA
-   thresholds and the theme are edited by hand. [Site TOML](#site-toml) lists every key.
-4. **Add the hook** to OpenVDM's `openvdm.yaml` (`/opt/openvdm/server/etc/openvdm.yaml` by
-   default), under the collection system that logs the GNSS:
-
-```yaml
-postHookCommands:
-    postCollectionSystemTransfer:
-        - collectionSystemTransferName: OpenRVDAS
-          commandList:
-          - name: "Navigation QA"
-            command:
-            - /opt/nav-qa-processing/.venv/bin/nav-qa-processing
-            - openvdm
-            - "{collectionSystemTransferName}"
-            - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"  # <INSTALL_ROOT>/openvdm/...
-            - "--site-config=/opt/nav-qa-processing/configs/site.toml"
-            - "--changed-files={newFiles}"
-            - "--changed-files={updatedFiles}"
-```
+5. try it, by running the same command by hand.
 
 The hook:
 - **assesses each feed of the transfer:** the site TOML's `[nav]`, or each `[[nav]]` whose
