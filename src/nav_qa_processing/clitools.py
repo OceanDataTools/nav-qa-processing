@@ -6,6 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from nav_qa_processing.filenames import report_stem
+
 STDOUT = "-"
 
 
@@ -16,12 +18,17 @@ def refuse_overwrite(path: Path, force: bool) -> bool:
     return False
 
 
+def cruise_toml_path(output: Path, name: str) -> Path:
+    """<output>/<name>.toml, a valid file name whatever the name"""
+    return Path(output) / f"{report_stem(name)}.toml"
+
+
 def write_cruise_toml(text: str, name: str, args: argparse.Namespace) -> int:
     """text as <output>/<name>.toml, or to stdout for -o -"""
     if str(args.output) == STDOUT:
         print(text, end="")
         return 0
-    destination = args.output / f"{name}.toml"
+    destination = cruise_toml_path(args.output, name)
     if refuse_overwrite(destination, args.force):
         return 1
     destination.parent.mkdir(parents=True, exist_ok=True)

@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from nav_qa_processing import quantities as q
+from nav_qa_processing.filenames import report_stem
 
 STANDARD_NAME_CV = "http://www.rvdata.us/voc/fieldname"
 ELLIPSOID = "WGS-84 (EPSG:4326)"
@@ -70,7 +71,8 @@ class Source:
 
 
 def file_name(cruise_id: str, product: Product) -> str:
-    return f"{cruise_id}_{product.name}.geoCSV"
+    """e.g. SP2613_bestres.geoCSV, valid on every platform whatever the ID"""
+    return f"{report_stem(cruise_id)}_{product.name}.geoCSV"
 
 
 def header(product: Product, source: Source, created: datetime) -> list[str]:

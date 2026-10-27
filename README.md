@@ -244,7 +244,7 @@ max_accel = 1.0
 
 | Table | Key | Used for |
 |---|---|---|
-| `[cruise]` | `id` | The products' file names and GeoCSV `cruise_id`. Default: the fileset directory's name |
+| `[cruise]` | `id` | The products' file names and GeoCSV `cruise_id`. Default: the fileset directory's name. In file names, `/`, `\`, `<>:"\|?*` and control characters become `_`, so every output stays in `-o` and Windows can write it; the reports show the ID as given |
 | | `name`, `pi`, `location`, `vessel_name` | The reports, when given |
 | | `depart_date`, `arrive_date` | The cruise's days, from 00:00 UTC on `depart_date` to the end of `arrive_date`: only files with fixes in them are read, and QC flags fixes more than `date_margin_days` outside them |
 | | `doi` | GeoCSV `source_event` |
@@ -519,7 +519,7 @@ The keys it adds to a config TOML, all written to the XML:
 
 | Table | Key | Default | Description |
 |---|---|---|---|
-| `[cruise]` | `id`, `depart_date`, `arrive_date` | required | |
+| `[cruise]` | `id`, `depart_date`, `arrive_date` | required | `id` is made a valid file name as in a [config TOML](#config-toml) |
 | | `vessel_id` | blank | R2R's vessel ID, the ICES ship code (e.g. `32QU`) |
 | | `operator_id`, `scheduler_id` | blank | R2R organization IDs (e.g. `edu.ucsd.sio`, `org.unols`) |
 | | `date_issued`, `date_modified` | blank | R2R's catalog dates for the cruise |

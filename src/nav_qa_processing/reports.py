@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from nav_qa_processing import geocsv, plots
+from nav_qa_processing.filenames import report_stem
 from nav_qa_processing.notebook import NotebookExtras, write_notebook
 from nav_qa_processing.pdf_report import FrontPages, write_pdf
 from nav_qa_processing.qa import NavQAResult
@@ -19,12 +20,14 @@ from nav_qa_processing.theme import DEFAULT_THEME, Theme, resolve_theme
 
 def report_paths(output: Path, stem: str) -> dict[str, Path]:
     """What write_reports writes for a config's `stem` (the cruise ID, and a non-primary feed's
-    name): the products by name, and "plots", the figures' directory
+    name): the products by name, and "plots", the figures' directory. Each is a valid file name
+    in output whatever the stem (`filenames.report_stem`)
     """
     paths = {
         name: Path(output) / geocsv.file_name(stem, product)
         for name, product in geocsv.PRODUCTS.items()
     }
+    stem = report_stem(stem)
     paths["plots"] = Path(output) / f"{stem}_plots"
     paths["pdf"] = Path(output) / f"{stem}_qa_report.pdf"
     paths["notebook"] = Path(output) / f"{stem}_qa.ipynb"

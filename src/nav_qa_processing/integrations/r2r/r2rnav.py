@@ -16,6 +16,7 @@ import pandas as pd
 
 from nav_qa_processing import geocsv
 from nav_qa_processing import quantities as q
+from nav_qa_processing.filenames import report_stem
 from nav_qa_processing.qa import NavQAResult
 
 FORMAT_URI = "http://get.rvdata.us/format/100002/format-r2rnav.txt"
@@ -67,7 +68,7 @@ def write(
 
 def file_name(stem: str, product: geocsv.Product) -> str:
     """e.g. SP2613_bestres.r2rnav"""
-    return f"{stem}_{product.name}.r2rnav"
+    return f"{report_stem(stem)}_{product.name}.r2rnav"
 
 
 def paths(output: Path, stem: str) -> list[Path]:
