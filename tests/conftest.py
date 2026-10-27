@@ -12,7 +12,10 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 ROOT = Path(__file__).parents[1]
 FIXTURES = Path(__file__).parent / "fixtures"
 DATA = ROOT / "data"
-CONFIGS = ROOT / "configs"
+# The reference filesets' cruise TOMLs, from `r2r config-from-catalog` (#153)
+CONFIGS = Path(__file__).parent / "configs"
+# The example site and theme TOMLs; users' own configs sit beside them, ignored by git
+EXAMPLES = ROOT / "configs"
 # Reference filesets committed to the repo (#115), unpacked into data/ when they aren't there,
 # so the tests and CI need nothing from R2R; Natural Earth clipped to their areas
 COMMITTED = Path(__file__).parent / "data"

@@ -42,12 +42,10 @@ layers clipped to the committed filesets' areas are in `tests/data/natural_earth
 | KN220-02 | 114491 (product 603657) | Knorr's C-Nav 2000, nav20: 227,436 records equal to R2R's; R2R flags 2 more (Q3). Alongside on Charleston's Cooper River for 5 h. No QA 2.0 report |
 | HLY08TD | 110937 (product 603255) | Healy's POS/MV, nav12 with ZDA, gzipped files: 363,486 records equal to R2R's but 2 empty HDOPs R2R writes as 0 (R11). No QA 2.0 report |
 | MGL1509 | 122372 (product 603725) | Langseth's C-Nav 3050, nav12 without ZDA (dated by the logger's year:day-of-year): 601,027 records equal to R2R's; Y (a 54-minute gap). No QA 2.0 report |
-| W1108A | 105073 (product 604751) | Wecoma's Ashtech ADU5, nav15 (DATA, ISO timestamp, quoted GGA): 50,678 records equal to R2R's within R2R's window, the Pacific day (08:00Z, from its 2012 QA report). No QA 2.0 report |
-| W1109B | 105076 (product 604754) | nav15 with unquoted sentences (September 2011): the same 68,302 records as R2R's, but R2R dates 1,017 of them a day early (R12). No QA 2.0 report |
+| W1109B | 105076 (product 604754) | Wecoma's Ashtech ADU5, nav15 with unquoted sentences (September 2011): the same 68,302 records as R2R's within R2R's window, the Pacific day (08:00Z, from its 2012 QA report), but R2R dates 1,017 of them a day early (R12). No QA 2.0 report |
 | NH1209 | 107219 (product 608147) | New Horizon's Ashtech ADU2, nav22 (no date but the file name's): R2R made no products from it, but its fixes lie within meters of R2R's primary-GPS bestres at the same times; one file named 09-24 holds 09-23's fixes (R13) |
 | SP1531 | 119707 (product 604581) | Sproul's Furuno GP-90, nav27 (GLL dated by ZDA, no GGA): 93,417 records equal to R2R's, the quality column included; no satellites, HDOP or altitude. R2R doesn't flag its one quality-0 fix (Q9). No QA 2.0 report |
 | RC0014 | 137928 (product 610013) | Rachel Carson's Furuno GP-33, nav32 (CORIOLIX: logger date and time, then RMC): 22,203 records equal to R2R's; R for both (accelerations from 3-decimal minutes every 2 s). Its transit of Seattle's ship canal is reported, not warned of, by the over-water check (#95). No QA 2.0 report |
-| RC0011 | 137345 (product 610012) | nav32: 12,936 records equal to R2R's; Y for both. No QA 2.0 report |
 | BH19-30 | 136141 (product 609730) | Blue Heron's UHDAS GPS feed, nav31 (GGA dated by PYRTM): 9,097 records equal to R2R's; G. No QA 2.0 report |
 | SP2613 | 169848 (UHDAS ADCP) | UHDAS's GP170 feeds (nav31): every fix at R2R's bestres times, 5.5–7 m from the BX992 |
 | KM1519 | 119346 (UHDAS ADCP; product 603576) | Kilo Moana's Simrad in UHDAS, 2015 (uhdas: UNIXD, the year from the file name): 12 m from the POS/MV's bestres at its times |

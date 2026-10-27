@@ -18,8 +18,7 @@ reader = [
   "Quoted and unquoted sentences are both read. In R2R's products, GGAs logged before the logger's clock reached their time are dated a day early (R12).",
 ]
 filesets = [
-  "W1108A (fileset 105073, Wecoma's Ashtech ADU5, quoted sentences): 50,678 records equal to R2R's within R2R's window, the Pacific day (08:00Z).",
-  "W1109B (fileset 105076, unquoted sentences): the same 68,302 records as R2R's, but R2R dates 1,017 of them a day early (R12).",
+  "W1109B (fileset 105076, Wecoma's Ashtech ADU5, unquoted sentences): the same 68,302 records as R2R's within R2R's window, the Pacific day (08:00Z), but R2R dates 1,017 of them a day early (R12).",
 ]
 references = ["www.nmea.org"]
 examples_from = "NavManager's doc/fileformat/format-nav15.txt"

@@ -180,13 +180,13 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 - **Here:** the quality comes from GLL's NMEA 2.3 mode indicator when present (A 1, D 2, E 6, M 7, S 8, N 0), else from the status as NavManager reads it (`nmea.GLL.quality`); satellites, HDOP and altitude are missing too.
 - **Evidence:** SP1531's GLLs are all mode A (and one N, status V), so both write the same qualities, record for record (`tests/test_rawnav.py`, #92).
 - **Why (confirmed in code):** NavManager's GLL class doesn't read the mode field.
-- **Effect:** a differential (D) or dead-reckoning (E) GLL fix would be written as quality 1. NavManager's `printBufferRMC` does the same for RMC (nav32: `status == 'A' ? 1 : 0`); Rachel Carson's RMCs have no mode field, so the status gives the same here (RC0014, RC0011, #94).
+- **Effect:** a differential (D) or dead-reckoning (E) GLL fix would be written as quality 1. NavManager's `printBufferRMC` does the same for RMC (nav32: `status == 'A' ? 1 : 0`); Rachel Carson's RMCs have no mode field, so the status gives the same here (RC0014, #94).
 
 ### R15. RMC dated by the receiver; nav30 read from RMC
 
 - **NavManager:** `parse_nav32()` (`include/parsers/nav32.php`), which reads nav30 too, takes each fix's date from the RMC itself and writes quality from the status, with satellites, HDOP and altitude `NAN`.
 - **Here:** a fix is dated by its logger's timestamp (nav32: CORIOLIX's `MM/DD/YYYY`; nav30: OpenRVDAS's ISO time), and an RMC whose own date differs is reported. nav30 is read from its GGA, which the USAP OpenRVDAS logs carry, so its records have quality, satellites and HDOP.
-- **Evidence:** NBP2410 (nav30, fileset 165727): the Furuno GP-330B's RMC and ZDA dates are exactly 1024 weeks early, 2005-03-13 for OpenRVDAS's 2024-10-27 (`tests/test_timestamped_gga.py`, #94). Rachel Carson's RMC dates agree with the logger's, and RC0014's and RC0011's records equal R2R's.
+- **Evidence:** NBP2410 (nav30, fileset 165727): the Furuno GP-330B's RMC and ZDA dates are exactly 1024 weeks early, 2005-03-13 for OpenRVDAS's 2024-10-27 (`tests/test_timestamped_gga.py`, #94). Rachel Carson's RMC dates agree with the logger's, and RC0014's records equal R2R's.
 - **Why (confirmed in code):** the parser trusts the receiver's date; it was written for RMC-only logs.
 - **Effect:** a receiver with the GPS week-number fault puts the cruise 19.6 years early. R2R hasn't processed NBP2410's GNSS (its primary feed is the Seapath), so no product shows it yet.
 
@@ -433,7 +433,7 @@ acceleration results differ (A5).
 ### X1. Report text and structure
 
 - **R2R:** the nav report (`<CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml`) has `<r2r:id>` twice in `filesetinfo/cruise` (before `cname` and after `operator_id`); bounds are PHP integers (`95`, `86400`); units are `Percent`, `Count`, `Dimensionless`, `m/s`, `m/s^2`; ranges are trimmed (`1` for an HDOP of 1.0); the overall rating's description has a double space ("at least  one test RED"). Test descriptions describe navqa's definitions. SP2424's report (2024) has an empty `cruise` and `fileset`; SP2613's and SP2503's (2026) are filled in.
-- **Here:** the same elements in the same order, with `<r2r:id>` once; values and units through `quantities.py` (`95.00` `percent`, `900.000` `s`, `1` for counts and HDOP, `m s-1`, `m s-2`); missing values `xsi:nil="true"`; our own test descriptions, saying what is measured here; the provenance names nav-qa-processing and its version; the log lists the run's errors (manifest, reader). `filesetinfo` comes from the cruise TOML (`configs/`).
+- **Here:** the same elements in the same order, with `<r2r:id>` once; values and units through `quantities.py` (`95.00` `percent`, `900.000` `s`, `1` for counts and HDOP, `m s-1`, `m s-2`); missing values `xsi:nil="true"`; our own test descriptions, saying what is measured here; the provenance names nav-qa-processing and its version; the log lists the run's errors (manifest, reader). `filesetinfo` comes from the cruise TOML.
 - **Evidence:** `tests/test_r2r_xml.py`: SP2613's and SP2503's element paths equal R2R's but for the second `<r2r:id>`; SP2613's fileset, manifest, references and cruise elements equal R2R's.
 - **Why (suspected):** the report is assembled from a template filled from R2R's database (`r2r_catalog_qa_bootstrap.php`, not in NavManager), with the certificate from `xml_write2`; the duplicate looks like a template slip.
 - **Effect:** text only; values parse the same.
@@ -448,7 +448,7 @@ acceleration results differ (A5).
 
 ## Not NavManager: R2R's catalog and the data
 
-- R2R's 2012 QA reports for Wecoma (W1108A, W1109B) give the data window it used as `data_starttime` 08:00Z to `data_endtime` 07:59:59Z the next day: the Pacific (PST) day of the cruise dates, not the UTC day this package takes from them. Within that window their records match (#88).
+- R2R's 2012 QA reports for Wecoma (W1108A, W1109B) give the data window it used as `data_starttime` 08:00Z to `data_endtime` 07:59:59Z the next day: the Pacific (PST) day of the cruise dates, not the UTC day this package takes from them. Within that window W1109B's records match R2R's, but for R12 (#88).
 - R2R files Healy's 2016–2025 GNSS logs under format 100010 ("raw NMEA: GGA + ZDA", nav01), though most have nav29's timestamped layouts.
 - NBP2410's receiver dates are 1024 weeks early (GPS week-number rollover): its ZDA and RMC say 2005-03-13 on 2024-10-27. A reader that dates fixes from RMC (NavManager's nav30/nav32 path) would put the cruise in 2005; not yet checked against R2R's products.
 - Point Sur's UDAS files drop the Ashtech differential column from 2011, shifting later columns.

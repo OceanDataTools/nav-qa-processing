@@ -6,7 +6,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from conftest import CONFIGS
+from conftest import CONFIGS, EXAMPLES
 
 from nav_qa_processing.cli import main
 from nav_qa_processing.config import QAConfig, config_to_toml, load_config
@@ -108,7 +108,7 @@ def test_theme_round_trips_through_config_toml(tmp_path):
 
 
 def test_the_example_theme_loads():
-    theme = load_theme(CONFIGS / "theme.example.toml")
+    theme = load_theme(EXAMPLES / "theme.example.toml")
     assert (theme.page_size, theme.colors) == ("A4", COLORBLIND)
 
 

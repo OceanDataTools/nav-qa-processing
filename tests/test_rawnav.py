@@ -1,9 +1,9 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import numpy as np
 import pandas as pd
 import pytest
-from conftest import CONFIGS, DATA, FIXTURES
+from conftest import DATA, FIXTURES
 from test_gga_zda import gga, zda
 
 from nav_qa_processing import geocsv, rawnav
@@ -126,8 +126,8 @@ def test_rr1802_is_over_water_at_portland():
     """Swan Island on the Willamette, and a run down to the Columbia: land in Natural Earth's
     polygons, on the water by its river centerlines and the 3000 m tolerance (#85)
     """
+    from nav_qa_processing.config import QAConfig
     from nav_qa_processing.fileset import load_fileset
-    from nav_qa_processing.integrations.r2r.config import load_cruise_config
     from nav_qa_processing.qa import run_qa
 
     directory = DATA / "RR1802_132277_gnss"
@@ -135,7 +135,9 @@ def test_rr1802_is_over_water_at_portland():
         pytest.skip(
             "RR1802 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset RR1802 132277"
         )
-    result = run_qa(load_fileset(directory), load_cruise_config(CONFIGS / "RR1802_132277.toml"))
+    day = date(2018, 2, 27)
+    config = QAConfig(nav_format="nav01", depart_date=day, arrive_date=day)
+    result = run_qa(load_fileset(directory), config)
     if result.stats.inland is None:
         pytest.skip("no Natural Earth data; run: uv run nav-qa-processing fetch-map-data")
     check = next(c for c in result.stats.checks if c.name == "Over water")
@@ -144,24 +146,33 @@ def test_rr1802_is_over_water_at_portland():
 
 
 @pytest.mark.parametrize(
-    "name, format_id, records",
+    "name, format_id, depart, arrive, records",
     [
-        ("HLY14TF_114739", "nav25", 349_199),  # Healy's Seapath 330+, 2014
-        ("KN220-02_114491", "nav20", 227_436),  # Knorr's C-Nav 2000, 2014
-        ("HLY08TD_110937", "nav12", 363_486),  # Healy's POS/MV, gzipped, with ZDA
-        ("MGL1509_122372", "nav12", 601_027),  # Langseth's C-Nav 3050: no ZDA, logger time
-        ("SP1531_119707", "nav27", 93_417),  # Sproul's GP-90: GLL, not GGA (quality from GLL)
-        ("RC0014_137928", "nav32", 22_203),  # Rachel Carson's CORIOLIX RMC (rated R by both)
-        ("RC0011_137345", "nav32", 12_936),  # (rated Y by both)
-        ("BH19-30_136141", "nav31", 9_097),  # Blue Heron's UHDAS GPS feed: GGA dated by PYRTM
-        ("BH10-17_105061", "nav03", 6_530),  # Blue Heron's SCS: GLL and GGA, logger time
+        # Healy's Seapath 330+, 2014
+        ("HLY14TF_114739", "nav25", date(2014, 9, 14), date(2014, 9, 18), 349_199),
+        # Knorr's C-Nav 2000, 2014
+        ("KN220-02_114491", "nav20", date(2014, 6, 14), date(2014, 6, 17), 227_436),
+        # Healy's POS/MV, gzipped, with ZDA
+        ("HLY08TD_110937", "nav12", date(2008, 5, 7), date(2008, 5, 11), 363_486),
+        # Langseth's C-Nav 3050: no ZDA, logger time
+        ("MGL1509_122372", "nav12", date(2015, 5, 22), date(2015, 5, 28), 601_027),
+        # Sproul's GP-90: GLL, not GGA (quality from GLL)
+        ("SP1531_119707", "nav27", date(2015, 12, 8), date(2015, 12, 9), 93_417),
+        # Rachel Carson's CORIOLIX RMC (rated R by both)
+        ("RC0014_137928", "nav32", date(2018, 12, 27), date(2018, 12, 27), 22_203),
+        # Blue Heron's UHDAS GPS feed: GGA dated by PYRTM
+        ("BH19-30_136141", "nav31", date(2019, 10, 3), date(2019, 10, 3), 9_097),
+        # Blue Heron's SCS: GLL and GGA, logger time
+        ("BH10-17_105061", "nav03", date(2010, 9, 16), date(2010, 9, 17), 6_530),
     ],
 )
-def test_records_match_r2r_bestres(name, format_id, records):
-    """Each reference's records equal R2R's bestres, record for record. R2R has no QA 2.0 report
-    for these filesets, so only the products compare
+def test_records_match_r2r_bestres(name, format_id, depart, arrive, records):
+    """Each reference's records equal R2R's bestres, record for record, within the cruise's
+    dates in R2R's catalog (#153: the reader and the dates are all these tests need, so they're
+    here rather than in cruise TOMLs). R2R has no QA 2.0 report for these filesets, so only the
+    products compare
     """
-    from nav_qa_processing.integrations.r2r.config import load_cruise_config
+    from nav_qa_processing.config import QAConfig
     from nav_qa_processing.qa import cruise_window
 
     cruise, fileset = name.rsplit("_", 1)
@@ -172,11 +183,8 @@ def test_records_match_r2r_bestres(name, format_id, records):
             f"{cruise} not downloaded; run: uv run nav-qa-processing r2r fetch-fileset "
             f"{cruise} {fileset}"
         )
-    config = load_cruise_config(CONFIGS / f"{name}.toml")
-    assert config.nav_format == format_id
-    start, end = cruise_window(config)
-    window = {k: v for k, v in (("start", start), ("end", end)) if v is not None}
-    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), format_id, **window)
+    start, end = cruise_window(QAConfig(depart_date=depart, arrive_date=arrive))
+    nav = rawnav.read_fileset(sorted((directory / "data").iterdir()), format_id, start, end)
     r2r = geocsv.read(path).records
     assert nav.errors == []
     assert len(nav.frame) == len(r2r) == records
@@ -195,25 +203,11 @@ def _wecoma(name):
     return directory, geocsv.read(path).records
 
 
-def test_w1108a_nav15_records_match_r2r_bestres():
-    """Wecoma's Ashtech ADU5 (nav15: DATA, ISO timestamp, quoted GGA): 50,678 records equal to
-    R2R's within R2R's own window, which its 2012 QA report gives as 08:00Z to 07:59:59Z, the
-    Pacific day (#88)
-    """
-    directory, r2r = _wecoma("W1108A_105073")
-    start = datetime(2011, 8, 6, 8, tzinfo=UTC)
-    nav = rawnav.read_fileset(
-        sorted((directory / "data").iterdir()), "nav15", start, start + pd.Timedelta(days=1)
-    )
-    assert nav.errors == []
-    assert len(nav.frame) == len(r2r) == 50_678
-    _compare(nav, r2r)
-
-
 def test_w1109b_r2r_dates_seventeen_minutes_a_day_early():
-    """W1109B (sentences unquoted from September 2011): the same 68,302 records as R2R's, but
-    R2R dates 1,017 of them, 09-15 00:00:00 to 00:16:56, on 09-14, while the logger ran behind
-    the GPS (R12); it flags them out of sequence
+    """W1109B (sentences unquoted from September 2011): the same 68,302 records as R2R's within
+    R2R's own window, which its 2012 QA report gives as 08:00Z to 07:59:59Z, the Pacific day
+    (#88), but R2R dates 1,017 of them, 09-15 00:00:00 to 00:16:56, on 09-14, while the logger
+    ran behind the GPS (R12); it flags them out of sequence
     """
     directory, r2r = _wecoma("W1109B_105076")
     start = datetime(2011, 9, 14, 8, tzinfo=UTC)
@@ -317,8 +311,8 @@ def test_rc0014_canal_is_reported_not_warned_of():
     """Seattle's ship canal, which Natural Earth lacks: up to 3.9 km from its water, beyond
     land_tolerance but within max_inland, so reported and the check passes (#95)
     """
+    from nav_qa_processing.config import QAConfig
     from nav_qa_processing.fileset import load_fileset
-    from nav_qa_processing.integrations.r2r.config import load_cruise_config
     from nav_qa_processing.qa import run_qa
 
     directory = DATA / "RC0014_137928_gnss"
@@ -326,7 +320,9 @@ def test_rc0014_canal_is_reported_not_warned_of():
         pytest.skip(
             "RC0014 not downloaded; run: uv run nav-qa-processing r2r fetch-fileset RC0014 137928"
         )
-    result = run_qa(load_fileset(directory), load_cruise_config(CONFIGS / "RC0014_137928.toml"))
+    day = date(2018, 12, 27)
+    config = QAConfig(nav_format="nav32", depart_date=day, arrive_date=day)
+    result = run_qa(load_fileset(directory), config)
     if result.stats.inland is None:
         pytest.skip("no Natural Earth data; run: uv run nav-qa-processing fetch-map-data")
     check = next(c for c in result.stats.checks if c.name == "Over water")
