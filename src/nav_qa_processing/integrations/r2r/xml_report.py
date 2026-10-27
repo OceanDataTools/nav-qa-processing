@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from nav_qa_processing import quantities as q
+from nav_qa_processing.filenames import report_stem
 from nav_qa_processing.integrations.r2r.config import CruiseConfig, Port
 from nav_qa_processing.integrations.r2r.rules import R2RResult
 from nav_qa_processing.qa import NavQAResult
@@ -224,6 +225,7 @@ def write_qa_xml(result: NavQAResult, r2r: R2RResult, path: Path | str) -> Path:
 
 def qa_xml_name(config: CruiseConfig, finished: datetime) -> str:
     """R2R's name for the report, <CRUISE>_<FILESET>_qa.2.0.<timestamp>.xml, without the
-    timestamp's colons (2026-07-31T200556Z), which Windows doesn't allow in a file name (#119)
+    timestamp's colons (2026-07-31T200556Z), which Windows doesn't allow in a file name (#119),
+    and with the identifier made a valid file name (#154)
     """
-    return f"{config.identifier}_qa.2.0.{_timestamp(finished).replace(':', '')}.xml"
+    return f"{report_stem(config.identifier)}_qa.2.0.{_timestamp(finished).replace(':', '')}.xml"

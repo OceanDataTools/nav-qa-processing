@@ -83,6 +83,11 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   A check, not a QC flag: harbors are land at 1:10m (RR2212: 1,438 m) and river lines are
   generalized (RR1802 on the Willamette: 2,630 m), hence `land_tolerance` 3000 m; canals the
   map lacks (RC0014: 3,929 m) are reported, and only fixes beyond `max_inland` 10 km warn.
+- `filenames.py` (#154, ported from sbe-qa-processing): `safe_filename`, `report_stem` (warns
+  once). Every output named after a cruise ID goes through it (`reports.report_paths`,
+  `geocsv.file_name`, `r2rnav.file_name`, `qa_xml_name`, `clitools.cruise_toml_path`, the
+  hook's snapshot); the ID stays as given wherever it's shown. `[[nav]] name`s are already
+  limited to letters, digits, `_` and `-` (`config.NAV_NAME`).
 - `network.py` (`reaching`), `readable.py` (`Readable`, `plural`, ...);
   `tests/test_boundaries.py` keeps core from importing `integrations/`.
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's

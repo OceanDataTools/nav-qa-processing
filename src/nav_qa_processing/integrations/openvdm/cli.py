@@ -9,6 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from nav_qa_processing.clitools import STDOUT, print_written, refuse_overwrite, write_cruise_toml
+from nav_qa_processing.filenames import report_stem
 from nav_qa_processing.integrations.openvdm.hook import DEFAULT_OPENVDM_CONFIG, OpenVDMError
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ def _openvdm_feed(args: argparse.Namespace, run, site_root: str, key: str):
     theme = resolve_theme(args.theme, run.config)  # a bad theme fails before the run
     run.output_dir.mkdir(parents=True, exist_ok=True)
     # Snapshot what OpenVDM supplied, so the notebook can re-run exactly this assessment
-    snapshot = run.output_dir / f"{run.config.stem}_config.toml"
+    snapshot = run.output_dir / f"{report_stem(run.config.stem)}_config.toml"
     snapshot.write_text(openvdm.cruise_toml(run, site_root))
     result = run_qa(run.fileset_dir, snapshot)
     print(result)

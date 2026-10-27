@@ -10,6 +10,7 @@ from pathlib import Path
 from nav_qa_processing.clitools import (
     STDOUT,
     add_report_output,
+    cruise_toml_path,
     print_written,
     refuse_existing_reports,
     refuse_overwrite,
@@ -51,7 +52,9 @@ def _r2r_config_from_catalog(args: argparse.Namespace) -> int:
     from nav_qa_processing.integrations.r2r.config import config_to_toml
 
     name = f"{args.cruise_id}_{args.fileset_id}"
-    if str(args.output) != STDOUT and refuse_overwrite(args.output / f"{name}.toml", args.force):
+    if str(args.output) != STDOUT and refuse_overwrite(
+        cruise_toml_path(args.output, name), args.force
+    ):
         return 1  # before asking R2R
     config = config_from_r2r_catalog(args.cruise_id, args.fileset_id, not args.no_qa_report)
     lines = [f"# From R2R's catalog, {datetime.now(UTC):%Y-%m-%d}"]
