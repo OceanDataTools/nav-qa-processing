@@ -12,3 +12,6 @@ build/
 # Generated reports
 /output/
 .DS_Store
+# Users' configs (site.toml, cruise TOMLs); only the examples are part of the repo
+/configs/*
+!/configs/*.example.toml

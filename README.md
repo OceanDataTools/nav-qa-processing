@@ -450,7 +450,7 @@ products didn't, it says so: run it again with `--force` to fetch them.
 
 An R2R cruise TOML is a [config TOML](#config-toml) with R2R's catalog details added. It must
 have `[cruise] id`, `depart_date` and `arrive_date`. The `r2r config-from-*` commands write it;
-this is `configs/SP2613_169851.toml`:
+this is `tests/configs/SP2613_169851.toml`:
 
 ```toml
 [cruise]

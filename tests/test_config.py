@@ -173,14 +173,14 @@ def test_unknown_keys_say_where_they_belong():
 
 
 def test_every_committed_config_loads():
-    """The cruise TOMLs in configs/ (R2R's keys included) and the example site TOML"""
-    from conftest import CONFIGS
+    """The cruise TOMLs in tests/configs/ (R2R's keys included) and the example site TOML"""
+    from conftest import CONFIGS, EXAMPLES
 
     from nav_qa_processing.integrations.openvdm.hook import load_site_config
 
-    for path in sorted(CONFIGS.glob("*_*.toml")):
+    for path in sorted(CONFIGS.glob("*.toml")):
         assert load_config(path).cruise_id, path
-    assert load_site_config(CONFIGS / "site.example.toml").feeds
+    assert load_site_config(EXAMPLES / "site.example.toml").feeds
 
 
 def test_core_knows_the_keys_r2r_reads():

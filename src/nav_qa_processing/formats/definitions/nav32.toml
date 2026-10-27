@@ -21,7 +21,6 @@ reader = [
 ]
 filesets = [
   "RC0014 (fileset 137928, Rachel Carson's Furuno GP-33; committed in tests/data/): 22,203 records equal to R2R's; R for both (accelerations from 3-decimal minutes every 2 s). Its transit of Seattle's ship canal is reported by the over-water check.",
-  "RC0011 (fileset 137345): 12,936 records equal to R2R's; Y for both.",
 ]
 references = ["www.nmea.org"]
 examples_from = "RC0012, fileset 137927, file GPS-Network-RMC_20181101-030609.Raw"

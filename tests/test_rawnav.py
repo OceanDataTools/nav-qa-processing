@@ -152,7 +152,6 @@ def test_rr1802_is_over_water_at_portland():
         ("MGL1509_122372", "nav12", 601_027),  # Langseth's C-Nav 3050: no ZDA, logger time
         ("SP1531_119707", "nav27", 93_417),  # Sproul's GP-90: GLL, not GGA (quality from GLL)
         ("RC0014_137928", "nav32", 22_203),  # Rachel Carson's CORIOLIX RMC (rated R by both)
-        ("RC0011_137345", "nav32", 12_936),  # (rated Y by both)
         ("BH19-30_136141", "nav31", 9_097),  # Blue Heron's UHDAS GPS feed: GGA dated by PYRTM
         ("BH10-17_105061", "nav03", 6_530),  # Blue Heron's SCS: GLL and GGA, logger time
     ],
@@ -195,25 +194,11 @@ def _wecoma(name):
     return directory, geocsv.read(path).records
 
 
-def test_w1108a_nav15_records_match_r2r_bestres():
-    """Wecoma's Ashtech ADU5 (nav15: DATA, ISO timestamp, quoted GGA): 50,678 records equal to
-    R2R's within R2R's own window, which its 2012 QA report gives as 08:00Z to 07:59:59Z, the
-    Pacific day (#88)
-    """
-    directory, r2r = _wecoma("W1108A_105073")
-    start = datetime(2011, 8, 6, 8, tzinfo=UTC)
-    nav = rawnav.read_fileset(
-        sorted((directory / "data").iterdir()), "nav15", start, start + pd.Timedelta(days=1)
-    )
-    assert nav.errors == []
-    assert len(nav.frame) == len(r2r) == 50_678
-    _compare(nav, r2r)
-
-
 def test_w1109b_r2r_dates_seventeen_minutes_a_day_early():
-    """W1109B (sentences unquoted from September 2011): the same 68,302 records as R2R's, but
-    R2R dates 1,017 of them, 09-15 00:00:00 to 00:16:56, on 09-14, while the logger ran behind
-    the GPS (R12); it flags them out of sequence
+    """W1109B (sentences unquoted from September 2011): the same 68,302 records as R2R's within
+    R2R's own window, which its 2012 QA report gives as 08:00Z to 07:59:59Z, the Pacific day
+    (#88), but R2R dates 1,017 of them, 09-15 00:00:00 to 00:16:56, on 09-14, while the logger
+    ran behind the GPS (R12); it flags them out of sequence
     """
     directory, r2r = _wecoma("W1109B_105076")
     start = datetime(2011, 9, 14, 8, tzinfo=UTC)

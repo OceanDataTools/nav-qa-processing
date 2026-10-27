@@ -93,8 +93,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's
   IDs, catalog dates, `Port`s, `Device`, format ID/alias, provenance; `identifier`
   `<cruise>_<fileset>` or `<cruise>_gnss`), `load_cruise_config`, `config_to_toml`.
-  `configs/<CRUISE>_<FILESET>.toml` are written by `r2r config-from-catalog` (SP2613, SP2503,
-  SP2424).
+  The reference filesets' cruise TOMLs, `tests/configs/<CRUISE>_<FILESET>.toml`, were written by
+  `r2r config-from-catalog` and pin the catalog values the parity tests depend on (#153).
 - `integrations/r2r/rules.py`: `run_r2r_tests(stats)` -> `R2RResult` (R2R's six tests, G/Y
   bounds stated once, results rated as written through `quantities.py`; infos TotalTests…).
 - `integrations/r2r/xml_report.py`: `build_qa_xml`/`write_qa_xml(result, r2r, path)` with the
@@ -217,7 +217,8 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
   other references skip. Natural Earth clipped to their areas is in `tests/data/natural_earth/`
   (`make_natural_earth.py`), used only by tests marked `map_data(clipped=True)`.
 - `/data/` (downloaded R2R filesets) and `/output/` (generated reports) are gitignored. `configs/`
-  holds cruise TOMLs plus `site.example.toml`. Downloads and catalog configs are `r2r`
+  is the users' space: the commands write `site.toml` and cruise TOMLs there, and git ignores
+  everything in it but `site.example.toml` and `theme.example.toml` (#153). Downloads and catalog configs are `r2r`
   commands, as in sbe-qa-processing.
 - Outputs follow the same set: an R2R QA 2.0 XML, a PDF report (ReportLab, with the SVGs
   embedded), every figure as an SVG, and a notebook that re-runs the assessment. It runs from the CLI
@@ -326,11 +327,10 @@ fixes), SP2503 (rated R: completeness, gap), and for the tests R2R rates Y or R 
 checksums, R1); and one per new reader (#81): RR1802 (nav01, record for record; no QA 2.0
 report), EN735 (nav02, G) and SKQ202516S (nav24, Sikuliaq's Seapath, G); and (#84, record for
 record against R2R's products, no QA 2.0 reports) HLY14TF (nav25), KN220-02 (nav20), HLY08TD
-(nav12 with ZDA) and MGL1509 (nav12 without, rated Y); and W1108A and W1109B (#88, nav15,
+(nav12 with ZDA) and MGL1509 (nav12 without, rated Y); and W1109B (#88, nav15,
 within R2R's Pacific-day window; R2R misdates 17 minutes of W1109B, R12); NH1209 (#90, nav22,
 against R2R's primary-GPS bestres, as R2R made no products from it); SP1531 (#92, nav27, record
-for record, quality from GLL); RC0014 and RC0011 (#94, nav32, record for record, R and Y as
-R2R); BH19-30 (#97, nav31, record for record) and UHDAS's GPS logs in SP2613's and KM1519's
+for record, quality from GLL); RC0014 (#94, nav32, record for record, R as R2R); BH19-30 (#97, nav31, record for record) and UHDAS's GPS logs in SP2613's and KM1519's
 UHDAS ADCP filesets (nav31, uhdas: against the primary GPS); BH10-17 (#99, nav03, record for
 record); SR2612 (#108, nav29 at 5 Hz: G here, Y in R2R's report, whose completeness truncates
 steps to whole milliseconds, A8); see
