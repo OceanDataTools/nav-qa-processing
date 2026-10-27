@@ -93,8 +93,10 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
 - `integrations/r2r/config.py`: `CruiseConfig(QAConfig)` (cruise ID and dates required; R2R's
   IDs, catalog dates, `Port`s, `Device`, format ID/alias, provenance; `identifier`
   `<cruise>_<fileset>` or `<cruise>_gnss`), `load_cruise_config`, `config_to_toml`.
-  The reference filesets' cruise TOMLs, `tests/configs/<CRUISE>_<FILESET>.toml`, were written by
-  `r2r config-from-catalog` and pin the catalog values the parity tests depend on (#153).
+  `tests/configs/<CRUISE>_<FILESET>.toml` are the cruise TOMLs of the references compared with
+  R2R's QA 2.0 reports, written by `r2r config-from-catalog`; they pin the catalog values those
+  tests depend on. The record-for-record references need only a reader and dates, which their
+  tests give (#153).
 - `integrations/r2r/rules.py`: `run_r2r_tests(stats)` -> `R2RResult` (R2R's six tests, G/Y
   bounds stated once, results rated as written through `quantities.py`; infos TotalTests…).
 - `integrations/r2r/xml_report.py`: `build_qa_xml`/`write_qa_xml(result, r2r, path)` with the

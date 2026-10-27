@@ -295,7 +295,7 @@ To run the QA on a real fileset, unpack one of the committed references (needs `
 
 ```bash
 tar -xJf tests/data/BH19-30_136141_gnss.tar.xz -C /tmp
-.venv/bin/nav-qa-processing run /tmp/BH19-30_136141_gnss -c tests/configs/BH19-30_136141.toml -o /tmp/navqa
+.venv/bin/nav-qa-processing run /tmp/BH19-30_136141_gnss -f nav31 -o /tmp/navqa
 ```
 
 It prints 9097 fixes (nav31) from 2 files and the checks, and writes the GeoCSV products, plots,
