@@ -33,7 +33,7 @@ from datetime import date
 FIELDS = {"GGA": 13, "ZDA": 7, "GLL": 7, "RMC": 12}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Sentence:
     """One NMEA sentence split into fields. `fields[0]` is the address, e.g. `$GPGGA`."""
 
@@ -112,7 +112,7 @@ def _int(text: str) -> int | None:
         return None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TimeOfDay:
     """`hhmmss[.s…]` as nanoseconds since midnight, with the receiver's decimals"""
 
@@ -163,7 +163,7 @@ TALKERS = {
 }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class GGA:
     """GPS fix data. Missing fields are None."""
 
@@ -204,7 +204,7 @@ class GGA:
 GLL_MODE_QUALITY = {"A": 1, "D": 2, "E": 6, "M": 7, "S": 8, "N": 0}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class GLL:
     """Geographic position, latitude and longitude, with its time and status. Missing fields are
     None. `status` is A (valid) or V (not valid); `mode` (NMEA 2.3) as GLL_MODE_QUALITY
@@ -260,7 +260,7 @@ class GLL:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RMC:
     """Recommended minimum position: time, status, position and date. Missing fields are None.
     `status` and `mode` as GLL's
@@ -307,7 +307,7 @@ def _ddmmyy(text: str) -> date | None:
         return None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ZDA:
     """Date and time (UTC)"""
 

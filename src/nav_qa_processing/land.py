@@ -80,21 +80,28 @@ class Land:
         index = np.flatnonzero(~np.isnan(result))
         if self.geometry.is_empty or not len(index):
             return result
+        # A chunk at a time: a shapely point per fix is over 100 bytes (#157)
+        for start in range(0, len(index), geodesy.CHUNK):
+            self._measure(lon, lat, index[start : start + geodesy.CHUNK], result)
+        return result
+
+    def _measure(self, lon, lat, index: np.ndarray, result: np.ndarray) -> None:
+        """`inland` for the positions at `index`, into `result`"""
         x = (lon[index] - self.central + 180.0) % 360.0 - 180.0
         points = shapely.points(x * self.x_scale, lat[index])
         inside = shapely.contains(self.plane, points)
-        if inside.any():
-            # shortest_line runs from the water to the point
-            nearest = self.water if not self.water.is_empty else self.edge
-            if nearest is None or nearest.is_empty:  # no window given and no coast: unmeasured
-                result[index[inside]] = np.nan
-                return result
-            ends = shapely.get_coordinates(shapely.shortest_line(nearest, points[inside]))
-            water = ends.reshape(-1, 2, 2)[:, 0]
-            k = index[inside]
-            water_lon = water[:, 0] / self.x_scale + self.central
-            result[k] = geodesy.inverse(lon[k], lat[k], water_lon, water[:, 1])[0]
-        return result
+        if not inside.any():
+            return
+        # shortest_line runs from the water to the point
+        nearest = self.water if not self.water.is_empty else self.edge
+        if nearest is None or nearest.is_empty:  # no window given and no coast: unmeasured
+            result[index[inside]] = np.nan
+            return
+        ends = shapely.get_coordinates(shapely.shortest_line(nearest, points[inside]))
+        water = ends.reshape(-1, 2, 2)[:, 0]
+        k = index[inside]
+        water_lon = water[:, 0] / self.x_scale + self.central
+        result[k] = geodesy.inverse(lon[k], lat[k], water_lon, water[:, 1])[0]
 
 
 def load(lon, lat) -> Land | None:

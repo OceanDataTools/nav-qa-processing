@@ -545,6 +545,25 @@ and `line` for traceability. Missing values are real NaN/`<NA>`. Two things are 
 - **Errors:** per-file parse errors are kept in a list, the same pattern as
   `CastData.errors` in sbe-qa-processing.
 
+**Memory in proportion to the fixes (2026-10-28, #157).** The OpenVDM hook re-assesses the whole
+cruise on every transfer, so a run's memory grows through the cruise: a 20-day cruise at 2 Hz
+(3.5 M fixes) ran a 4 GB server out of memory at 2.5 GB. What it took and what it takes now, on
+Linux, for a synthetic nav33 cruise of that size (`run` with Natural Earth): 4.2 GB before,
+1.4 GB after, about 400 bytes a fix, with identical products. How:
+- `rawnav` reads a file to find its span and drops its lines, then reads the selected files
+  again, one at a time, as the reader goes; readers take an iterable of files and go through it
+  once (`zda_or_stamp` passes its runs on without listing them).
+- Readers keep fixes as columns (`gga_zda.Fixes`, about 90 bytes a fix; a `DatedFix` holding a
+  `GGA` and a `TimeOfDay` was about 660), and `Fixes.drain` hands them to the frame without a
+  copy. `SpanCache` is keyed by name, length and first and last lines, not by the lines list,
+  which it would otherwise keep alive.
+- The whole-cruise steps work a chunk at a time, with the same values: `geodesy.inverse` and
+  `qc.acceleration_at_fixes` (`geodesy.CHUNK`), `Land.inland`, the products' text
+  (`geocsv.rows`, `geocsv.CHUNK`) and the track map's simplification (`plots.SIMPLIFY_POINTS`;
+  GEOS's topology-preserving simplifier indexed every segment, 750 MB for the track).
+  `tests/test_memory.py` checks each against the whole, and that reading stays under 400
+  traced bytes a fix.
+
 **QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
 `POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `UNREACHABLE`, `STALE_REPEAT`, `ACCELERATION`. A record with
 any bit set is written with `#` in BestRes, and the plots, PDF and notebook can say *why*. The

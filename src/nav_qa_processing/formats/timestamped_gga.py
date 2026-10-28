@@ -32,14 +32,14 @@ its logger date, then correct the date across midnight buffer by buffer. Not rep
 """
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, date, datetime
 
 from nav_qa_processing.formats.gga_zda import (
     FAILED_CHECKSUM,
     NO_LOGGER_TIMESTAMP,
     NO_TIME,
-    DatedFix,
+    Fixes,
     Result,
     count_skipped,
     date_from,
@@ -111,14 +111,16 @@ def span(lines: list[str], stamp: Stamp = iso_time) -> tuple[datetime, datetime]
     return first, last
 
 
-def read(files: list[tuple[str, list[str]]], stamp: Stamp = iso_time, kind: str = "GGA") -> Result:
+def read(
+    files: Iterable[tuple[str, list[str]]], stamp: Stamp = iso_time, kind: str = "GGA"
+) -> Result:
     """Dated fixes from `files`, each (name, lines), in the order given: from GGA sentences, or
     with `kind` RMC from RMC (nav32, without satellites, HDOP or altitude). An RMC is dated by
     its logger timestamp too; RMCs whose own date differs are reported (7168 days: the GPS
     week-number rollover)
     """
     reason = lambda text: text.replace("GGA", kind)
-    fixes: list[DatedFix] = []
+    fixes = Fixes()
     errors: list[str] = []
     rejected: dict[str, int] = {}
     skipped: dict[str, dict[str, int]] = {}
@@ -145,11 +147,10 @@ def read(files: list[tuple[str, list[str]]], stamp: Stamp = iso_time, kind: str 
             if logged is None:
                 unstamped += 1
                 continue
-            fix = DatedFix(gga, name, number)
-            fix.day = date_from(*logged, gga.time.ns)
-            fixes.append(fix)
-            if rmc and rmc.day is not None and rmc.day != fix.day:
-                days = (rmc.day - fix.day).days
+            day = date_from(*logged, gga.time.ns)
+            fixes.append(gga, name, number, day)
+            if rmc and rmc.day is not None and rmc.day != day:
+                days = (rmc.day - day).days
                 misdated[days] = misdated.get(days, 0) + 1
         if timeless:
             errors.append(f"{name}: {plural(timeless, kind)} without a time, skipped")

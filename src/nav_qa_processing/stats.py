@@ -253,15 +253,16 @@ def compute(
     dated = (qc_result.flags & int(Flag.DATE_RANGE)) == 0
     quality_all = f["quality"].to_numpy(dtype=float, na_value=np.nan)
     quality = quality_all[dated]
-    reported = ~np.isnan(quality)
-    bad = int(((quality < th.min_quality) | (quality > th.max_quality))[reported].sum())
+    reported = int((~np.isnan(quality)).sum())
+    with np.errstate(invalid="ignore"):
+        bad = int(((quality < th.min_quality) | (quality > th.max_quality)).sum())
+    del quality  # what's kept of each whole-cruise array is its summary (#157)
 
-    segments = geodesy.segments(t, lon, lat) if len(t) > 1 else None
-    all_speeds = segments.speed if segments else np.array([])
+    all_speeds = geodesy.segments(t, lon, lat).speed if len(t) > 1 else np.array([])
     speeds = all_speeds[~np.isnan(all_speeds)]
     at_fixes = acceleration_at_fixes(t, lon, lat, th.accel_time_base)
     acceleration = at_fixes[~np.isnan(at_fixes)]
-    change = acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True)
+    change = _range(acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True))
 
     # Which records each test counted: a test between two fixes at the later one
     records = len(f)
@@ -307,9 +308,9 @@ def compute(
         gaps=int((steps >= th.max_gap).sum()),
         out_of_sequence=out_of_sequence,
         out_of_sequence_percent=_percent(out_of_sequence, n),
-        quality_reported=int(reported.sum()),
+        quality_reported=reported,
         bad_quality=bad,
-        bad_quality_percent=_percent(bad, int(reported.sum())),
+        bad_quality_percent=_percent(bad, reported),
         speeds=len(speeds),
         unreasonable_speeds=int((speeds > th.max_speed).sum()),
         unreasonable_speeds_percent=_percent(int((speeds > th.max_speed).sum()), len(speeds)),
@@ -322,7 +323,7 @@ def compute(
         hdop=_range(f["hdop"].to_numpy(dtype=float)[usable]),
         altitude=_range(f["alt"].to_numpy(dtype=float)[usable]),
         speed=_range(speeds),
-        acceleration=_range(change),
+        acceleration=change,
         good=_good_fixes(f, t_all, qc_result, th),
         counted=counted,
         inland=inland,

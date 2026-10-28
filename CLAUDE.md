@@ -39,7 +39,12 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   decimals, files read/skipped, errors, GGA talker IDs counted, `nmea.TALKERS` names them;
   `skipped_lines`, the sentences each reader couldn't use per file and reason, from its
   `Result.skipped` with `gga_zda`'s reasons, and `unread_files`, #67). It selects files by the reader's span (first to last
-  ZDA, or logger timestamp), as navdatalist does.
+  ZDA, or logger timestamp), as navdatalist does. Memory (#157): a file's lines are dropped
+  after its span and the selected files read again one at a time (readers take an iterable and
+  go through it once); readers keep fixes as columns, `gga_zda.Fixes` (indexing gives a
+  `DatedFix`; `drain` hands them to the frame), and the whole-cruise steps after it work a
+  chunk at a time (`geodesy.CHUNK`, `geocsv.rows`, `plots.SIMPLIFY_POINTS`). About 400 bytes a
+  fix in all; `tests/test_memory.py`.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
 - `config.py`: `QAConfig` (every field optional; integration tables ignored; one feed:

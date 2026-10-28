@@ -17,6 +17,7 @@ fileset DOIs) are passed in (`Source`): R2R's for R2R's processing, the operator
 when unknown.
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -114,23 +115,48 @@ def write(
     `decimals`). A `flags` column, if present, marks flagged records (non-zero).
     """
     created = created or datetime.now(UTC)
-    columns = [
-        [quantity.format(value, decimals.get(column)) for value in frame[column]]
-        for column, quantity in product.columns
-    ]
-    flagged = (
-        frame["flags"].to_numpy() != 0 if "flags" in frame else np.zeros(len(frame), dtype=bool)
-    )
+    flagged = frame["flags"].to_numpy() != 0 if "flags" in frame else None
     lines = header(product, source, created)
     lines.append(DELIMITER.join(quantity.name for _, quantity in product.columns))
-    short = product.flagged_columns or len(product.columns)
-    lines += [
-        "#" + DELIMITER.join(values[:short]) if bad else DELIMITER.join(values)
-        for bad, values in zip(flagged, zip(*columns, strict=True), strict=True)
-    ]
     path = Path(directory) / file_name(stem or source.cruise_id, product)
-    path.write_text("\n".join(lines) + "\n")
+    with path.open("w") as file:
+        file.writelines(line + "\n" for line in lines)
+        file.writelines(
+            line + "\n"
+            for line in rows(
+                frame, product.columns, decimals, flagged, product.flagged_columns, DELIMITER
+            )
+        )
     return path
+
+
+# Rows formatted at a time: a fileset's products are written a chunk at a time, not held as text
+# (a 3.5 M-fix bestres as strings took 2 GB, #157)
+CHUNK = 100_000
+
+
+def rows(
+    frame: pd.DataFrame,
+    columns: list[tuple[str, q.Quantity]],
+    decimals: dict[str, int],
+    flagged: np.ndarray | None,
+    flagged_columns: int,
+    delimiter: str,
+) -> Iterator[str]:
+    """Each record of `frame[columns]` as a line of text, formatted through its quantity, with
+    `#` before a `flagged` record, which has only its first `flagged_columns` fields when that's
+    set
+    """
+    short = flagged_columns or len(columns)
+    for start in range(0, len(frame), CHUNK):
+        chunk = frame.iloc[start : start + CHUNK]
+        text = [
+            [quantity.format(value, decimals.get(column)) for value in chunk[column]]
+            for column, quantity in columns
+        ]
+        marks = flagged[start : start + CHUNK] if flagged is not None else [False] * len(chunk)
+        for mark, values in zip(marks, zip(*text, strict=True), strict=True):
+            yield "#" + delimiter.join(values[:short]) if mark else delimiter.join(values)
 
 
 @dataclass

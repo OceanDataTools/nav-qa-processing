@@ -11,11 +11,13 @@ GLL by the logger and writes a GLL's quality from its status (missing: `NAN`).
 """
 
 import re
+from collections.abc import Iterable
+from dataclasses import replace
 
 from nav_qa_processing.formats.gga_zda import (
     FAILED_CHECKSUM,
     NO_LOGGER_TIMESTAMP,
-    DatedFix,
+    Fixes,
     Result,
     count_skipped,
     has_star,
@@ -37,11 +39,11 @@ def _logger_time(line: str, ns: int) -> TimeOfDay:
     return TimeOfDay(ns, len(match.group(1) or "") if match else 0)
 
 
-def read(files: list[tuple[str, list[str]]], stamp: Stamp = scs_time) -> Result:
+def read(files: Iterable[tuple[str, list[str]]], stamp: Stamp = scs_time) -> Result:
     """Fixes from the GLL and GGA sentences of `files`, each (name, lines), in the order given,
     timed by their lines' logger timestamps
     """
-    result = Result([], [], {}, {})
+    result = Result(Fixes(), [], {}, {})
     for name, lines in files:
         unstamped = placeless = rejected = cut = 0
         for number, text in sentences(lines):
@@ -65,11 +67,8 @@ def read(files: list[tuple[str, list[str]]], stamp: Stamp = scs_time) -> Result:
                 unstamped += 1
                 continue
             day, ns = logged
-            fix = DatedFix(
-                GGA(**{**gga.__dict__, "time": _logger_time(lines[number - 1], ns)}), name, number
-            )
-            fix.day = day
-            result.fixes.append(fix)
+            timed = replace(gga, time=_logger_time(lines[number - 1], ns))
+            result.fixes.append(timed, name, number, day)
         if unstamped:
             result.errors.append(
                 f"{name}: {plural(unstamped, 'fix', 'fixes')} without a logger timestamp, skipped"
