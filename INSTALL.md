@@ -84,6 +84,10 @@ collection system that logs the ship's GNSS, as a `postCollectionSystemTransfer`
 it up takes five steps: install, add an extra directory for the reports, write the ship's site
 TOML, add the hook to `openvdm.yaml`, and try it.
 
+The hook assesses the whole cruise so far after each transfer, so its memory grows through the
+cruise: about 400 bytes a fix, with about 300 MB to start. A 20-day cruise logged at 2 Hz (3.5 M
+fixes) takes about 1.4 GB; 30 days at 10 Hz (26 M fixes), about 10 GB.
+
 ### 1. Install
 
 Install it where OpenVDM's workers can run it, in its own environment (not OpenVDM's venv), with

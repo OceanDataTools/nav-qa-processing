@@ -53,17 +53,10 @@ def write(
             f"// More detailed information may be found here: {FORMAT_URI}",
             f"// Created {q.format_datetime(created, 0)}",
         ]
-    text_columns = [
-        [quantity.format(value, decimals.get(name)) for value in frame[name]]
-        for name, quantity in columns.items()
-    ]
-    marks = flagged if flagged is not None else np.zeros(len(frame), dtype=bool)
-    short = flagged_columns or len(columns)
-    lines += [
-        "#" + "\t".join(values[:short]) if mark else "\t".join(values)
-        for mark, values in zip(marks, zip(*text_columns, strict=True), strict=True)
-    ]
-    path.write_text("\n".join(lines) + "\n" if lines else "")
+    records = geocsv.rows(frame, list(columns.items()), decimals, flagged, flagged_columns, "\t")
+    with path.open("w") as file:  # a chunk of records at a time (#157)
+        file.writelines(line + "\n" for line in lines)
+        file.writelines(line + "\n" for line in records)
 
 
 def file_name(stem: str, product: geocsv.Product) -> str:

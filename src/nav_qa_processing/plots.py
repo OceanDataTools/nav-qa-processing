@@ -47,6 +47,9 @@ FIGURE_WIDTH = 7.5  # [in] US letter less margins; the PDF scales figures to its
 MAP_MIN_HALF_SPAN = 0.05  # [degree] smallest half-width of the map view
 MAP_POLAR_LATITUDE = 70.0  # [degree] beyond this, the map is polar stereographic
 TRACK_POINTS = 4000  # about how many vertices the simplified track line keeps
+# Track points simplified at a time: GEOS's topology-preserving simplifier indexes every
+# segment of its line (750 MB for a 3.5 M-fix track, #157)
+SIMPLIFY_POINTS = 200_000
 TIME_BINS = 1500  # bins of the min/max envelopes against time
 MAX_MARKERS = 3000  # flagged fixes drawn per flag; the legend gives the full count
 OCCUPIED_TRACK_POINTS = 20_000  # track fixes a legend or the inset is checked against
@@ -406,14 +409,26 @@ def _track_pieces(x: np.ndarray, lat: np.ndarray, times: np.ndarray, max_gap: fl
             dots.append((x[middle], lat[middle]))
         if len(piece) < 2:
             continue
-        line = shapely.simplify(shapely.LineString(np.column_stack([px, plat])), tolerance)
-        coords = np.asarray(line.coords)
-        lines.append((coords[:, 0], coords[:, 1]))
+        lines.append(_simplified(px, plat, tolerance))
     gaps = [
         ((x[before[-1]], lat[before[-1]]), (x[after[0]], lat[after[0]]))
         for before, after in pairwise(pieces)
     ]
     return lines, dots, gaps
+
+
+def _simplified(x: np.ndarray, lat: np.ndarray, tolerance: float) -> tuple[np.ndarray, np.ndarray]:
+    """The line through (x, lat), at least two points, simplified within `tolerance`, a stretch
+    of SIMPLIFY_POINTS at a time, each starting where the last ended
+    """
+    parts = []
+    for start in range(0, len(x) - 1, SIMPLIFY_POINTS):
+        stretch = slice(start, start + SIMPLIFY_POINTS + 1)
+        line = shapely.LineString(np.column_stack([x[stretch], lat[stretch]]))
+        coords = np.asarray(shapely.simplify(line, tolerance).coords)
+        parts.append(coords if not parts else coords[1:])
+    coords = np.concatenate(parts)
+    return coords[:, 0], coords[:, 1]
 
 
 def track_map(result: NavQAResult, theme: Theme = DEFAULT_THEME) -> Figure:

@@ -13,11 +13,13 @@ the repeat (TIME_SEQUENCE).
 """
 
 import re
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta
+from functools import partial
 from itertools import groupby
 
 from nav_qa_processing.formats import gga_zda, timestamped_gga
-from nav_qa_processing.formats.gga_zda import Result
+from nav_qa_processing.formats.gga_zda import Fixes, Result
 
 # A device ID, then the logger's year:day-of-year:hh:mm:ss.ssss, then whitespace
 _DOY = re.compile(r"\s*\S+\s+(\d{4}):(\d{3}):(\d\d):(\d\d):(\d\d(?:\.\d*)?)\s")
@@ -41,24 +43,26 @@ def doy_time(line: str) -> tuple[date, int] | None:
 _spans = gga_zda.SpanCache()  # whether a file has a valid ZDA, as its span found
 
 
-def _has_zda(lines: list[str]) -> bool:
-    kept = _spans.take(lines)
+def _has_zda(name: str, lines: list[str]) -> bool:
+    kept = _spans.take(name, lines)
     return gga_zda.span(lines) is not None if kept is None else kept
 
 
-def span(lines: list[str]) -> tuple[datetime, datetime] | None:
+def span(lines: list[str], name: str = "") -> tuple[datetime, datetime] | None:
     """A file's first and last ZDA, or without one its first and last logger timestamps"""
     zda_span = gga_zda.span(lines)
-    _spans.keep(lines, zda_span is not None)
+    _spans.keep(name, lines, zda_span is not None)
     return zda_span or timestamped_gga.span(lines, stamp=doy_time)
 
 
-def read(files: list[tuple[str, list[str]]]) -> Result:
-    """Dated GGA fixes from `files`, each (name, lines), in the order given"""
-    merged = Result([], [], {}, {})
-    for has_zda, run in groupby(files, key=lambda file: _has_zda(file[1])):
-        run = list(run)
-        part = gga_zda.read(run) if has_zda else timestamped_gga.read(run, stamp=doy_time)
+def read(files: Iterable[tuple[str, list[str]]]) -> Result:
+    """Dated GGA fixes from `files`, each (name, lines), in the order given, one file at a
+    time
+    """
+    merged = Result(Fixes(), [], {}, {})
+    for has_zda, run in groupby(files, key=lambda file: _has_zda(*file)):
+        read = gga_zda.read if has_zda else partial(timestamped_gga.read, stamp=doy_time)
+        part = read(run)
         merged.fixes += part.fixes
         merged.errors += part.errors
         merged.rejected_checksums |= part.rejected_checksums

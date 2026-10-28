@@ -17,13 +17,14 @@ skipped (`rawnav` reports it unread); a GGA without a parseable time is skipped.
 """
 
 import re
+from collections.abc import Iterable
 from datetime import date, datetime
 from pathlib import PurePath
 
 from nav_qa_processing.formats.gga_zda import (
     FAILED_CHECKSUM,
     NO_TIME,
-    DatedFix,
+    Fixes,
     Result,
     SpanCache,
     count_skipped,
@@ -54,12 +55,12 @@ def name_time(name: str) -> tuple[date, int] | None:
     return None
 
 
-def _dated(name: str, lines: list[str]) -> tuple[list[DatedFix], int, int]:
+def _dated(name: str, lines: list[str]) -> tuple[Fixes, int, int, int]:
     """A file's fixes dated from its name's stamp, the GGAs without a time, and the GGAs that
     failed their checksum
     """
     stamp = name_time(name)
-    fixes: list[DatedFix] = []
+    fixes = Fixes()
     timeless = rejected = cut = 0
     for number, text in sentences(lines):
         sentence = parse_sentence(text)
@@ -74,11 +75,11 @@ def _dated(name: str, lines: list[str]) -> tuple[list[DatedFix], int, int]:
         if gga.time is None:
             timeless += 1
             continue
-        fix = DatedFix(gga, name, number)
+        day = None
         if stamp is not None:
-            fix.day = date_from(*stamp, gga.time.ns)
-            stamp = (fix.day, gga.time.ns)
-        fixes.append(fix)
+            day = date_from(*stamp, gga.time.ns)
+            stamp = (day, gga.time.ns)
+        fixes.append(gga, name, number, day)
     return fixes, timeless, rejected, cut
 
 
@@ -87,16 +88,16 @@ def span(lines: list[str], name: str = "") -> tuple[datetime, datetime] | None:
     if name_time(name) is None:
         return None
     dated = _dated(name, lines)
-    _spans.keep(lines, dated)
+    _spans.keep(name, lines, dated)
     fixes = dated[0]
     return (fixes[0].moment, fixes[-1].moment) if fixes else None
 
 
-def read(files: list[tuple[str, list[str]]]) -> Result:
+def read(files: Iterable[tuple[str, list[str]]]) -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given"""
-    result = Result([], [], {}, {})
+    result = Result(Fixes(), [], {}, {})
     for name, lines in files:
-        fixes, timeless, rejected, cut = _spans.take(lines) or _dated(name, lines)
+        fixes, timeless, rejected, cut = _spans.take(name, lines) or _dated(name, lines)
         if name_time(name) is None:
             if fixes:
                 result.errors.append(
@@ -104,7 +105,7 @@ def read(files: list[tuple[str, list[str]]]) -> Result:
                     "dated, skipped"
                 )
             count_skipped(result.skipped, name, NO_NAME_STAMP, len(fixes))
-            fixes = []
+            fixes = Fixes()
         result.fixes += fixes
         if timeless:
             result.errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")

@@ -32,6 +32,9 @@ import numpy as np
 from pyproj import Geod
 
 _WGS84 = Geod(ellps="WGS84")
+# Points per pyproj call: a whole cruise at once (3.5 M fixes) takes a dozen temporary arrays
+# of its length; chunks of this many give the same values in bounded memory (#157)
+CHUNK = 500_000
 
 
 def epoch_seconds(times) -> np.ndarray:
@@ -53,6 +56,16 @@ def inverse(lon1, lat1, lon2, lat2) -> tuple[np.ndarray, np.ndarray]:
     lon1, lat1, lon2, lat2 = np.broadcast_arrays(
         *(np.asarray(v, dtype=float) for v in (lon1, lat1, lon2, lat2))
     )
+    if lon1.ndim != 1 or len(lon1) <= CHUNK:
+        return _inverse(lon1, lat1, lon2, lat2)
+    distance, azimuth = np.empty(len(lon1)), np.empty(len(lon1))
+    for start in range(0, len(lon1), CHUNK):
+        part = slice(start, start + CHUNK)
+        distance[part], azimuth[part] = _inverse(lon1[part], lat1[part], lon2[part], lat2[part])
+    return distance, azimuth
+
+
+def _inverse(lon1, lat1, lon2, lat2) -> tuple[np.ndarray, np.ndarray]:
     azimuth, _, distance = _WGS84.inv(lon1, lat1, lon2, lat2)
     distance = np.asarray(distance, dtype=float)
     azimuth = np.where(distance == 0, 0.0, np.mod(np.asarray(azimuth, dtype=float), 360.0))

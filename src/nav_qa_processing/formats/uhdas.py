@@ -16,13 +16,14 @@ like its GGA + ZDA parsers (`docs/navmanager-differences.md`).
 """
 
 import re
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import PurePath
 
 from nav_qa_processing.formats.gga_zda import (
     FAILED_CHECKSUM,
     NO_TIME,
-    DatedFix,
+    Fixes,
     Result,
     SpanCache,
     count_skipped,
@@ -62,13 +63,13 @@ def clock(fields: list[str], year: int | None) -> tuple[date, int] | None:
     return date(year, 1, 1) + timedelta(days=days), time_of_day
 
 
-def _dated(name: str, lines: list[str], kind: str) -> tuple[list[DatedFix], int, int, int]:
+def _dated(name: str, lines: list[str], kind: str) -> tuple[Fixes, int, int, int, int]:
     """A file's fixes, dated by the nearest clock sentence; with the GGAs without a time, those
     without a clock sentence in the file, and those that failed their checksum
     """
     year = name_year(name) if kind == "UNIXD" else None
-    fixes: list[DatedFix] = []
-    pending: list[DatedFix] = []  # GGAs before the file's first clock sentence
+    fixes = Fixes()
+    pending: list[tuple[GGA, int]] = []  # GGAs before the file's first clock sentence
     last = None
     timeless = rejected = cut = 0
     for number, text in sentences(lines):
@@ -82,8 +83,8 @@ def _dated(name: str, lines: list[str], kind: str) -> tuple[list[DatedFix], int,
             found = clock(sentence.fields, year)
             if found is not None:
                 last = found
-                for fix in pending:
-                    fix.day = date_from(*last, fix.gga.time.ns)
+                for gga, number in pending:
+                    fixes.append(gga, name, number, date_from(*last, gga.time.ns))
                 pending = []
             continue
         if sentence.kind != "GGA":
@@ -92,13 +93,11 @@ def _dated(name: str, lines: list[str], kind: str) -> tuple[list[DatedFix], int,
         if gga.time is None:
             timeless += 1
             continue
-        fix = DatedFix(gga, name, number)
         if last is None:
-            pending.append(fix)
+            pending.append((gga, number))
         else:
-            fix.day = date_from(*last, gga.time.ns)
-        fixes.append(fix)
-    return [f for f in fixes if f.day is not None], timeless, len(pending), rejected, cut
+            fixes.append(gga, name, number, date_from(*last, gga.time.ns))
+    return fixes, timeless, len(pending), rejected, cut
 
 
 def span(
@@ -106,18 +105,20 @@ def span(
 ) -> tuple[datetime, datetime] | None:
     """The first and last fix of a file, to select and order files by"""
     dated = _dated(name, lines, kind)
-    _spans.keep(lines, dated)
+    _spans.keep(name, lines, dated)
     fixes = dated[0]
     return (fixes[0].moment, fixes[-1].moment) if fixes else None
 
 
-def read(files: list[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
+def read(files: Iterable[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given, by `kind`'s clock
     sentences, PYRTM or UNIXD
     """
-    result = Result([], [], {}, {})
+    result = Result(Fixes(), [], {}, {})
     for name, lines in files:
-        fixes, timeless, unclocked, rejected, cut = _spans.take(lines) or _dated(name, lines, kind)
+        fixes, timeless, unclocked, rejected, cut = _spans.take(name, lines) or _dated(
+            name, lines, kind
+        )
         result.fixes += fixes
         if timeless:
             result.errors.append(f"{name}: {plural(timeless, 'GGA')} without a time, skipped")

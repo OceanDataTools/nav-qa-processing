@@ -31,15 +31,26 @@ Recorded in `errors`, not raised, counted per file:
 - with no valid ZDA at all, no GGA can be dated, and none is returned.
 """
 
+import math
 import re
-from bisect import bisect_left
-from collections.abc import Iterator
+from array import array
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import Self
 
+import numpy as np
 import pandas as pd
 
-from nav_qa_processing.formats.nmea import GGA, GLL, ZDA, has_checksum, parse_sentence, unquoted
+from nav_qa_processing.formats.nmea import (
+    GGA,
+    GLL,
+    ZDA,
+    TimeOfDay,
+    has_checksum,
+    parse_sentence,
+    unquoted,
+)
 from nav_qa_processing.readable import plural
 
 _DAY = 86_400 * 10**9  # [ns]
@@ -56,7 +67,7 @@ MAX_CONTINUATIONS = 3
 YEARS = range(1980, 2101)
 
 
-@dataclass
+@dataclass(slots=True)
 class DatedFix:
     gga: GGA
     source_file: str
@@ -74,22 +85,173 @@ class DatedFix:
         return datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=self.time_ns // 1000)
 
 
-class SpanCache:
-    """What a reader's `span` worked out for a file, kept for its `read` to reuse rather than
-    parse the file again (code review, 2026-10-18). Keyed by the file's lines list, which
-    `rawnav` passes to both; `read` clears it, so files `span` saw but `read` skipped don't
-    linger
+# Fixes' columns: array type code. Missing values are NaN, so quality and nsat are floats to
+# allow them. `day` is the date's ordinal, 0 undated; `talker` and `file` index Fixes' lists
+FIX_COLUMNS = {
+    "time_ns": "q",  # time of day [ns]
+    "time_decimals": "i",
+    "day": "i",
+    "lat": "d",
+    "lon": "d",
+    "lat_decimals": "i",
+    "lon_decimals": "i",
+    "quality": "d",
+    "nsat": "d",
+    "hdop": "d",
+    "hdop_decimals": "i",
+    "alt": "d",
+    "alt_decimals": "i",
+    "talker": "i",
+    "file": "i",
+    "line": "i",
+}
+_DTYPES = {"q": np.int64, "i": np.int32, "d": np.float64}
+
+
+class Fixes:
+    """A reader's dated fixes as columns (#157). Each fix's values are copied in and its GGA
+    dropped, so a fileset's fixes take about 90 bytes each, not about 660 as objects (a 20-day
+    cruise at 2 Hz, 3.5 M fixes, ran a 4 GB OpenVDM server out of memory). Iterating and
+    indexing give DatedFixes; `column` gives a column as a numpy array
     """
 
     def __init__(self):
-        self._kept: dict[int, tuple[list[str], object]] = {}
+        self._columns = {name: array(code) for name, code in FIX_COLUMNS.items()}
+        self._appends = tuple(column.append for column in self._columns.values())
+        self.files: list[str] = []  # source files, in order of their first fix
+        self.talkers: list[str] = []
+        self._indexes: dict[int, dict[str, int]] = {id(self.files): {}, id(self.talkers): {}}
 
-    def keep(self, lines: list[str], value: object) -> None:
-        self._kept[id(lines)] = (lines, value)
+    def _index(self, names: list[str], name: str) -> int:
+        indexes = self._indexes[id(names)]
+        if name not in indexes:
+            indexes[name] = len(names)
+            names.append(name)
+        return indexes[name]
 
-    def take(self, lines: list[str]) -> object | None:
-        kept = self._kept.pop(id(lines), None)
-        return kept[1] if kept is not None and kept[0] is lines else None
+    def append(self, gga: GGA, source_file: str, line: int, day: date | None = None) -> None:
+        """A fix with a time of day, as a DatedFix would hold it"""
+        values = (
+            gga.time.ns,
+            gga.time.decimals,
+            day.toordinal() if day else 0,
+            _or_nan(gga.lat),
+            _or_nan(gga.lon),
+            gga.lat_decimals,
+            gga.lon_decimals,
+            _or_nan(gga.quality),
+            _or_nan(gga.nsat),
+            _or_nan(gga.hdop),
+            gga.hdop_decimals,
+            _or_nan(gga.alt),
+            gga.alt_decimals,
+            self._index(self.talkers, gga.talker),
+            self._index(self.files, source_file),
+            line,
+        )
+        for append, value in zip(self._appends, values, strict=True):
+            append(value)
+
+    def extend(self, other: "Fixes") -> None:
+        """other's fixes after these"""
+        remap = {
+            "file": np.array([self._index(self.files, n) for n in other.files], np.int32),
+            "talker": np.array([self._index(self.talkers, t) for t in other.talkers], np.int32),
+        }
+        for name, column in self._columns.items():
+            if name in remap:
+                column.frombytes(remap[name][other.column(name)].tobytes())
+            else:
+                column.extend(other._columns[name])
+
+    def __iadd__(self, other: "Fixes") -> Self:
+        self.extend(other)
+        return self
+
+    def set_days(self, days: np.ndarray) -> None:
+        """Every fix's date, as ordinals"""
+        self._columns["day"][:] = array("i", np.asarray(days, np.int32).tobytes())
+
+    def column(self, name: str) -> np.ndarray:
+        """A copy of a column (a view would stop the column growing)"""
+        column = self._columns[name]
+        return np.frombuffer(column, _DTYPES[column.typecode]).copy()
+
+    def drain(self) -> dict[str, np.ndarray]:
+        """Every column as a numpy array over the same memory, not a copy, with `day` and
+        `time_ns` made `time` [ns since 1970-01-01T00:00:00Z], leaving no fixes: the fixes
+        handed on without holding them twice
+        """
+        columns = {
+            name: np.frombuffer(column, _DTYPES[column.typecode])
+            for name, column in self._columns.items()
+        }
+        self.__init__()
+        days = columns.pop("day").astype(np.int64) - _EPOCH.toordinal()
+        columns["time"] = days * _DAY + columns.pop("time_ns")
+        return columns
+
+    def __len__(self) -> int:
+        return len(self._columns["line"])
+
+    def __getitem__(self, index: int) -> "DatedFix":
+        if not -len(self) <= index < len(self):
+            raise IndexError(index)
+        value = {name: column[index] for name, column in self._columns.items()}
+        missing = lambda v: None if math.isnan(v) else v
+        whole = lambda v: None if math.isnan(v) else int(v)
+        gga = GGA(
+            time=TimeOfDay(value["time_ns"], value["time_decimals"]),
+            lat=missing(value["lat"]),
+            lon=missing(value["lon"]),
+            lat_decimals=value["lat_decimals"],
+            lon_decimals=value["lon_decimals"],
+            quality=whole(value["quality"]),
+            nsat=whole(value["nsat"]),
+            hdop=missing(value["hdop"]),
+            hdop_decimals=value["hdop_decimals"],
+            alt=missing(value["alt"]),
+            alt_decimals=value["alt_decimals"],
+            talker=self.talkers[value["talker"]],
+        )
+        day = date.fromordinal(value["day"]) if value["day"] else None
+        return DatedFix(gga, self.files[value["file"]], value["line"], day)
+
+    def __iter__(self) -> Iterator["DatedFix"]:
+        return (self[i] for i in range(len(self)))
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Fixes | list):
+            return list(self) == list(other)
+        return NotImplemented
+
+    __hash__ = None
+
+
+def _or_nan(value: float | None) -> float:
+    return math.nan if value is None else value
+
+
+class SpanCache:
+    """What a reader's `span` worked out for a file, kept for its `read` to reuse rather than
+    parse the file again (code review, 2026-10-18). `rawnav` reads each file again for `read`
+    rather than keep every file's lines (#157), so it's keyed by the file's name, length and
+    first and last lines: a file of the same name elsewhere, or one a logger added to since,
+    is parsed again. `read` clears it, so files `span` saw but `read` skipped don't linger
+    """
+
+    def __init__(self):
+        self._kept: dict[tuple, object] = {}
+
+    @staticmethod
+    def _key(name: str, lines: list[str]) -> tuple:
+        return (name, len(lines), lines[0] if lines else "", lines[-1] if lines else "")
+
+    def keep(self, name: str, lines: list[str], value: object) -> None:
+        self._kept[self._key(name, lines)] = value
+
+    def take(self, name: str, lines: list[str]) -> object | None:
+        return self._kept.pop(self._key(name, lines), None)
 
     def clear(self) -> None:
         self._kept.clear()
@@ -119,7 +281,7 @@ def report_cut_short(errors: list[str], skipped: dict, name: str, count: int) ->
 
 @dataclass
 class Result:
-    fixes: list[DatedFix]
+    fixes: Fixes
     errors: list[str]  # "<file>: <message>"
     rejected_checksums: dict[str, int]  # GGA and ZDA sentences, per file
     # Sentences skipped, per file and reason (the reasons above), checksums included
@@ -141,10 +303,10 @@ def _zda_day(zda: ZDA) -> date | None:
         return None
 
 
-def _apart(a_ns: int, b_ns: int) -> int:
-    """How far apart two times of day are [ns], across midnight"""
-    difference = abs(a_ns - b_ns) % _DAY
-    return min(difference, _DAY - difference)
+def _apart(a_ns: np.ndarray, b_ns: np.ndarray) -> np.ndarray:
+    """How far apart times of day are [ns], across midnight"""
+    difference = np.abs(a_ns - b_ns) % _DAY
+    return np.minimum(difference, _DAY - difference)
 
 
 def date_from(zda_day: date, zda_ns: int, gga_ns: int) -> date:
@@ -210,15 +372,17 @@ def span(lines: list[str]) -> tuple[datetime, datetime] | None:
     return (times[0], times[-1]) if times else None
 
 
-def read(files: list[tuple[str, list[str]]], kind: str = "GGA") -> Result:
+def read(files: Iterable[tuple[str, list[str]]], kind: str = "GGA") -> Result:
     """Dated fixes from `files`, each (name, lines), in the order given: from GGA sentences, or
-    with `kind` GLL from GLL (nav27, without satellites, HDOP or altitude)
+    with `kind` GLL from GLL (nav27, without satellites, HDOP or altitude). `files` is read
+    once, one file at a time
     """
     reason = lambda text: text.replace("GGA", kind)
-    fixes: list[DatedFix] = []
-    fix_positions: list[int] = []
-    zdas: list[tuple[date, int]] = []  # (date, time of day [ns])
-    zda_positions: list[int] = []
+    fixes = Fixes()
+    fix_positions = array("q")
+    zda_days = array("i")  # ordinals
+    zda_times = array("q")  # time of day [ns]
+    zda_positions = array("q")
     errors: list[str] = []
     rejected: dict[str, int] = {}
     skipped: dict[str, dict[str, int]] = {}
@@ -245,7 +409,7 @@ def read(files: list[tuple[str, list[str]]], kind: str = "GGA") -> Result:
                     if gga.time is None:
                         timeless += 1
                         continue
-                    fixes.append(DatedFix(gga, name, number))
+                    fixes.append(gga, name, number)
                     fix_positions.append(position)
                 case "ZDA":
                     zda = ZDA.from_fields(sentence.fields)
@@ -253,7 +417,8 @@ def read(files: list[tuple[str, list[str]]], kind: str = "GGA") -> Result:
                     if day is None or zda.time is None:
                         undated += 1
                         continue
-                    zdas.append((day, zda.time.ns))
+                    zda_days.append(day.toordinal())
+                    zda_times.append(zda.time.ns)
                     zda_positions.append(position)
         if timeless:
             errors.append(f"{name}: {plural(timeless, kind)} without a time, skipped")
@@ -264,17 +429,43 @@ def read(files: list[tuple[str, list[str]]], kind: str = "GGA") -> Result:
         count_skipped(skipped, name, FAILED_CHECKSUM, rejected.get(name, 0))
         report_cut_short(errors, skipped, name, cut)
 
-    if not zdas:
+    if not zda_positions:
         if fixes:
             errors.append(f"no ZDA in any file: {len(fixes)} {kind} fixes can't be dated")
-        for fix in fixes:
-            count_skipped(skipped, fix.source_file, reason(NO_ZDA_TO_DATE_IT), 1)
-        return Result([], errors, rejected, skipped)
-    for fix, at in zip(fixes, fix_positions, strict=True):
-        following = bisect_left(zda_positions, at)
-        candidates = [i for i in (following, following - 1) if 0 <= i < len(zdas)]
-        # the one closer in time of day, across midnight; a tie goes to the following ZDA
-        nearest = min(candidates, key=lambda i: _apart(zdas[i][1], fix.gga.time.ns))
-        zda_day, zda_ns = zdas[nearest]
-        fix.day = date_from(zda_day, zda_ns, fix.gga.time.ns)
+        per_file = np.bincount(fixes.column("file"), minlength=len(fixes.files))
+        for name, count in zip(fixes.files, per_file, strict=True):
+            count_skipped(skipped, name, reason(NO_ZDA_TO_DATE_IT), int(count))
+        return Result(Fixes(), errors, rejected, skipped)
+    fixes.set_days(
+        _nearest_zda_days(
+            np.frombuffer(fix_positions, np.int64),
+            fixes.column("time_ns"),
+            np.frombuffer(zda_positions, np.int64),
+            np.frombuffer(zda_days, np.int32).astype(np.int64),
+            np.frombuffer(zda_times, np.int64),
+        )
+    )
     return Result(fixes, errors, rejected, skipped)
+
+
+def _nearest_zda_days(
+    fix_positions: np.ndarray,
+    fix_times: np.ndarray,
+    zda_positions: np.ndarray,
+    zda_days: np.ndarray,
+    zda_times: np.ndarray,
+) -> np.ndarray:
+    """Each fix's date (ordinal) from the ZDA either side of it in the stream closer in time of
+    day, across midnight, a tie going to the following ZDA; dated as `date_from` does
+    """
+    following = np.searchsorted(zda_positions, fix_positions, side="left")
+    after = np.minimum(following, len(zda_positions) - 1)
+    before = np.maximum(following - 1, 0)
+    never = np.iinfo(np.int64).max
+    gap_after = np.where(
+        following < len(zda_positions), _apart(zda_times[after], fix_times), never
+    )
+    gap_before = np.where(following > 0, _apart(zda_times[before], fix_times), never)
+    nearest = np.where(gap_before < gap_after, before, after)
+    difference = fix_times - zda_times[nearest]
+    return zda_days[nearest] - (difference > _HALF_DAY) + (difference < -_HALF_DAY)

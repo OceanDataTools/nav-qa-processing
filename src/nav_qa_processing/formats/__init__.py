@@ -6,7 +6,7 @@ reader can be processed; the reader turns a fileset's lines into dated fixes. Fo
 share a reader (most are "some line prefix plus NMEA GGA + ZDA") differ only in their spec.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
@@ -24,12 +24,14 @@ from nav_qa_processing.formats import (
 
 @dataclass(frozen=True)
 class Reader:
-    """How a format's files are read: `read` dates their fixes; `span` is a file's first and
-    last time, by which files are selected and ordered (None: the file can't be dated). A
-    `named` reader's span also takes the file's name (nav22's date is in it)
+    """How a format's files are read: `read` dates their fixes, reading the files it's given
+    once, one at a time; `span` is a file's first and last time, by which files are selected
+    and ordered (None: the file can't be dated). A `named` reader's span also takes the file's
+    name: nav22's date is in it, and the readers that keep what `span` found for `read` (nav12,
+    nav31, uhdas) find it by name (#157)
     """
 
-    read: Callable[[list[tuple[str, list[str]]]], gga_zda.Result]
+    read: Callable[[Iterable[tuple[str, list[str]]]], gga_zda.Result]
     span: Callable[..., tuple[datetime, datetime] | None]
     dated_by: str  # what dates a file, for "no …, skipped"
     sentences: str  # the sentences read, for checksum failures
@@ -48,7 +50,9 @@ SCS_GGA = Reader(
     "logger timestamp",
     "GGA",
 )
-ZDA_OR_STAMP = Reader(zda_or_stamp.read, zda_or_stamp.span, "ZDA or logger timestamp", "GGA/ZDA")
+ZDA_OR_STAMP = Reader(
+    zda_or_stamp.read, zda_or_stamp.span, "ZDA or logger timestamp", "GGA/ZDA", named=True
+)
 OSU_GGA = Reader(
     partial(timestamped_gga.read, stamp=timestamped_gga.osu_time),
     partial(timestamped_gga.span, stamp=timestamped_gga.osu_time),
@@ -65,7 +69,7 @@ SCS_RMC = Reader(
     "logger timestamp",
     "RMC",
 )
-PYRTM_GGA = Reader(uhdas.read, uhdas.span, "PYRTM sentence", "GGA")
+PYRTM_GGA = Reader(uhdas.read, uhdas.span, "PYRTM sentence", "GGA", named=True)
 UNIXD_GGA = Reader(
     partial(uhdas.read, kind="UNIXD"),
     partial(uhdas.span, kind="UNIXD"),

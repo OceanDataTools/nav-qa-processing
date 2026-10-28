@@ -401,14 +401,16 @@ def acceleration_at_fixes(t, lon, lat, time_base, signed: bool = False) -> np.nd
         return acceleration
     before = np.searchsorted(t, t - time_base + 1e-9, side="right") - 1  # last fix ≥ base earlier
     after = np.searchsorted(t, t + time_base - 1e-9)  # first fix ≥ base later
-    k = np.flatnonzero((before >= 0) & (after < n))
-    if not len(k):
-        return acceleration
-    i, j = before[k], after[k]
-    v_in = _velocity(t[i], lon[i], lat[i], t[k], lon[k], lat[k])
-    v_out = _velocity(t[k], lon[k], lat[k], t[j], lon[j], lat[j])
-    change = np.hypot(*v_out) - np.hypot(*v_in) if signed else np.hypot(*(v_out - v_in))
-    acceleration[k] = change / (0.5 * (t[j] - t[i]))
+    has_both = np.flatnonzero((before >= 0) & (after < n))
+    # A chunk of fixes at a time: the same values, without a dozen temporaries of the whole
+    # cruise's length at once (#157)
+    for start in range(0, len(has_both), geodesy.CHUNK):
+        k = has_both[start : start + geodesy.CHUNK]
+        i, j = before[k], after[k]
+        v_in = _velocity(t[i], lon[i], lat[i], t[k], lon[k], lat[k])
+        v_out = _velocity(t[k], lon[k], lat[k], t[j], lon[j], lat[j])
+        change = np.hypot(*v_out) - np.hypot(*v_in) if signed else np.hypot(*(v_out - v_in))
+        acceleration[k] = change / (0.5 * (t[j] - t[i]))
     return acceleration
 
 

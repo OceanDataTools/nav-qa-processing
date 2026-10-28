@@ -5,12 +5,18 @@ overlaps the [start, end] window, and files are read in order of their span's st
 is the format's (`formats.Reader.span`): first to last ZDA for GGA + ZDA formats, first to last
 logger timestamp for nav33. Records are not clipped to the window (NavManager doesn't either).
 Files without a span are listed in `errors` and skipped.
+
+Memory (#157): a file's lines are read to find its span and dropped, and the selected files are
+read again, one at a time, as the reader goes; the reader keeps its fixes as columns
+(`gga_zda.Fixes`). A run's memory is then about the largest file's lines plus about 90 bytes
+per fix, not every file's lines plus about 660 bytes per fix as Python objects (a 20-day cruise
+at 2 Hz ran a 4 GB OpenVDM server out of memory).
 """
 
 import bz2
 import gzip
 import re
-from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -80,7 +86,7 @@ def read_fileset(
     """RawNav from the raw files `paths` in format `format_id`"""
     spec = formats.get(format_id)
     errors: list[str] = []
-    selected: list[tuple[datetime, str, list[str]]] = []
+    selected: list[tuple[datetime, str, Path]] = []
     skipped: dict[str, tuple[datetime, datetime]] = {}
     unread: dict[str, str] = {}
     for path in sorted(paths, key=lambda p: _natural_key(p.name)):
@@ -97,45 +103,42 @@ def read_fileset(
         elif span[1] < start or span[0] > end:
             skipped[path.name] = span
         else:
-            selected.append((span[0], path.name, lines))
+            selected.append((span[0], path.name, path))
     selected.sort(key=lambda s: s[0])
 
-    result = spec.reader.read([(name, lines) for _, name, lines in selected])
+    result = spec.reader.read(_read_again(selected, errors, unread))
     errors += result.errors
     errors += [
         f"{name}: {count} {spec.reader.sentences} sentences failed their checksum"
         for name, count in result.rejected_checksums.items()
     ]
 
-    fixes = result.fixes
-    ggas = [f.gga for f in fixes]
+    # Each column is taken from the reader's as the frame is built, so they're held once
+    names, talker_ids = result.fixes.files, result.fixes.talkers
+    columns = result.fixes.drain()
+    decimals = {"time": _most(columns.pop("time_decimals"))}
+    for name in ("lon", "lat", "hdop", "alt"):
+        decimals[name] = _most(columns.pop(f"{name}_decimals")[~np.isnan(columns[name])])
+    counts = np.bincount(columns.pop("talker"), minlength=len(talker_ids))
+    talkers = {t: int(n) for t, n in sorted(zip(talker_ids, counts, strict=True)) if t and n}
+    files = pd.Categorical.from_codes(columns.pop("file"), categories=names)
     frame = pd.DataFrame(
         {
-            "time": pd.to_datetime(
-                np.array([f.time_ns for f in fixes], dtype=np.int64), unit="ns", utc=True
-            ),
-            "lon": pd.array([g.lon for g in ggas], dtype="Float64").astype(float),
-            "lat": pd.array([g.lat for g in ggas], dtype="Float64").astype(float),
-            "quality": pd.array([g.quality for g in ggas], dtype="Int64"),
-            "nsat": pd.array([g.nsat for g in ggas], dtype="Int64"),
-            "hdop": pd.array([g.hdop for g in ggas], dtype="Float64").astype(float),
-            "alt": pd.array([g.alt for g in ggas], dtype="Float64").astype(float),
-            "source_file": pd.Categorical([f.source_file for f in fixes]),
-            "line": np.array([f.line for f in fixes], dtype=np.int64),
+            "time": pd.to_datetime(columns.pop("time"), unit="ns", utc=True),
+            "lon": columns.pop("lon"),
+            "lat": columns.pop("lat"),
+            "quality": pd.array(columns.pop("quality"), dtype="Float64").astype("Int64"),
+            "nsat": pd.array(columns.pop("nsat"), dtype="Float64").astype("Int64"),
+            "hdop": columns.pop("hdop"),
+            "alt": columns.pop("alt"),
+            "source_file": files.reorder_categories(sorted(names)),
+            "line": columns.pop("line").astype(np.int64),
         }
     )
-    decimals = {
-        "time": max((g.time.decimals for g in ggas), default=0),
-        "lon": max((g.lon_decimals for g in ggas if g.lon is not None), default=0),
-        "lat": max((g.lat_decimals for g in ggas if g.lat is not None), default=0),
-        "hdop": max((g.hdop_decimals for g in ggas if g.hdop is not None), default=0),
-        "alt": max((g.alt_decimals for g in ggas if g.alt is not None), default=0),
-    }
-    talkers = dict(sorted(Counter(g.talker for g in ggas if g.talker).items()))
     return RawNav(
         frame,
         decimals,
-        [name for _, name, _ in selected],
+        [name for _, name, _ in selected if name not in unread],
         list(skipped),
         errors,
         talkers=talkers,
@@ -143,3 +146,23 @@ def read_fileset(
         unread_files=unread,
         skipped_spans=skipped,
     )
+
+
+def _read_again(
+    selected: list[tuple[datetime, str, Path]], errors: list[str], unread: dict[str, str]
+) -> Iterator[tuple[str, list[str]]]:
+    """Each selected file's (name, lines), read as the reader comes to it, so only one file's
+    lines are held at a time; one that can't be read now is recorded and passed over
+    """
+    for _, name, path in selected:
+        try:
+            lines = read_lines(path)
+        except OSError as error:
+            errors.append(f"{name}: {error}")
+            unread[name] = str(error)
+            continue
+        yield name, lines
+
+
+def _most(decimals: np.ndarray) -> int:
+    return int(decimals.max()) if len(decimals) else 0
