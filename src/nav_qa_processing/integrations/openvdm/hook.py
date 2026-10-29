@@ -22,6 +22,12 @@ the dashboard's unchecked positions. The area check is then n/a, since the exten
 With ``--no-set-extent``, without a worker key, or with OpenVDM before 2.17, the hook checks the
 fixes against ``cruiseExtent``, else the site TOML's ``[extent]``.
 
+Each run assesses the whole cruise so far: 20 days at 2 Hz (3.5 M fixes) takes minutes, longer
+than OpenVDM's 5-minute transfer interval, and OpenVDM runs its post hooks one at a time. With
+``--min-interval`` (e.g. ``6h``) the post-transfer hook skips a feed whose reports are newer than
+that (`written_within`); the same command, without it, as a ``preFinalizeCurrentCruise`` hook
+writes the final reports on the whole cruise, which OpenVDM waits for before finalizing.
+
 The OpenVDM API is read over HTTP, so this runs in its own environment, not OpenVDM's venv.
 Reading ``openvdm.yaml`` needs pyyaml, the ``openvdm`` extra.
 """
@@ -639,6 +645,30 @@ def _glob_pattern(files: str) -> re.Pattern:
             parts.append(re.escape(files[i]))
             i += 1
     return re.compile("".join(parts))
+
+
+# --min-interval's units [s]
+DURATION_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86_400}
+_DURATION = re.compile(r"(\d+(?:\.\d+)?)\s*([smhd])")
+
+
+def duration_seconds(text: str) -> float:
+    """A duration such as 90s, 30m, 6h or 1d, in seconds; ValueError for anything else"""
+    match = _DURATION.fullmatch(text.strip().lower())
+    if match is None:
+        raise ValueError(f"{text!r} isn't a duration: a number then s, m, h or d, e.g. 6h")
+    return float(match.group(1)) * DURATION_UNITS[match.group(2)]
+
+
+def written_within(path: Path, seconds: float, now: datetime | None = None) -> datetime | None:
+    """When `path` was last written, if it exists and that's within `seconds` of `now`; else
+    None. The hook's --min-interval: a long cruise's reports are rebuilt at most that often
+    """
+    if not path.exists():
+        return None
+    written = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+    age = ((now or datetime.now(UTC)) - written).total_seconds()
+    return written if age < seconds else None
 
 
 def has_nav_changes(changed: list[str], files: str) -> bool:

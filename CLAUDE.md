@@ -142,6 +142,9 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   feed (the `QAConfig`, directories, owner, extent and vessel sources, notes); the CLI loops
   over the transfer's feeds, primary first, and one feed's failure doesn't stop the others,
   `cruise_toml`, `has_nav_changes` (`--changed-files` against `[nav] files`),
+  `duration_seconds` and `written_within` (`--min-interval`: skip a feed whose reports are
+  newer; for long cruises, with the same command as a `preFinalizeCurrentCruise` hook for the
+  final reports, INSTALL.md),
   `queue_md5_update`, `chown_tree`, `set_cruise_extent` (#1: OpenVDM 2.17's `cruiseExtent`
   from `NavQAResult.track_extent`, with `workerApiKey`; `--no-set-extent` checks against it
   instead); pyyaml only in `load_openvdm_yaml`. The `openvdm` and

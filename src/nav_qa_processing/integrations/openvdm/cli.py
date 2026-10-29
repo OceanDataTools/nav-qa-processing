@@ -57,6 +57,17 @@ def _resolve_openvdm(args: argparse.Namespace, site=None, feeds=None):
     return runs, site_root, key if any(run.sets_extent for run in runs) else ""
 
 
+def _duration(text: str) -> str:
+    """--min-interval's value, checked as the arguments are parsed"""
+    from nav_qa_processing.integrations.openvdm.hook import duration_seconds
+
+    try:
+        duration_seconds(text)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
+    return text
+
+
 def _sources(run) -> str:
     return f"cruise extent from {run.extent_source}, vessel settings from {run.vessel_source}"
 
@@ -114,6 +125,15 @@ def _openvdm_feed(args: argparse.Namespace, run, site_root: str, key: str):
     if not run.fileset_dir.is_dir():
         print(f"{run.fileset_dir} doesn't exist yet; nothing to do")
         return None
+    if args.min_interval:
+        pdf = reports.report_paths(run.output_dir, run.config.stem)["pdf"]
+        written = openvdm.written_within(pdf, openvdm.duration_seconds(args.min_interval))
+        if written is not None:
+            print(
+                f"{run.config.stem}: its reports, from {written:%Y-%m-%d %H:%M} UTC, are newer "
+                f"than --min-interval {args.min_interval}; nothing to do"
+            )
+            return None
 
     print(f"{run.config.stem}: {run.fileset_dir} -> {run.output_dir} ({_sources(run)})")
     for note in run.notes:
@@ -316,6 +336,16 @@ def add_commands(commands) -> None:
         help="run the notebook and save its outputs (needs nbclient and ipykernel)",
     )
     add_no_products(hook)
+    hook.add_argument(
+        "--min-interval",
+        metavar="DURATION",
+        type=_duration,
+        help=(
+            "skip a feed whose reports are newer than this, e.g. 6h (s, m, h or d), so a long "
+            "cruise is reassessed at most this often; leave it out of a preFinalizeCurrentCruise "
+            "hook, which writes the final reports"
+        ),
+    )
     # OpenVDM shows the hook's failure message, so every error is one line (cli.main)
     hook.set_defaults(handler=_openvdm, every_error_one_line=True)
 

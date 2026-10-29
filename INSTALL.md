@@ -257,7 +257,31 @@ Optional arguments, one list item each: `--execute-notebook` saves the notebook 
 (an install without `--no-dev`); `--theme=/path/theme.toml` changes the reports' look;
 `--no-set-extent` leaves OpenVDM's cruise extent alone (below); `--no-products` leaves out the
 GeoCSV products, keeping the reports (bestres, a line per fix, is about 300 MB for 20 days at
-2 Hz, rewritten after every transfer).
+2 Hz, rewritten after every transfer); `--min-interval=6h` reassesses at most that often (below).
+
+**Long cruises.** Each run assesses the whole cruise so far. OpenVDM transfers every 5 minutes
+by default and runs its post hooks one at a time, so once a run takes longer than that (20 days
+at 2 Hz, 3.5 M fixes, takes minutes) runs queue behind each other and every other post hook.
+For a long or fast-logging cruise:
+- give the post-transfer hook `--min-interval`, e.g. `"--min-interval=6h"`: it skips a feed
+  whose reports are newer than that, so the GNSS is still checked during the cruise;
+- and add the same command as a `preFinalizeCurrentCruise` hook, for the final reports on the
+  whole cruise. OpenVDM waits for it before finalizing, so the reports are in the extra directory
+  and the MD5 summary of the finalized cruise. `{collectionSystemTransferName}` has no value in
+  that hook (OpenVDM skips a command that uses it), so name the transfer, and leave out
+  `--changed-files` and `--min-interval`:
+
+```yaml
+    preFinalizeCurrentCruise:
+        commandList:
+        - name: "Navigation QA"
+          command:
+          - /opt/nav-qa-processing/.venv/bin/nav-qa-processing
+          - openvdm
+          - OpenRVDAS
+          - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
+          - "--site-config=/opt/nav-qa-processing/configs/site.toml"
+```
 
 **The cruise extent.** From OpenVDM 2.17 the hook sets the cruise's bounding box
 (`cruiseExtent`) to the fixes that pass QC, so a jump to 0, 0 doesn't stretch it. That needs
