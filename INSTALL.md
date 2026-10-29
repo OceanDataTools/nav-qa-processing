@@ -91,18 +91,28 @@ fixes) takes about 1.4 GB; 30 days at 10 Hz (26 M fixes), about 10 GB.
 ### 1. Install
 
 Install it where OpenVDM's workers can run it, in its own environment (not OpenVDM's venv), with
-the `openvdm` extra (pyyaml, to read `openvdm.yaml`). Put uv where every user finds it:
+the `openvdm` extra (pyyaml, to read `openvdm.yaml`). Do it as OpenVDM's user (`OPENVDM_USER`,
+`survey` by default):
+1. Put uv where every user finds it.
+2. Clone the repository in that user's home.
+3. Copy the clone to `/opt` and give the copy to that user, as OpenVDM's installer does with
+   `/opt/openvdm`.
+4. Install the packages in `/opt/nav-qa-processing`.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sudo env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
-sudo mkdir -p /opt/nav-qa-processing && sudo chown "$USER": /opt/nav-qa-processing
-git clone https://github.com/OceanDataTools/nav-qa-processing.git /opt/nav-qa-processing
+cd ~
+git clone https://github.com/OceanDataTools/nav-qa-processing.git
+sudo cp -r ~/nav-qa-processing /opt/nav-qa-processing
+sudo chown -R "$USER": /opt/nav-qa-processing
 cd /opt/nav-qa-processing
 uv sync --no-dev --extra openvdm --no-managed-python   # the system Python 3.11+
 ```
 
-On **Ubuntu 22.04**, whose Python is too old, install a Python with uv, kept beside the install
-so it doesn't depend on your home directory:
+The copy is a git checkout, so [Updating](#updating) pulls into it directly.
+
+On **Ubuntu 22.04**, whose Python is too old, run these in place of that `uv sync`. They install
+a Python with uv, kept beside the install so it doesn't depend on your home directory:
 
 ```bash
 export UV_PYTHON_INSTALL_DIR=/opt/nav-qa-processing/python
