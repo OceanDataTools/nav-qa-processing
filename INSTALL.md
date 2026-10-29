@@ -95,7 +95,7 @@ the `openvdm` extra (pyyaml, to read `openvdm.yaml`). Do it as OpenVDM's user (`
 `survey` by default):
 1. Install uv for that user.
 2. Clone the repository in that user's home.
-3. Copy the clone to `/opt` and give the copy to that user, as OpenVDM's installer does with
+3. Move the clone to `/opt`. It stays that user's, as OpenVDM's installer leaves
    `/opt/openvdm`.
 4. Install the packages in `/opt/nav-qa-processing`.
 
@@ -104,13 +104,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"   # uv in this shell
 cd ~
 git clone https://github.com/OceanDataTools/nav-qa-processing.git
-sudo cp -r ~/nav-qa-processing /opt/nav-qa-processing
-sudo chown -R "$USER": /opt/nav-qa-processing
+sudo mv ~/nav-qa-processing /opt/
 cd /opt/nav-qa-processing
 uv sync --no-dev --extra openvdm --no-managed-python   # the system Python 3.11+
 ```
 
-The copy is a git checkout, so [Updating](#updating) pulls into it directly. The hook runs the
+It's a git checkout, so [Updating](#updating) pulls into it directly. The hook runs the
 venv's own Python, `.venv/bin/nav-qa-processing`, never uv, so OpenVDM's workers run it as root
 (or any user) without uv on their `PATH`.
 
