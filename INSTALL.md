@@ -336,6 +336,11 @@ message.
 The README's [OpenVDM section](README.md#openvdm) describes everything the hook does: the
 checksums it checks, the MD5 summary it updates, and how several sensors are handled.
 
+**An earlier cruise.** OpenVDM's API gives only the current cruise. For an earlier one, add
+`--cruise-config` with the `ovdmConfig.json` OpenVDM wrote into that cruise's directory, e.g.
+`--cruise-config /data/CruiseData/AT50-12/ovdmConfig.json`: the hook rebuilds that cruise's
+reports in its extra directory ([README](README.md#a-past-cruise)).
+
 ## Check the install
 
 ```bash

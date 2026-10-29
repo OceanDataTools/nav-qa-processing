@@ -591,8 +591,8 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
   directories and the MD5 summary.
 - **The vessel's name and contact:** the site TOML's, or where it leaves them blank, from
   OpenVDM 2.17 on, the `vessel` block of `openvdm.yaml`.
-  With `--site-root` instead of `--openvdm-config`, they come from the copy in the cruise's
-  `ovdmConfig.json`.
+  With `--cruise-config`, they come from the copy in the cruise's `ovdmConfig.json`, the vessel
+  the cruise was on.
 - **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the primary
   GNSS feed, or their format, so the ship's site TOML says (`[nav] format` and `files`). A ship
   logging several position sensors lists each as a `[[nav]]` table.
@@ -666,7 +666,7 @@ The hook:
   dashboard's unchecked positions: add `--no-set-extent` to its hook so it doesn't overwrite
   this one (the same option name in both; OpenVDM 2.17, openvdm#470);
 - **otherwise checks the fixes against an expected area:** with `--no-set-extent`, without a
-  `workerApiKey` (or with `--site-root`), or before OpenVDM 2.17, it checks them against
+  `workerApiKey`, with `--cruise-config`, or before OpenVDM 2.17, it checks them against
   OpenVDM's `cruiseExtent`, else the site TOML's `[extent]`; without either, the area check is
   n/a;
 - with several feeds, sets `cruiseExtent` from the primary only, and checks the others against
@@ -679,7 +679,7 @@ The hook:
 #### `openvdm`
 
 ```text
-nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
+nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML] [--cruise-config OVDM_CONFIG_JSON]
                           [--site-config SITE_TOML] [--no-set-extent]
                           [--changed-files FILES] [--theme THEME_TOML]
                           [--execute-notebook] [--no-products] [--min-interval DURATION]
@@ -687,15 +687,15 @@ nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
 ```
 
 The post-transfer hook: assesses the collection system transfer's nav files for OpenVDM's
-current cruise, and writes the products and reports into an OpenVDM extra directory, replacing
-earlier ones. Installed `openvdm.yaml` files call it, so its arguments keep their names; they're
+current cruise, or with `--cruise-config` any cruise, and writes the products and reports into
+an OpenVDM extra directory, replacing earlier ones. Installed `openvdm.yaml` files call it, so its arguments keep their names; they're
 named as in sbe-qa-processing's hook.
 
 | Argument | Default | Description |
 |---|---|---|
 | `TRANSFER` | required | The collection system transfer's name; in a hook, `{collectionSystemTransferName}` |
-| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml` | OpenVDM's settings: its web root (`siteRoot`) and, from OpenVDM 2.17, the `vessel` block. Needs the `openvdm` extra |
-| `--site-root URL` | none | OpenVDM's web root, instead of `--openvdm-config`. The vessel block then comes from the cruise's `ovdmConfig.json` |
+| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml` | OpenVDM's settings: its web root (`siteRoot`), the `workerApiKey` and, from OpenVDM 2.17, the `vessel` block. Needs the `openvdm` extra. With `--cruise-config`, only where OpenVDM is installed, for the MD5 summary |
+| `--cruise-config OVDM_CONFIG_JSON` | none | A cruise's `ovdmConfig.json`, which OpenVDM writes into each cruise's directory: assess that cruise, past or current, without OpenVDM's API. [A past cruise](#a-past-cruise) says how |
 | `--site-config SITE_TOML` | none | The ship's [site TOML](#site-toml); the hook needs its `[nav] format` |
 | `--no-set-extent` | off | Don't set OpenVDM's `cruiseExtent` from the fixes that pass QC; check the fixes against it (else the site TOML's `[extent]`) instead |
 | `--changed-files FILES` | none | OpenVDM's `{newFiles}` and `{updatedFiles}`; repeatable. When given, the QA runs only if they include nav files (`[nav] files`, or any file without it) |
@@ -707,14 +707,16 @@ named as in sbe-qa-processing's hook.
 #### `config-from-openvdm`
 
 ```text
-nav-qa-processing config-from-openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
+nav-qa-processing config-from-openvdm [--openvdm-config OPENVDM_YAML]
+                                      [--cruise-config OVDM_CONFIG_JSON]
                                       [--site-config SITE_TOML] [--no-set-extent]
                                       [-o OUTPUT_DIR] [--force] TRANSFER
 ```
 
-Builds the config TOML the hook would use, from OpenVDM's current cruise and the site TOML,
-without running the QA, and reports what's missing or assumed. `TRANSFER`, `--openvdm-config`,
-`--site-root`, `--site-config` and `--no-set-extent` are as for `openvdm`: when the hook would
+Builds the config TOML the hook would use, from OpenVDM's current cruise (or with
+`--cruise-config` any cruise) and the site TOML, without running the QA, and reports what's
+missing or assumed. `TRANSFER`, `--openvdm-config`, `--cruise-config`, `--site-config` and
+`--no-set-extent` are as for `openvdm`: when the hook would
 set the cruise extent, the config has no expected area. To review it, or run the QA by hand:
 
 ```bash
@@ -726,6 +728,38 @@ uv run nav-qa-processing run /path/to/cruise/OpenRVDAS -c configs/<CRUISE>.toml 
 |---|---|---|
 | `-o`, `--output OUTPUT_DIR` | `configs` | Directory for `<CRUISE_ID>.toml` (and `<CRUISE_ID>_<NAME>.toml` for each other feed of the transfer), or `-` for stdout with one feed |
 | `--force` | off | Replace an existing TOML |
+
+#### A past cruise
+
+OpenVDM's API knows only the current cruise, but OpenVDM writes each cruise's config into its
+directory as `ovdmConfig.json`: its ID, name, PI, location, dates and extent, the transfers' and
+extra directories' destinations, the MD5 summary's name, and the vessel it was on. Give it with
+`--cruise-config`, and the hook or `config-from-openvdm` take the cruise from it instead of the
+API, with the site TOML as for the current cruise:
+
+```bash
+# Rebuild a past cruise's reports in its NAV_QA extra directory, as the hook would have
+sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \
+    --cruise-config /data/CruiseData/AT50-12/ovdmConfig.json \
+    --site-config /opt/nav-qa-processing/configs/site.toml
+
+# Or keep it as a config TOML, and run the QA anywhere
+nav-qa-processing config-from-openvdm OpenRVDAS --site-config configs/site.toml \
+    --cruise-config /data/CruiseData/AT50-12/ovdmConfig.json -o configs   # configs/AT50-12.toml
+nav-qa-processing run /data/CruiseData/AT50-12/OpenRVDAS -c configs/AT50-12.toml -o output/AT50-12
+```
+
+- **The cruise's directory** is the JSON's, wherever the cruise now is: an archived or copied
+  cruise works, as long as its directory keeps the cruise's ID as its name, as OpenVDM names it.
+- **OpenVDM's cruise extent isn't set:** it's the current cruise's. The fixes are checked
+  against the JSON's extent.
+- **The reports go into the cruise's MD5 summary** where OpenVDM is installed and still has the
+  cruise in its warehouse: they're given to OpenVDM by their full paths, so it refuses files
+  outside its directory for the cruise. Otherwise, or without OpenVDM, the hook warns that the
+  reports aren't in the summary and still succeeds.
+- **The reports belong** to the owner of the cruise's directory, run as root.
+- A cruise the hook ran on also has `<CRUISE>_config.toml` beside its reports, the config as of
+  that run, which `run -c` takes as it is.
 
 #### `site-config`
 
