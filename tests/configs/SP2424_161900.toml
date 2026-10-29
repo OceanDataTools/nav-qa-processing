@@ -39,6 +39,10 @@ model_name = "BX992"
 [nav]
 format = "nav29"
 
+[nav.device]
+make = "com.trimble"
+model = "BX992"
+
 [provenance]
 distro_type = "post-cruise"
 contact_institution = "Rolling Deck to Repository (R2R)"

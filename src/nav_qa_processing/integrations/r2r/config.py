@@ -35,7 +35,9 @@ TOMLs")::
     model_name = "BX992"
 
 R2R's device gives the core config's receiver (`nav_device`: make, model and location) unless
-the cruise TOML has a [nav.device] of its own.
+the cruise TOML has a [nav.device] of its own. `config_to_toml` writes the receiver as
+[nav.device] either way, so the core `run`, which leaves R2R's tables to it, reports the same
+receiver from the same TOML.
 
     [provenance]
     distro_type = "post-cruise"
@@ -212,8 +214,8 @@ def config_to_toml(config: CruiseConfig) -> str:
     nav = {k: v for k, v in nav.items() if v}
     if nav:
         lines += ["", "[nav]"] + [f"{k} = {toml_value(v)}" for k, v in nav.items()]
-    if config.nav_device != nav_device_from_r2r(config.device):  # not just R2R's
-        lines += nav_device_toml(config.nav_device)
+    # Always, R2R's or not: the core `run` reads [nav.device], never R2R's [fileset.device]
+    lines += nav_device_toml(config.nav_device)
     provenance = {
         k: getattr(config, k)
         for k in ("distro_type", "contact_institution", "contact_institution_id", "contact_email")
