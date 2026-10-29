@@ -743,7 +743,10 @@ Comparisons with R2R parse the numbers and map the units.
   - a timeline of gaps and flags by reason,
   - histograms of the sampling interval, satellite count, HDOP and quality indicator.
 - **PDF:** the title block, an integration's pages (R2R's certificate), the checks, statistics
-  and products, QC, then the figures.
+  (over the fixes that pass QC) and products, QC, then the figures. No forced page breaks
+  (2026-10-29): each section, its heading kept with its table or figure, starts a new page
+  only when it doesn't fit; speed and acceleration and the histograms are capped at 4.4 in so
+  they share a page.
 - **Notebook:** re-runs `run_qa` step by step.
 - **OpenVDM hook** (`integrations/openvdm`, #49): runs after the transfer of the collection
   system that logs the GNSS (named by the hook's `TRANSFER`; the site TOML's `[nav]` picks the
@@ -762,7 +765,8 @@ Comparisons with R2R parse the numbers and map the units.
   key, or before 2.17) it checks against `cruiseExtent`, else the site TOML's `[extent]`.
 - **R2R certificate** (`integrations/r2r/certificate.py`): the certificate's PDF page (R2R's
   catalog facts, the rating banner in the theme's G/Y/R color, the six tests with results and
-  bounds as the XML writes them, the infos) and notebook cells (`run_r2r_tests`, the tables,
+  bounds as the XML writes them, the infos, and R2R's ranges over every record before QC, which
+  the core statistics leave out: theirs are over the fixes that pass QC) and notebook cells (`run_r2r_tests`, the tables,
   `write_qa_xml`), added through core's `front` pages and `NotebookExtras`. The notebook names
   its XML by its own run time, as `r2r run` does; `--execute-notebook` leaves the cell that
   writes the reports unrun, so a run writes one XML.

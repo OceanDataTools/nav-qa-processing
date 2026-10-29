@@ -23,7 +23,11 @@ from nav_qa_processing.integrations.r2r.reports import (
     run_r2r,
     write_r2r_reports,
 )
-from nav_qa_processing.integrations.r2r.xml_report import R2R_NAMESPACE, build_qa_xml
+from nav_qa_processing.integrations.r2r.xml_report import (
+    R2R_NAMESPACE,
+    build_qa_xml,
+    supplemental_ranges,
+)
 from nav_qa_processing.notebook import build_notebook
 from nav_qa_processing.pdf_report import layout
 
@@ -76,15 +80,18 @@ def test_the_certificate_follows_the_title(tmp_path):
     assert run.r2r.rating == "R"
     write_r2r_reports(run, tmp_path / "out")
     reader = PdfReader(tmp_path / "out" / "TEST_qa_report.pdf")
-    text = [page.extract_text() for page in reader.pages]
-    assert len(text) == 6  # the certificate's page, then the core report's five
-    first = text[0]
+    first = reader.pages[0].extract_text()
     assert first.index("Navigation QA report: TEST_1") < first.index("R2R rating: RED (R)")
     assert "R2R fileset 1 · vessel ID 32QU · San Diego to San Diego" in first
     for test in run.r2r.tests:
         assert test.name in first and result_text(test) in first
-    assert "TotalTests" in first and "Checks" not in first
-    assert "Checks" in text[1]
+    # The core report follows the certificate, on the same page when it fits: no page break
+    text = "\n".join(page.extract_text() for page in reader.pages)
+    assert text.index("TotalTests") < text.index("\nChecks\n")
+    # R2R's ranges, over every record before QC, as the XML writes them
+    words = " ".join(text.split())
+    for name, quantity, minimum, maximum in supplemental_ranges(run.result):
+        assert f"{name} {quantity.label} {minimum} {maximum}" in words, name
     assert reader.metadata.subject == "R2R rating R"
 
 

@@ -87,15 +87,15 @@ display(gaps)
 # ## Statistics
 
 # %%
-s = result.stats
+s, good = result.stats, result.stats.good
 ranges = {
-    q.NSV: ("nsv", s.nsv, None),
-    q.HDOP: ("hdop", s.hdop, result.nav.decimals.get("hdop")),
-    q.ANTENNA_HEIGHT: ("altitude", s.altitude, result.nav.decimals.get("alt")),
-    q.SPEED_MADE_GOOD: ("speed", s.speed, None),
-    q.HORIZONTAL_ACCELERATION: ("acceleration", s.acceleration, None),
+    q.NSV: (good.nsv, None),
+    q.HDOP: (good.hdop, result.nav.decimals.get("hdop")),
+    q.ANTENNA_HEIGHT: (good.altitude, result.nav.decimals.get("alt")),
+    q.SPEED_MADE_GOOD: (good.speed, None),
+    q.HORIZONTAL_ACCELERATION: (good.acceleration, None),
 }
-# Over every record, as R2R reports them, and over the fixes that pass QC
+# Over the fixes that pass QC, as the PDF's statistics give them
 display(
     pd.DataFrame(
         [
@@ -103,15 +103,13 @@ display(
                 "quantity": quantity.label,
                 "minimum": quantity.format(r.minimum, places),
                 "maximum": quantity.format(r.maximum, places),
-                "good minimum": quantity.format(getattr(s.good, name).minimum, places),
-                "good maximum": quantity.format(getattr(s.good, name).maximum, places),
             }
-            for quantity, (name, r, places) in ranges.items()
+            for quantity, (r, places) in ranges.items()
         ],
     )
 )
-print(q.FIXES.label, q.FIXES.format(s.records))
-print(q.FIXES.label, "that pass QC", q.FIXES.format(s.good.records))
+print(q.FIXES.label, "that pass QC", q.FIXES.format(good.records))
+# The times between fixes, over every usable record, as the checks count them
 print(q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval))
 print(q.LONGEST_GAP.clock_label, q.LONGEST_GAP.format_duration(s.longest_gap))
 

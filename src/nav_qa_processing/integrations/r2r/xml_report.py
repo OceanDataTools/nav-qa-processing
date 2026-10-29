@@ -130,21 +130,31 @@ def _certificate(root: ET.Element, r2r: R2RResult) -> None:
             _sub(bounds, "bound", bound.text, name=bound.name, uom=bound.quantity.unit)
 
 
-def _supplements(root: ET.Element, result: NavQAResult) -> None:
+def supplemental_ranges(result: NavQAResult) -> list[tuple[str, q.Quantity, str, str]]:
+    """R2R's ranges, over every record before QC as navqa takes them: (R2R's name, quantity,
+    minimum, maximum), the values as the XML writes them. The certificate shows them too
+    """
     s = result.stats
     decimals = result.nav.decimals
+    return [
+        (name, quantity, quantity.format(r.minimum, places), quantity.format(r.maximum, places))
+        for name, quantity, r, places in (
+            ("NSV", q.NSV, s.nsv, None),
+            ("HDOP", q.HDOP, s.hdop, decimals.get("hdop", 1)),
+            ("Altitude", q.ANTENNA_HEIGHT, s.altitude, decimals.get("alt", 3)),
+            ("HorizontalSpeed", q.SPEED_MADE_GOOD, s.speed, None),
+            ("HorizontalAcceleration", q.HORIZONTAL_ACCELERATION, s.acceleration, None),
+        )
+    ]
+
+
+def _supplements(root: ET.Element, result: NavQAResult) -> None:
     supplements = _sub(root, "filesetinfo_supplements")
-    for name, quantity, values, places in (
-        ("NSV", q.NSV, s.nsv, None),
-        ("HDOP", q.HDOP, s.hdop, decimals.get("hdop", 1)),
-        ("Altitude", q.ANTENNA_HEIGHT, s.altitude, decimals.get("alt", 3)),
-        ("HorizontalSpeed", q.SPEED_MADE_GOOD, s.speed, None),
-        ("HorizontalAcceleration", q.HORIZONTAL_ACCELERATION, s.acceleration, None),
-    ):
+    for name, quantity, minimum, maximum in supplemental_ranges(result):
         supplemental = _sub(supplements, "filesetinfo_supplemental", name=name)
         ranges = _sub(supplemental, "ranges")
-        for edge, value in (("Minimum", values.minimum), ("Maximum", values.maximum)):
-            _value(ranges, "range", quantity.format(value, places), name=edge, uom=quantity.unit)
+        for edge, text in (("Minimum", minimum), ("Maximum", maximum)):
+            _value(ranges, "range", text, name=edge, uom=quantity.unit)
 
 
 def _references(root: ET.Element, config: CruiseConfig) -> None:

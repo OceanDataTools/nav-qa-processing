@@ -25,7 +25,6 @@ from reportlab.platypus import (
     Flowable,
     Image,
     KeepTogether,
-    PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -43,8 +42,10 @@ from nav_qa_processing.theme import DEFAULT_THEME, Theme
 TITLE = "Navigation QA report"
 # [in] tallest figures; each is also kept within the frame, which A4 or larger margins shrink
 MAP_HEIGHT = 8.4
-SERIES_HEIGHT = 5.4
-TIMELINE_HEIGHT, HISTOGRAMS_HEIGHT = 3.2, 6.0
+# 4.4 in: speed and acceleration and the histograms, with their headings, share a US letter page
+# with the default 0.6 in margins (their SVGs are 5.0 and 5.2 in)
+SERIES_HEIGHT = HISTOGRAMS_HEIGHT = 4.4
+TIMELINE_HEIGHT = 3.2
 HEADING_ROOM = 0.5 * inch  # a page heading above a figure
 MAX_ERRORS = 12  # reader and manifest errors listed; the rest are counted
 MAX_GAPS = 10  # the longest gaps listed; the rest are counted
@@ -342,31 +343,22 @@ def _unbroken_unit(label: str) -> str:
 
 
 def _statistics(lay: Layout, result: NavQAResult) -> Table:
-    """The QA statistics' extent and ranges, each written through its quantity: over every
-    record, as R2R reports them, and over the fixes that pass QC (#66)
+    """The QA statistics' extent and ranges over the fixes that pass QC (#66), each written
+    through its quantity; the times between fixes over every usable record, as the checks count
+    them. The ranges over every record before QC, as R2R reports them, are R2R's certificate's
     """
     s, good = result.stats, result.stats.good
     decimals = result.nav.decimals
     when = lambda moment: q.ISO_TIME.format(moment, decimals.get("time", 0))
-    bold = lambda text: _cell(text, lay.cell_bold)
     rows = [
-        ["", bold("Minimum or value"), bold("Maximum"), bold("Minimum or value"), bold("Maximum")],
-        [
-            q.FIXES.label + " used",
-            q.FIXES.format(s.records),
-            "",
-            q.FIXES.format(good.records) if good else "",
-            "",
-        ],
+        [q.FIXES.label + " that pass QC", q.FIXES.format(good.records if good else None), ""],
         [
             "First and last fix",
-            when(s.first),
-            when(s.last),
-            when(good.first) if good else "",
-            when(good.last) if good else "",
+            when(good.first if good else None),
+            when(good.last if good else None),
         ],
-        [q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval), "", "", ""],
-        [q.LONGEST_GAP.clock_label, q.LONGEST_GAP.format_duration(s.longest_gap), "", "", ""],
+        [q.MODAL_INTERVAL.label, q.MODAL_INTERVAL.format(s.modal_interval), ""],
+        [q.LONGEST_GAP.clock_label, q.LONGEST_GAP.format_duration(s.longest_gap), ""],
     ]
     for quantity, name, places in (
         (q.NSV, "nsv", None),
@@ -375,21 +367,20 @@ def _statistics(lay: Layout, result: NavQAResult) -> Table:
         (q.SPEED_MADE_GOOD, "speed", None),
         (q.HORIZONTAL_ACCELERATION, "acceleration", None),
     ):
-        ranges = [getattr(s, name)] + ([getattr(good, name)] if good else [])
-        values = [quantity.format(v, places) for r in ranges for v in (r.minimum, r.maximum)]
-        rows.append([_unbroken_unit(quantity.label), *values, *[""] * (4 - len(values))])
-    header = ["Quantity", "All records, as R2R reports them", "", "Fixes that pass QC", ""]
-    styles = [
-        ("SPAN", (1, 0), (2, 0)),
-        ("SPAN", (3, 0), (4, 0)),
-        ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor(lay.colors.table_header)),
-    ]
+        r = getattr(good, name) if good else None
+        rows.append(
+            [
+                _unbroken_unit(quantity.label),
+                quantity.format(r.minimum if r else None, places),
+                quantity.format(r.maximum if r else None, places),
+            ]
+        )
     # Each value column as wide as a timestamp, with ReportLab's 6 pt padding each side; the
     # labels get the rest
     stamp = when(s.first) if s.first else "0000-00-00T00:00:00Z"
     value = stringWidth(stamp, lay.cell.fontName, lay.cell.fontSize) + 2 * 6 + 2
-    widths = [1 - 4 * value / lay.frame_width] + [value / lay.frame_width] * 4
-    return table(lay, header, rows, widths, styles)
+    widths = [1 - 2 * value / lay.frame_width] + [value / lay.frame_width] * 2
+    return table(lay, ["Quantity", "Minimum or value", "Maximum"], rows, widths)
 
 
 def _qc(lay: Layout, result: NavQAResult) -> list[Flowable]:
@@ -405,7 +396,7 @@ def _qc(lay: Layout, result: NavQAResult) -> list[Flowable]:
         if result.qc.count(flag)
     ]
     flagged = int((result.qc.flags != 0).sum())
-    story: list[Flowable] = [
+    opening: list[Flowable] = [
         Paragraph("Quality control", lay.heading),
         Paragraph(
             f"{q.FIXES.format(flagged)} of {q.FIXES.format(records)} records flagged; a record "
@@ -415,21 +406,33 @@ def _qc(lay: Layout, result: NavQAResult) -> list[Flowable]:
         ),
     ]
     if rows:
-        story.append(
+        opening.append(
             table(lay, ["Flag", "Meaning", "Records", "Percent"], rows, [0.18, 0.54, 0.14, 0.14])
         )
+    story: list[Flowable] = [KeepTogether(opening)]  # the errors below may run on
     for note in result.qc.notes:
         story.append(Paragraph(escape(note), lay.small))
+    story += [Spacer(1, 6), Paragraph("Reader and manifest errors", lay.subheading)]
     if result.errors:
         rows = [[error] for error in result.errors[:MAX_ERRORS]]
         more = len(result.errors) - len(rows)
         if more:
             rows.append([f"and {more} more"])
-        story += [
-            Spacer(1, 6),
-            Paragraph("Reader and manifest errors", lay.subheading),
-            table(lay, [f"{len(result.errors)} errors"], rows, [1.0]),
-        ]
+        story.append(table(lay, [f"{len(result.errors)} errors"], rows, [1.0]))
+    elif result.fileset.manifest:
+        story.append(
+            Paragraph(
+                "None reading the nav files or checking them against the manifest.", lay.body
+            )
+        )
+    else:
+        story.append(
+            Paragraph(
+                "None reading the nav files. There's no manifest, so their checksums weren't "
+                "checked.",
+                lay.body,
+            )
+        )
     return story
 
 
@@ -536,16 +539,38 @@ def _summary(lay: Layout, result: NavQAResult) -> list[Flowable]:
         ),
         _by_file(lay, result),
         Spacer(1, 10),
-        KeepTogether([Paragraph("Statistics", lay.subheading), _statistics(lay, result)]),
+        KeepTogether(
+            [
+                Paragraph("Statistics", lay.subheading),
+                Paragraph(
+                    "Over the fixes that pass QC, but for the times between fixes, which are over "
+                    "every usable record, as the checks count them.",
+                    lay.small,
+                ),
+                _statistics(lay, result),
+            ]
+        ),
         Spacer(1, 10),
         KeepTogether([Paragraph("Products", lay.subheading), _products(lay, result)]),
     ]
 
 
 def _figures(lay: Layout, result: NavQAResult, svgs: dict[str, Path]) -> list[Flowable]:
+    """QC and the figures. No forced page breaks: each section follows the last, and starts a
+    new page only when it doesn't fit in what's left of the current one
+    """
     width = lay.frame_width
+
+    def figure(heading: str, name: str, height: float) -> Flowable:
+        return KeepTogether(
+            [
+                Paragraph(heading, lay.heading),
+                drawing(svgs[name], width, max_height=lay.fit(height * inch)),
+            ]
+        )
+
     return [
-        PageBreak(),
+        Spacer(1, 10),
         *_qc(lay, result),
         Spacer(1, 10),
         KeepTogether(_gaps(lay, result)),
@@ -556,15 +581,12 @@ def _figures(lay: Layout, result: NavQAResult, svgs: dict[str, Path]) -> list[Fl
                 drawing(svgs["timeline"], width, max_height=lay.fit(TIMELINE_HEIGHT * inch)),
             ]
         ),
-        PageBreak(),
-        Paragraph("Trackline", lay.heading),
-        drawing(svgs["track_map"], width, max_height=lay.fit(MAP_HEIGHT * inch)),
-        PageBreak(),
-        Paragraph("Speed and acceleration", lay.heading),
-        drawing(svgs["speed_acceleration"], width, max_height=lay.fit(SERIES_HEIGHT * inch)),
-        PageBreak(),
-        Paragraph("Sampling and fix quality", lay.heading),
-        drawing(svgs["histograms"], width, max_height=lay.fit(HISTOGRAMS_HEIGHT * inch)),
+        Spacer(1, 10),
+        figure("Trackline", "track_map", MAP_HEIGHT),
+        Spacer(1, 10),
+        figure("Speed and acceleration", "speed_acceleration", SERIES_HEIGHT),
+        Spacer(1, 10),
+        figure("Sampling and fix quality", "histograms", HISTOGRAMS_HEIGHT),
     ]
 
 
