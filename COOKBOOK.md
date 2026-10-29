@@ -144,7 +144,8 @@ wrote output/ODT1204/ODT1204_qa_report.pdf
 
 ### Several position sensors
 
-A ship logging a POS MV and a Seapath gives each a `[[nav]]` table, with a name:
+A ship logging a POS MV and a Seapath gives each a `[[nav]]` table, with a name, and each its
+own receiver: a `[nav.device]` belongs to the `[[nav]]` right before it.
 
 ```toml
 [[nav]]
@@ -152,11 +153,17 @@ name = "posmv"
 primary = true
 format = "nav33"
 files = "POSMV_GGA-*.txt"
+[nav.device]
+make = "Applanix"
+model = "POS MV"
 
 [[nav]]
 name = "seapath"
 format = "nav33"
 files = "SEAPATH_GGA-*.txt"
+[nav.device]
+make = "Kongsberg"
+model = "Seapath 380"
 ```
 
 `run` assesses each: the primary's outputs are `<CRUISE>_...`, the others'
@@ -257,6 +264,10 @@ model_name = "GP-90"
 
 [nav]
 format = "nav31"
+
+[nav.device]
+make = "com.furuno"
+model = "GP-90"
 ```
 
 When the fileset has a QA 2.0 report, `r2r config-from-qa data/<...>/r2r_qa.2.0.xml` makes the

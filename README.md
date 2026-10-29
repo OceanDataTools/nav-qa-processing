@@ -22,7 +22,9 @@ vessel's raw GNSS files and a small cruise config, it produces:
   bounds.
 
 It runs from the command line or as an [OpenVDM](https://github.com/OceanDataTools/openvdm)
-post-transfer hook.
+post-transfer hook. **[docs/examples](docs/examples/)** has what it writes for a real cruise
+(SP2613): the PDF report, with and without R2R's certificate, products, a figure and the R2R
+QA 2.0 XML.
 
 Values are computed soundly rather than by reproducing NavManager's arithmetic, and units,
 descriptions and number formats are standardized (CF/UDUNITS); the structure of the products
@@ -256,7 +258,7 @@ max_accel = 1.0
 | | `manifest` | A checksum file for a plain directory: `<md5> <path>` lines, paths relative to the manifest's directory, as in OpenVDM's MD5 summary. A BagIt bag uses its own `manifest-md5.txt` |
 | `[nav]` | `format` | The GNSS files' format ID (see `formats`). Required, here or as `run -f` |
 | | `files` | A glob of the GNSS files within the fileset. Default: every file in the data directory |
-| `[nav.device]` | `make`, `model`, `serial_number`, `location` | The receiver or INS that logged the feed, shown in the reports' title block with the GGA talker IDs found in the data (e.g. GN, a multi-constellation receiver; IN, an INS). All optional. In an R2R cruise TOML it defaults to R2R's `[fileset.device]` (make ID, model name, location) |
+| `[nav.device]` | `make`, `model`, `serial_number`, `location` | The receiver or INS that logged the feed, shown in the reports' title block with the GGA talker IDs found in the data (e.g. GN, a multi-constellation receiver; IN, an INS). All optional. In an R2R cruise TOML it defaults to R2R's `[fileset.device]` (make ID, model name, location), and the `r2r config-from-*` commands write it out, so `run -c` with the cruise TOML reports the receiver too |
 | `[[nav]]` | `name`, `primary`, and the keys above | Several position sensors, e.g. a POS MV and a Seapath: one `[[nav]]` table each, with its own `format`, `files` and `[nav.device]`. Each needs a `name` (letters, digits, `_`, `-`); one has `primary = true`, else the first is. `run` assesses each; the others' outputs are named `<CRUISE>_<NAME>_…`. R2R's cruise TOMLs have one feed |
 | `[provenance]` | `contact_institution`, `contact_email` | The reports' contact |
 | `[geocsv]` | `attribution` | GeoCSV `attribution` |
@@ -507,6 +509,10 @@ model_name = "BX992"
 
 [nav]
 format = "nav29"
+
+[nav.device]                           # the receiver for the reports: R2R's device, written out
+make = "com.trimble"                   # so `run -c` reports it too
+model = "BX992"
 
 [provenance]
 distro_type = "post-cruise"
