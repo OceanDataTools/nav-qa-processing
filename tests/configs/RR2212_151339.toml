@@ -40,6 +40,11 @@ location_name = "Aft"
 [nav]
 format = "nav29"
 
+[nav.device]
+make = "com.furuno"
+model = "GP-170"
+location = "Aft"
+
 [provenance]
 distro_type = "post-cruise"
 contact_institution = "Rolling Deck to Repository (R2R)"

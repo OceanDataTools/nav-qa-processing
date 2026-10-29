@@ -50,6 +50,10 @@ model_name = "ABX-Two"
 [nav]
 format = "nav29"
 
+[nav.device]
+make = "com.trimble"
+model = "ABX-Two"
+
 [provenance]
 distro_type = "post-cruise"
 contact_institution = "Rolling Deck to Repository (R2R)"

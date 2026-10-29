@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import tarfile
 from dataclasses import fields, replace
 
@@ -206,15 +207,22 @@ def test_qa_report_url_from_qa_info(r2r):
 
 
 def test_the_receiver_comes_from_r2rs_device_unless_the_toml_names_one(tmp_path):
-    from nav_qa_processing.config import NavDevice
+    from nav_qa_processing.config import NavDevice, loads_config
     from nav_qa_processing.integrations.r2r.config import config_to_toml, loads_cruise_config
 
+    trimble = NavDevice(make="com.trimble", model="BX992")
     config = load_cruise_config(CONFIGS / "SP2613_169851.toml")
-    assert config.nav_device == NavDevice(make="com.trimble", model="BX992")
-    assert "[nav.device]" not in config_to_toml(config)  # R2R's alone isn't written twice
+    assert config.nav_device == trimble
+    # Written as [nav.device] even when it's R2R's, so the core `run`, which leaves R2R's
+    # [fileset.device] alone, reports it from the same TOML
+    text = config_to_toml(config)
+    assert "[nav.device]" in text and loads_config(text).nav_device == trimble
+    # A cruise TOML written before that, without [nav.device], still gets R2R's for `r2r run`
+    older = re.sub(r"\n\[nav\.device\]\n(?:\w.*\n)*", "\n", text)
+    assert "[nav.device]" not in older and loads_cruise_config(older).nav_device == trimble
     mine = replace(config, nav_device=NavDevice(make="Trimble", model="BX992", location="mast"))
     text = config_to_toml(mine)
-    assert "[nav.device]" in text and loads_cruise_config(text).nav_device == mine.nav_device
+    assert loads_cruise_config(text).nav_device == mine.nav_device
 
 
 def test_an_http_error_fetching_the_qa_report_is_raised_not_swallowed(r2r, monkeypatch):

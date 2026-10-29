@@ -51,6 +51,10 @@ model_name = "Seapath 380+"
 [nav]
 format = "nav24"
 
+[nav.device]
+make = "com.kongsberg"
+model = "Seapath 380+"
+
 [provenance]
 distro_type = "post-cruise"
 contact_institution = "Rolling Deck to Repository (R2R)"

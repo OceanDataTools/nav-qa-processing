@@ -49,6 +49,10 @@ model_name = "GP-33"
 [nav]
 format = "nav02"
 
+[nav.device]
+make = "com.furuno"
+model = "GP-33"
+
 [provenance]
 distro_type = "post-cruise"
 contact_institution = "Rolling Deck to Repository (R2R)"

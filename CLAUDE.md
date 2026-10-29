@@ -219,6 +219,9 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
   (#111); its Linux commands were run in clean containers, so re-run them after changing it.
   `COOKBOOK.md` has worked examples (a directory of raw files; an R2R fileset) whose commands
   and output come from real runs: re-run them when a command or its output changes.
+  `docs/examples/` has SP2613's outputs (PDF reports from `run` and `r2r run`, 1min, control,
+  the map, the XML), linked from the README: rebuild them, by its README's commands, when the
+  reports change.
 - Lint and format: `uv run ruff check .` and `uv run ruff format --check .` (line length 99).
 - CI (`.github/workflows/ci.yml`, #115): Ruff and pytest on Linux 3.11–3.14, macOS and Windows,
   downloading nothing. SP2613, SP2503, BH19-30 and RC0014 are committed as

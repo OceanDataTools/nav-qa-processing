@@ -22,18 +22,25 @@ location = "main lab"
 # Several position sensors: replace [nav] with a [[nav]] table for each, named, one of them
 # primary (else the first). The others' reports are named <CRUISE>_<name>_...; transfer, when
 # set, limits a feed to that collection system transfer's hook.
+# Each feed's [nav.device] goes right under its [[nav]]: TOML gives it to the [[nav]] before it.
 # [[nav]]
 # name = "posmv"
 # primary = true
 # transfer = "OpenRVDAS"
 # format = "nav33"
 # files = "raw/POSMV_GGA-*.txt"
+# [nav.device]
+# make = "Applanix"
+# model = "POS/MV"
 #
 # [[nav]]
 # name = "seapath"
 # transfer = "OpenRVDAS"
 # format = "nav33"
 # files = "raw/SEAPATH_GGA-*.txt"
+# [nav.device]
+# make = "Kongsberg"
+# model = "Seapath 380"
 
 # Expected cruise area, used when the hook doesn't set OpenVDM's cruise extent
 # (--no-set-extent) and OpenVDM has none. westernmost > easternmost is a box across the

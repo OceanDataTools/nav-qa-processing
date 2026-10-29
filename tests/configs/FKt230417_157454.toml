@@ -47,6 +47,10 @@ model_name = "POS/MV-320 V5"
 [nav]
 format = "nav33"
 
+[nav.device]
+make = "com.applanix"
+model = "POS/MV-320 V5"
+
 [provenance]
 distro_type = "post-cruise"
 contact_institution = "Rolling Deck to Repository (R2R)"
