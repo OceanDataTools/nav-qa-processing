@@ -206,7 +206,8 @@ A config TOML describes the cruise, the GNSS feed and the thresholds. Every tabl
 optional, but a key that isn't one of them is an error, which says where a misplaced or
 misspelled key belongs (`cruise_id (top level): did you mean [cruise] id?`), as is a value
 where a table belongs or a table where a value does (`[cruise] extent must be a table`). The keys of an
-[R2R cruise TOML](#r2r-cruise-toml) are accepted too. A complete example:
+[R2R cruise TOML](#r2r-cruise-toml) are accepted too. `configs/config.example.toml` shows every
+key, commented where it's optional or at its default. An example:
 
 ```toml
 [cruise]
@@ -738,6 +739,12 @@ field keeps its default, so with no input the file is written back unchanged. Th
 
 The per-ship settings OpenVDM doesn't store. Only `[nav] format` is required;
 `configs/site.example.toml` shows every key. Any other key is an error, as in a config TOML.
+
+A site TOML describes the ship, so it has a `[vessel]` table and no `[cruise]`: the hook gets
+each cruise's ID, name, chief scientist, location and dates from OpenVDM, and writes them with
+the site's settings into a config TOML for the cruise, `<CRUISE>_config.toml`, where the
+vessel's name is `[cruise] vessel_name`. A `[cruise]` table here, or a `[vessel]` one in a config
+TOML, is an error that says so.
 
 | Table | Key | Default | Description |
 |---|---|---|---|

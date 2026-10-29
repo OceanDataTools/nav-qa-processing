@@ -398,3 +398,13 @@ def test_the_site_toml_shares_cores_schemas():
         assert SITE_KEYS[table] is CORE_KEYS[table], table
     assert SITE_KEYS["extent"] is CORE_KEYS["cruise"]["extent"]
     assert SITE_KEYS["nav"] == CORE_KEYS["nav"] | INTEGRATION_KEYS["nav"]
+
+
+def test_a_vessel_table_says_where_its_name_goes():
+    """A [vessel] belongs in an OpenVDM site TOML; in a config TOML its name is [cruise]'s"""
+    from nav_qa_processing.config import loads_config
+
+    with pytest.raises(
+        ValueError, match=r"vessel \(top level\): did you mean \[cruise\] vessel_name\?"
+    ):
+        loads_config('[vessel]\nname = "Sproul"\n')

@@ -605,11 +605,13 @@ def _where_in(schema: dict, path: tuple[str, ...]) -> str:
     return f"[{'.'.join(table)}] {leaf}" if table else f"{leaf} at the top level"
 
 
-def check_keys(data: dict, schema: dict, where: str) -> None:
+def check_keys(data: dict, schema: dict, where: str, notes: dict[str, str] | None = None) -> None:
     """Raises ValueError naming every key of data the schema doesn't know, each with where it
-    belongs when the schema has it elsewhere (a top-level `cruise_id`: `[cruise] id`), or the
-    table's key it's closest to (`fromat`: `format`); and every value of the wrong shape, a
-    value where a table belongs or a table where a value does (#127), which the loaders would
+    belongs when the schema has it elsewhere (a top-level `cruise_id`: `[cruise] id`; a table's
+    key with the table's name, `[vessel] name`: `[cruise] vessel_name`), or the table's key it's
+    closest to (`fromat`: `format`), and `notes`' explanation of a top-level key the schema
+    leaves out on purpose (a site TOML's [cruise]); and every value of the wrong shape, a value
+    where a table belongs or a table where a value does (#127), which the loaders would
     otherwise fail on with a traceback
     """
     unknown: list[tuple[tuple[str, ...], str, dict, object]] = []
@@ -650,9 +652,12 @@ def check_keys(data: dict, schema: dict, where: str) -> None:
     def described(path: tuple[str, ...], key: str, known: dict, value: object) -> str:
         # The key elsewhere in the schema, as a key or a whole table (a top-level [extent]:
         # [cruise.extent], #130): those of the value's kind first, at most two
-        elsewhere = [(p, table) for p, table in paths if key in (p[-1], "_".join(p))]
+        named = {key} | ({f"{key}_{sub}" for sub in value} if isinstance(value, dict) else set())
+        elsewhere = [(p, table) for p, table in paths if named & {p[-1], "_".join(p)}]
         is_table = isinstance(value, dict)
         elsewhere.sort(key=lambda match: match[1] != is_table)
+        if not path and key in (notes or {}):
+            return f"{name(path, key)}: {notes[key]}"
         if elsewhere:
             listed = " or ".join(_where_in(schema, p) for p, _ in elsewhere[:2])
             return f"{name(path, key)}: did you mean {listed}?"

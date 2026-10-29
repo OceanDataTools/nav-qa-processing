@@ -63,11 +63,44 @@ output_extra_directory = "NAV_QA"        # where reports go
 attribution = "R/V Robert Gordon Sproul, Scripps Institution of Oceanography"
 
 # QA thresholds, as in a config TOML. max_speed is the vessel's top speed [m s-1]: a
-# step faster than it counts as an unreasonable speed (1 knot is 0.514 m s-1)
+# step faster than it counts as an unreasonable speed (1 knot is 0.514 m s-1). The others are
+# shown, commented, at their defaults.
 [thresholds]
 max_speed = 5.4                   # Sproul's, from R2R's vessel catalog (info/vessel/32QU)
+# max_gap = 300.0                 # [s] a step this long or longer is a gap
+#
+# The checks pass at or within these, and warn otherwise
+# min_completeness = 95.0         # [percent]
+# max_longest_gap = 900.0         # [s]
+# max_out_of_sequence = 5.0       # [percent] of records
+# max_bad_quality = 5.0           # [percent] of records reporting a quality indicator
+# max_unreasonable_speeds = 5.0   # [percent] of speeds
+# max_unreasonable_accelerations = 5.0  # [percent] of accelerations
+# land_tolerance = 3000.0         # [m] a fix on land farther from coasts and rivers is reported
+# max_inland = 10000.0            # [m] and one farther than this warns
+#
+# QC
+# max_accel = 1.0                 # [m s-2] a fix accelerating more is flagged
+# max_reach_speed = 25.0          # [m s-1] a fix farther than this speed allows is unreachable
+# reach_tolerance = 250.0         # [m] added to that distance
+# accel_time_base = 2.0           # [s] velocities over at least this before and after a fix
+# gps_start = 1994-03-01          # valid GPS dates
+# gps_end = 2034-12-31
+# date_margin_days = 30.0         # [days] allowed outside the cruise dates
+# max_time_step_days = 30.0       # [days] largest step forward in time
+# min_quality = 1                 # valid GGA fix qualities (0 invalid, 6 dead reckoning)
+# max_quality = 5
+# min_satellites = 4              # valid satellite counts
+# max_satellites = 50
+# max_hdop = 50.0
+# max_altitude = 500.0            # [m] largest valid antenna height, above or below
+# stale_speed = 0.25              # [m s-1] median speed above which a repeated position is stale
+# stale_window = 10               # [speeds] for that median
 
-# The reports' theme, as in a config TOML; e.g.:
+# The reports' theme, as in a config TOML. Every setting is in configs/theme.example.toml,
+# whose top-level settings go here under [theme], and its [colors] as [theme.colors]; e.g.:
 # [theme]
 # page_size = "A4"
 # palette = "colorblind"
+# [theme.colors]
+# primary = "#1f5f8b"
