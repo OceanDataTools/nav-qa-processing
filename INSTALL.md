@@ -82,7 +82,8 @@ uv run pytest
 [OpenVDM](https://github.com/OceanDataTools/openvdm) runs the QA after each transfer of the
 collection system that logs the ship's GNSS, as a `postCollectionSystemTransfer` hook. Setting
 it up takes five steps: install, add an extra directory for the reports, write the ship's site
-TOML, add the hook to `openvdm.yaml`, and try it.
+TOML, add the hooks to `openvdm.yaml` (after each transfer, and before the cruise is
+finalized), and try it.
 
 The hook assesses the whole cruise so far after each transfer, so its memory grows through the
 cruise: about 400 bytes a fix, with about 300 MB to start. A 20-day cruise logged at 2 Hz (3.5 M
@@ -222,11 +223,20 @@ config the hook would use:
 It shows the cruise's dates, the feed's format and files, the vessel and the extent, and notes
 what's missing or assumed (e.g. an open-ended cruise, which ends today).
 
-### 4. Add the hook to openvdm.yaml
+### 4. Add the hooks to openvdm.yaml
 
-Add a `postCollectionSystemTransfer` entry for the collection system that logs the GNSS to
-OpenVDM's `openvdm.yaml` (`/opt/openvdm/server/etc/openvdm.yaml` by default), under
-`postHookCommands` (which the file already has):
+The QA runs from two of OpenVDM's hooks, set in its `openvdm.yaml`
+(`/opt/openvdm/server/etc/openvdm.yaml` by default) under `postHookCommands`:
+- **`postCollectionSystemTransfer`:** after each transfer of the collection system that logs the
+  GNSS, it assesses the cruise so far, so a failing receiver or a missing feed shows during the
+  cruise. `--min-interval` keeps a long cruise from being reassessed after every transfer.
+- **`preFinalizeCurrentCruise`:** when the cruise is finalized, it writes the final reports, on
+  the whole cruise. OpenVDM waits for it before finalizing, so the reports are in the extra
+  directory and the MD5 summary of the finalized cruise.
+
+`openvdm.yaml` already has both keys under `postHookCommands`, with their examples commented
+out. Put these entries under those keys rather than writing the keys again: YAML keeps only the
+last of two keys with one name, silently.
 
 ```yaml
 postHookCommands:
@@ -242,36 +252,8 @@ postHookCommands:
             - "--site-config=/opt/nav-qa-processing/configs/site.toml"
             - "--changed-files={newFiles}"
             - "--changed-files={updatedFiles}"
-```
+            - "--min-interval=6h"
 
-| Line | What it is |
-|---|---|
-| `collectionSystemTransferName: OpenRVDAS` | The collection system transfer's name, exactly as in OpenVDM (Configuration > Collection System Transfers) |
-| `/opt/.../nav-qa-processing`, `openvdm` | The install from step 1, and the hook command |
-| `"{collectionSystemTransferName}"` | OpenVDM fills in the transfer's name: the hook reads that transfer's directory, and runs the feeds whose `transfer` is it or blank |
-| `--openvdm-config` | `openvdm.yaml` itself, for OpenVDM's web address (`siteRoot`), `workerApiKey` and `vessel` block. This path is the default; give yours if OpenVDM is installed elsewhere |
-| `--site-config` | The site TOML from step 3, by its full path |
-| `--changed-files={newFiles}`, `={updatedFiles}` | The transfer's new and updated files, so the QA runs only when GNSS files changed. Keep the `--changed-files=` form: OpenVDM drops a bare `{newFiles}` argument when there are none |
-
-Optional arguments, one list item each: `--execute-notebook` saves the notebook with its outputs
-(an install without `--no-dev`); `--theme=/path/theme.toml` changes the reports' look;
-`--no-set-extent` leaves OpenVDM's cruise extent alone (below); `--no-products` leaves out the
-GeoCSV products, keeping the reports (bestres, a line per fix, is about 300 MB for 20 days at
-2 Hz, rewritten after every transfer); `--min-interval=6h` reassesses at most that often (below).
-
-**Long cruises.** Each run assesses the whole cruise so far. OpenVDM transfers every 5 minutes
-by default and runs its post hooks one at a time, so once a run takes longer than that (20 days
-at 2 Hz, 3.5 M fixes, takes minutes) runs queue behind each other and every other post hook.
-For a long or fast-logging cruise:
-- give the post-transfer hook `--min-interval`, e.g. `"--min-interval=6h"`: it skips a feed
-  whose reports are newer than that, so the GNSS is still checked during the cruise;
-- and add the same command as a `preFinalizeCurrentCruise` hook, for the final reports on the
-  whole cruise. OpenVDM waits for it before finalizing, so the reports are in the extra directory
-  and the MD5 summary of the finalized cruise. `{collectionSystemTransferName}` has no value in
-  that hook (OpenVDM skips a command that uses it), so name the transfer, and leave out
-  `--changed-files` and `--min-interval`:
-
-```yaml
     preFinalizeCurrentCruise:
         commandList:
         - name: "Navigation QA"
@@ -282,6 +264,32 @@ For a long or fast-logging cruise:
           - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
           - "--site-config=/opt/nav-qa-processing/configs/site.toml"
 ```
+
+| Line | What it is |
+|---|---|
+| `collectionSystemTransferName: OpenRVDAS` | The collection system transfer's name, exactly as in OpenVDM (Configuration > Collection System Transfers) |
+| `/opt/.../nav-qa-processing`, `openvdm` | The install from step 1, and the hook command |
+| `"{collectionSystemTransferName}"` | OpenVDM fills in the transfer's name: the hook reads that transfer's directory, and runs the feeds whose `transfer` is it or blank |
+| `OpenRVDAS`, in `preFinalizeCurrentCruise` | The same transfer's name, written out: `{collectionSystemTransferName}` has no value in that hook, and OpenVDM skips a command that uses it |
+| `--openvdm-config` | `openvdm.yaml` itself, for OpenVDM's web address (`siteRoot`), `workerApiKey` and `vessel` block. This path is the default; give yours if OpenVDM is installed elsewhere |
+| `--site-config` | The site TOML from step 3, by its full path |
+| `--changed-files={newFiles}`, `={updatedFiles}` | The transfer's new and updated files, so the QA runs only when GNSS files changed. Keep the `--changed-files=` form: OpenVDM drops a bare `{newFiles}` argument when there are none. Not in `preFinalizeCurrentCruise`, which assesses the whole cruise whatever changed |
+| `--min-interval=6h` | Skip a feed whose reports are newer than this (`s`, `m`, `h` or `d`): see below. Not in `preFinalizeCurrentCruise`, whose reports are the final ones |
+
+**Choosing `--min-interval`.** Each run assesses the whole cruise so far, so it takes longer as
+the cruise goes on: 20 days at 2 Hz (3.5 M fixes) takes minutes. OpenVDM transfers every 5
+minutes by default and runs its post hooks one at a time, so without `--min-interval` a long
+cruise's runs queue up behind each other and behind every other post hook (CTD plots, say).
+With `6h` the GNSS is checked up to four times a day, and the pre-finalize hook still writes the
+final reports. A shorter interval checks more often and costs more: for a cruise of a few days,
+or one logging at 1 Hz or less, `1h` or leaving it out is fine. A feed it skips keeps its last
+reports, and the next transfer after the interval reassesses it.
+
+Optional arguments, one list item each, for both hooks: `--execute-notebook` saves the notebook
+with its outputs (an install without `--no-dev`); `--theme=/path/theme.toml` changes the
+reports' look; `--no-set-extent` leaves OpenVDM's cruise extent alone (below); `--no-products`
+leaves out the GeoCSV products, keeping the reports (bestres, a line per fix, is about 300 MB
+for 20 days at 2 Hz).
 
 **The cruise extent.** From OpenVDM 2.17 the hook sets the cruise's bounding box
 (`cruiseExtent`) to the fixes that pass QC, so a jump to 0, 0 doesn't stretch it. That needs
@@ -299,8 +307,9 @@ sudo supervisorctl restart openvdm:post_hooks
 ### 5. Try it
 
 The hook runs after the next transfer that brings new or updated GNSS files. To run it now, give
-the same command by hand, as root (as OpenVDM runs it) and without `--changed-files`, which
-makes it assess the feed whatever changed:
+the same command by hand, as root (as OpenVDM runs it) and without `--changed-files` or
+`--min-interval`, which makes it assess the feed whatever changed. It's also exactly the
+pre-finalize hook's command, so this tries that one too:
 
 ```bash
 sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \
@@ -319,6 +328,8 @@ message.
   2012-04-28 and 29, so a sample cruise needs those dates.
 - **"no new or updated nav files; nothing to do":** none of the files given with
   `--changed-files` match the site TOML's `files` glob; by hand, leave `--changed-files` out.
+- **"its reports, from ..., are newer than --min-interval 6h; nothing to do":** the last run
+  was within the interval, so the hook kept its reports; by hand, leave `--min-interval` out.
 - **"0 fixes ... from 0 files":** the `files` glob matches nothing in the transfer's directory;
   check it with `ls` in that directory.
 
