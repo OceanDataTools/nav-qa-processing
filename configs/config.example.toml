@@ -1,0 +1,108 @@
+# A config TOML: one cruise, for `nav-qa-processing run FILESET_DIR -c CONFIG_TOML`. Every table
+# and key is optional (the format can be given as `run -f FORMAT_ID` instead); an unknown key is
+# an error that says where it belongs. Keys shown commented are at their defaults or unset.
+# An R2R cruise TOML (`r2r config-from-catalog`) is one of these with R2R's catalog keys added;
+# an OpenVDM ship's site TOML (configs/site.example.toml) describes the ship instead, and the
+# hook writes one of these for each cruise.
+
+[cruise]
+id = "SP2613"                     # the products' file name prefix; default: the directory's name
+name = "MPL Internship Program Day at Sea"
+pi = "Pereira, Filipe"            # the chief scientist
+location = "San Diego Trough"
+vessel_name = "Robert Gordon Sproul"
+depart_date = 2026-07-09          # TOML dates: fixes outside these UTC days are left out
+arrive_date = 2026-07-09
+# doi = "doi:10.7284/911454"      # GeoCSV source_event
+
+# The expected area [decimal degrees, east and north positive], for the "Within the expected
+# area" check (n/a without it). westernmost > easternmost is a box across the antimeridian
+[cruise.extent]
+westernmost = -117.38
+easternmost = -117.22
+southernmost = 32.59
+northernmost = 32.71
+
+[fileset]
+# doi = "doi:10.7284/169851"      # GeoCSV source_dataset: the raw fileset
+# manifest = "MD5_Summary.txt"    # "<md5> <path>" checksums for a plain directory; relative to
+#                                 # this file. A BagIt bag uses its own manifest-md5.txt
+
+# The GNSS feed: its format (`nav-qa-processing formats` lists them) and files
+[nav]
+format = "nav29"
+files = "data/*bx992*.txt"        # a glob within the fileset; default: every file
+
+# The receiver or INS, for the reports; every key optional
+[nav.device]
+make = "Trimble"
+model = "BX992"
+# serial_number = ""
+location = "main mast"
+
+# Several position sensors: replace [nav] with a [[nav]] table for each, named, one of them
+# primary (else the first). `run` assesses each; the others' reports are named
+# <CRUISE>_<name>_... A [nav.device] belongs to the [[nav]] right before it.
+# [[nav]]
+# name = "posmv"
+# primary = true
+# format = "nav33"
+# files = "POSMV_GGA-*.txt"
+# [nav.device]
+# make = "Applanix"
+# model = "POS MV"
+#
+# [[nav]]
+# name = "seapath"
+# format = "nav33"
+# files = "SEAPATH_GGA-*.txt"
+
+# The reports' contact
+[provenance]
+contact_institution = "Scripps Institution of Oceanography"
+contact_email = "ship-tech@example.org"
+
+[geocsv]
+attribution = "Scripps Institution of Oceanography"
+
+# QA thresholds, shown commented at their defaults. max_speed is the vessel's top speed
+# [m s-1]: a step faster than it counts as an unreasonable speed (1 knot is 0.514 m s-1)
+[thresholds]
+# max_speed = 8.7
+# max_gap = 300.0                 # [s] a step this long or longer is a gap
+#
+# The checks pass at or within these, and warn otherwise
+# min_completeness = 95.0         # [percent]
+# max_longest_gap = 900.0         # [s]
+# max_out_of_sequence = 5.0       # [percent] of records
+# max_bad_quality = 5.0           # [percent] of records reporting a quality indicator
+# max_unreasonable_speeds = 5.0   # [percent] of speeds
+# max_unreasonable_accelerations = 5.0  # [percent] of accelerations
+# land_tolerance = 3000.0         # [m] a fix on land farther from coasts and rivers is reported
+# max_inland = 10000.0            # [m] and one farther than this warns
+#
+# QC
+# max_accel = 1.0                 # [m s-2] a fix accelerating more is flagged
+# max_reach_speed = 25.0          # [m s-1] a fix farther than this speed allows is unreachable
+# reach_tolerance = 250.0         # [m] added to that distance
+# accel_time_base = 2.0           # [s] velocities over at least this before and after a fix
+# gps_start = 1994-03-01          # valid GPS dates
+# gps_end = 2034-12-31
+# date_margin_days = 30.0         # [days] allowed outside the cruise dates
+# max_time_step_days = 30.0       # [days] largest step forward in time
+# min_quality = 1                 # valid GGA fix qualities (0 invalid, 6 dead reckoning)
+# max_quality = 5
+# min_satellites = 4              # valid satellite counts
+# max_satellites = 50
+# max_hdop = 50.0
+# max_altitude = 500.0            # [m] largest valid antenna height, above or below
+# stale_speed = 0.25              # [m s-1] median speed above which a repeated position is stale
+# stale_window = 10               # [speeds] for that median
+
+# The reports' theme. Every setting is in configs/theme.example.toml, whose top-level settings
+# go here under [theme], and its [colors] as [theme.colors]; e.g.:
+# [theme]
+# page_size = "A4"
+# palette = "colorblind"
+# [theme.colors]
+# primary = "#1f5f8b"

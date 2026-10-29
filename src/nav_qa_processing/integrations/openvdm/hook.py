@@ -177,12 +177,19 @@ SITE_KEYS = {
 }
 
 
+# A site TOML describes the ship, so a cruise table in it is a mistake worth explaining
+SITE_NOTES = {
+    "cruise": "a site TOML has no cruise: the hook gets each cruise's ID, name, chief "
+    "scientist (cruisePI), location and dates from OpenVDM; the vessel's name is [vessel] name",
+}
+
+
 def load_site_config(path: Path | str | None) -> SiteConfig:
     if path is None:
         return SiteConfig()
     with open(path, "rb") as file:
         data = tomllib.load(file)
-    check_keys(data, SITE_KEYS, str(path))
+    check_keys(data, SITE_KEYS, str(path), SITE_NOTES)
     vessel, openvdm = data.get("vessel", {}), data.get("openvdm", {})
     provenance = data.get("provenance", {})
     defaults = SiteConfig()

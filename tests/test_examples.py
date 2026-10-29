@@ -7,10 +7,11 @@ import tomllib
 
 from conftest import EXAMPLES
 
-from nav_qa_processing.config import CHECKED, Thresholds, thresholds_from_table
+from nav_qa_processing.config import CHECKED, CORE_KEYS, Thresholds, thresholds_from_table
 from nav_qa_processing.integrations.openvdm.hook import SITE_KEYS
 from nav_qa_processing.theme import _COLOR_KEYS, _KEYS
 
+CONFIG = EXAMPLES / "config.example.toml"
 SITE = EXAMPLES / "site.example.toml"
 THEME = EXAMPLES / "theme.example.toml"
 
@@ -42,14 +43,33 @@ def test_the_site_example_shows_every_key():
     assert "configs/theme.example.toml" in SITE.read_text()
 
 
-def test_the_site_examples_thresholds_are_the_defaults():
-    """Its commented thresholds, uncommented, are Thresholds' defaults: they can't drift"""
-    text = SITE.read_text()
+def test_the_config_example_shows_every_key():
+    """The core config TOML's keys; R2R's are the cruise TOMLs `r2r config-from-catalog` writes"""
+    keys = {key for key in schema_keys(CORE_KEYS) if key != "theme"}
+    assert keys - shown(CONFIG) == set()
+    assert "configs/theme.example.toml" in CONFIG.read_text()
+
+
+def commented_thresholds(path) -> dict:
+    """The [thresholds] an example shows commented out, as a table"""
+    text = path.read_text()
     block = text[text.index("[thresholds]") : text.index("# The reports' theme")]
-    commented = [line[2:] for line in block.splitlines() if re.match(r"# \w+ = ", line)]
-    table = tomllib.loads("\n".join(commented))
-    assert set(table) == {name for name in schema_keys(SITE_KEYS["thresholds"])} - {"max_speed"}
-    assert thresholds_from_table(table) == Thresholds()
+    return tomllib.loads(
+        "\n".join(line[2:] for line in block.splitlines() if re.match(r"# \w+ = ", line))
+    )
+
+
+def test_the_examples_thresholds_are_the_defaults():
+    """Commented thresholds, uncommented, are Thresholds' defaults: they can't drift. The site
+    example sets max_speed, as a ship would
+    """
+    every = schema_keys(CORE_KEYS["thresholds"])
+    config, site = commented_thresholds(CONFIG), commented_thresholds(SITE)
+    assert set(config) == every and set(site) == every - {"max_speed"}
+    assert thresholds_from_table(config) == thresholds_from_table(
+        site | {"max_speed": Thresholds().max_speed}
+    )
+    assert thresholds_from_table(config) == Thresholds()
 
 
 def test_the_theme_example_shows_every_setting():

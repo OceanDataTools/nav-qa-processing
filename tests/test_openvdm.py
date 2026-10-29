@@ -558,6 +558,15 @@ def test_without_pyyaml(tmp_path, monkeypatch, capsys):
     assert "uv sync --extra openvdm" in capsys.readouterr().err
 
 
+def test_a_cruise_table_in_the_site_config_is_explained(tmp_path):
+    """The site TOML describes the ship: each cruise comes from OpenVDM"""
+    path = site_config(tmp_path, '[cruise]\npi = "A. Scientist"\n\n[nav]\nformat = "nav33"\n')
+    with pytest.raises(
+        ValueError, match=r"cruise \(top level\): a site TOML has no cruise.*OpenVDM"
+    ):
+        openvdm.load_site_config(path)
+
+
 def test_the_example_site_config_loads():
     site = openvdm.load_site_config(Path(__file__).parents[1] / "configs/site.example.toml")
     assert (site.primary.format, site.primary.files) == ("nav33", "raw/POSMV_GGA-*.txt")

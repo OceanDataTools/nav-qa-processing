@@ -227,9 +227,11 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
   (`make_natural_earth.py`), used only by tests marked `map_data(clipped=True)`.
 - `/data/` (downloaded R2R filesets) and `/output/` (generated reports) are gitignored. `configs/`
   is the users' space: the commands write `site.toml` and cruise TOMLs there, and git ignores
-  everything in it but `site.example.toml` and `theme.example.toml` (#153). The two show every
-  key their schemas take, commented or not, the thresholds at their defaults
-  (`tests/test_examples.py`): add a new key to its example. Downloads and catalog configs are `r2r`
+  everything in it but `config.example.toml`, `site.example.toml` and `theme.example.toml` (#153).
+  The three show every key their schemas take, commented or not, the thresholds at their
+  defaults (`tests/test_examples.py`): add a new key to its example. A site TOML has `[vessel]`
+  and no `[cruise]` (OpenVDM gives the cruise; `hook.SITE_NOTES` explains it), a config TOML
+  `[cruise] vessel_name` and no `[vessel]`. Downloads and catalog configs are `r2r`
   commands, as in sbe-qa-processing.
 - Outputs follow the same set: an R2R QA 2.0 XML, a PDF report (ReportLab, with the SVGs
   embedded), every figure as an SVG, and a notebook that re-runs the assessment. It runs from the CLI
