@@ -10,6 +10,7 @@ from reportlab.platypus import Paragraph
 from test_plots import cruise
 
 from nav_qa_processing import maps, reports
+from nav_qa_processing.fileset import ManifestEntry
 from nav_qa_processing.pdf_report import MAX_ERRORS
 from nav_qa_processing.theme import Theme
 
@@ -29,7 +30,7 @@ def test_the_report(tmp_path):
     pdf = tmp_path / "out" / "TEST_qa_report.pdf"
     assert pdf in written
     text = pages(pdf)
-    assert len(text) == 5
+    assert len(text) == 4  # sections follow on without page breaks
     first = text[0]
     words = " ".join(first.split())  # where lines wrap depends on tmp_path's length
     assert "Navigation QA report: TEST" in first
@@ -41,16 +42,28 @@ def test_the_report(tmp_path):
     assert "Checks by file" in first and "nav.txt" in first and "Total" in first
     assert "Skipped" in first
     assert "Statistics" in first and "Most common time between" in " ".join(first.split())
-    assert "All records, as R2R reports them" in first and "Fixes that pass QC" in first
+    # One pair of columns, over the fixes that pass QC; R2R's pre-QC ranges are its certificate's
+    assert "Number of fixes that pass QC" in first and "Over the fixes that pass QC" in words
+    assert "as R2R reports them" not in words
     assert "TEST_bestres.geoCSV" in first
-    assert "Quality control" in text[1] and "Coverage, gaps and flags" in text[1]
-    # 499 s to 900 s, as hh:mm:ss (#73)
-    assert "Gaps of 300 s (00:05:00) or longer" in text[1] and "00:06:41.000" in text[1]
-    assert "acceleration" in text[1] and "Invalid GGA fix" in text[1]
-    for page, heading in zip(
-        text[2:], ("Trackline", "Speed and acceleration", "Sampling and fix quality"), strict=True
-    ):
-        assert heading in page
+    # The sections in order, each following the last without a page break
+    every = " ".join(" ".join(text).split())
+    sections = [
+        "Quality control",
+        "Reader and manifest errors",
+        "Gaps of 300 s (00:05:00) or longer",
+        "Coverage, gaps and flags",
+        "Trackline",
+        "Speed and acceleration",
+        "Sampling and fix quality",
+    ]
+    assert [every.index(s) for s in sections] == sorted(every.index(s) for s in sections)
+    assert "00:06:41.000" in every  # 499 s to 900 s, as hh:mm:ss (#73)
+    assert "Invalid GGA fix" in every
+    # Shown without errors too, saying whether there was a manifest to check against
+    assert "None reading the nav files. There's no manifest" in every
+    # These two share the last page (pdf_report.SERIES_HEIGHT, HISTOGRAMS_HEIGHT)
+    assert "Speed and acceleration" in text[-1] and "Sampling and fix quality" in text[-1]
     metadata = PdfReader(pdf).metadata
     assert metadata.title == "Navigation QA report: TEST"
     assert metadata.subject == "Navigation quality assessment"
@@ -87,3 +100,12 @@ def test_long_error_lists_are_counted(tmp_path):
     text = "".join(pages(tmp_path / "out" / "TEST_qa_report.pdf"))
     assert f"{MAX_ERRORS + 5} errors" in text and "and 5 more" in text
     assert f"file{MAX_ERRORS + 1}" not in text
+
+
+def test_no_errors_against_a_manifest(tmp_path):
+    result = cruise(tmp_path / "in")
+    manifest = [ManifestEntry(path="nav.txt", md5="0" * 32)]
+    result = replace(result, fileset=replace(result.fileset, manifest=manifest), errors=[])
+    reports.write_reports(result, tmp_path / "out", notebook=False)
+    text = " ".join(" ".join(pages(tmp_path / "out" / "TEST_qa_report.pdf")).split())
+    assert "None reading the nav files or checking them against the manifest." in text

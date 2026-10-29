@@ -132,15 +132,18 @@ the primary also carries the feed's name, e.g. `<CRUISE>_seapath_bestres.geoCSV`
 Long cruises are reduced for drawing (a simplified track line, min/max bands per time bin, at
 most 3,000 markers per flag); counts in the legends are the full ones.
 
-It also writes `<CRUISE>_qa_report.pdf`, which embeds the SVGs as vector drawings:
+It also writes `<CRUISE>_qa_report.pdf`, which embeds the SVGs as vector drawings. Its sections
+follow one another without page breaks; a section starts a new page only when it doesn't fit
+on the current one:
 
-| Page | Contents |
+| Sections | Contents |
 |---|---|
-| 1 | The title block (cruise, vessel, dates, expected area, contact, the fileset, its nav files and format, versions) and the checks in a line on the worst status's color (e.g. "2 of 8 checks warn: Completeness 47.34 %; Longest gap 13:30:25.500 (48625.500 s)."; with no usable fixes, a warning that no check could be made), then any warnings about the run, e.g. nav files outside the cruise window with their time span (the console summary and the hook's log say the same), every check with its status, the checks by file (what each check counted in each nav file read and the sentences the reader couldn't use, the files it couldn't read, those skipped as outside the cruise window, and the total), the statistics (first and last fix, intervals (the longest gap as hh:mm:ss), satellite, HDOP, altitude, speed and acceleration ranges), over every record as R2R reports them and over the fixes that pass QC and the products |
-| 2 | Quality control: records flagged by flag, QC's notes (raised limits, position steps), reader and manifest errors (the first 12, then a count), the gaps of `max_gap` or longer (the 10 longest, with their start, end, length as hh:mm:ss and the files either side, then a count), and the coverage timeline |
-| 3–5 | The trackline map; speed and acceleration; sampling and fix quality |
+| Summary | The title block (cruise, vessel, dates, expected area, contact, the fileset, its nav files and format, versions) and the checks in a line on the worst status's color (e.g. "2 of 8 checks warn: Completeness 47.34 %; Longest gap 13:30:25.500 (48625.500 s)."; with no usable fixes, a warning that no check could be made), then any warnings about the run, e.g. nav files outside the cruise window with their time span (the console summary and the hook's log say the same), every check with its status, the checks by file (what each check counted in each nav file read and the sentences the reader couldn't use, the files it couldn't read, those skipped as outside the cruise window, and the total), the statistics over the fixes that pass QC (their number, first and last fix, satellite, HDOP, altitude, speed and acceleration ranges) with the most common and longest times between fixes (the longest as hh:mm:ss) over every usable record, and the products |
+| Quality control | Records flagged by flag, QC's notes (raised limits, position steps), reader and manifest errors (the first 12, then a count; with none, a line saying so and whether a manifest was checked), the gaps of `max_gap` or longer (the 10 longest, with their start, end, length as hh:mm:ss and the files either side, then a count), and the coverage timeline |
+| Figures | The trackline map; speed and acceleration with sampling and fix quality, sharing a page |
 
-Integrations put their pages after the title block: `r2r run` adds [R2R's certificate](#r2r).
+Integrations put their pages after the title block: `r2r run` adds [R2R's certificate](#r2r),
+with R2R's ranges over every record before QC.
 
 And it writes `<CRUISE>_qa.ipynb`, a notebook that re-runs the assessment step by step: the
 config (the config file, or the run's config written into it as TOML), `run_qa`, the checks,
@@ -356,7 +359,7 @@ uv run nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_g
 |---|---|
 | `<CRUISE>_bestres.geoCSV`, `_1min.geoCSV`, `_control.geoCSV` | The products, as `run` writes them, with R2R's attribution, repository and DOIs |
 | `<CRUISE>_<FILESET>_qa.2.0.<TIME>.xml` | R2R QA 2.0 report: R2R's structure, tests, bounds, infos and ranges, with its stylesheet reference. `<TIME>` is the run's, as in the products' `creation_date`, without its colons (`2026-07-31T200556Z`; R2R's names have them, which Windows doesn't allow) |
-| `<CRUISE>_plots/`, `<CRUISE>_qa_report.pdf` | The figures and PDF, as `run` writes them, with R2R's certificate after the title block: R2R's fileset, vessel, ports, receiver and format, the rating as a G/Y/R banner in the theme's rating colors, each test's rating, result, G and Y bounds and detail, and the infos. The PDF's subject is the rating, e.g. `R2R rating G` |
+| `<CRUISE>_plots/`, `<CRUISE>_qa_report.pdf` | The figures and PDF, as `run` writes them, with R2R's certificate after the title block: R2R's fileset, vessel, ports, receiver and format, the rating as a G/Y/R banner in the theme's rating colors, each test's rating, result, G and Y bounds and detail, the infos, and R2R's ranges (NSV, HDOP, altitude, speed and acceleration over every record before QC, as the XML gives them). The PDF's subject is the rating, e.g. `R2R rating G` |
 | `<CRUISE>_qa.ipynb` | The notebook, as `run` writes it, loading the cruise TOML (or, for a config built in Python, the cruise TOML written into it), then running R2R's tests, showing the certificate's tables, and writing the reports with the certificate and a new QA 2.0 XML, named by the notebook's run time |
 
 `run -c` takes the same cruise TOML and ignores the R2R fields.

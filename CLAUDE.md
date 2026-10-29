@@ -75,7 +75,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `NavStats.counted` keeps which records each check counted; `counts_by_file` splits them by
   nav file for the PDF's and notebook's "Checks by file" (#61). `gaps(nav, qc_result,
   thresholds)` lists the gaps, longest first, with their files (#65). `NavStats.good`
-  (`GoodFixes`) has the ranges over the fixes that pass QC, beside navqa's pre-QC ones (#66).
+  (`GoodFixes`) has the ranges over the fixes that pass QC, which the PDF's and notebook's
+  statistics give; navqa's pre-QC ones are R2R's, on its certificate and in its XML (#66).
   `NavStats.verdict` is the checks in a line, (status, text), under the PDF's title (#68).
   With no usable fixes every check is n/a ("no fixes" or "no usable fixes") and the verdict
   warns (#122).
@@ -129,7 +130,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   bag, `r2r_qa.2.0.xml` via api/qa_info, `products/` via api/product).
 - `integrations/r2r/certificate.py`: `certificate(result, r2r)` (a `FrontPages`: R2R's facts,
   the G/Y/R banner from the theme, the tests with results and bounds as the XML writes them,
-  the infos), `NOTEBOOK_CELLS`, `pdf_subject`. `tests/test_r2r_certificate.py` checks it
+  the infos, R2R's pre-QC ranges by `xml_report.supplemental_ranges`), `NOTEBOOK_CELLS`,
+  `pdf_subject`. `tests/test_r2r_certificate.py` checks it
   against the XML on the five reference filesets.
 - `integrations/openvdm/hook.py` (#49, ported from sbe-qa-processing): `SiteConfig` (the site
   TOML: `[vessel]`, `feeds` (`SiteFeed`s from `[nav]` or `[[nav]]`: name, primary, format,

@@ -76,7 +76,7 @@ def notebook_extras(run: R2RRun) -> NotebookExtras:
             f"from {PACKAGE}.config import load_cruise_config, loads_cruise_config\n"
             f"from {PACKAGE}.reports import r2r_source\n"
             f"from {PACKAGE}.rules import run_r2r_tests\n"
-            f"from {PACKAGE}.xml_report import qa_xml_name, write_qa_xml\n"
+            f"from {PACKAGE}.xml_report import qa_xml_name, supplemental_ranges, write_qa_xml\n"
         ),
         load_config="load_cruise_config",
         config_toml=config_to_toml(config),

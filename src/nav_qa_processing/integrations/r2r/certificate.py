@@ -1,16 +1,18 @@
-"""R2R's certificate: the overall rating, the six tests and the infos, as a PDF page after the
-title (`pdf_report.FrontPages`) and as notebook cells. The ratings, results and bounds are the
-`R2RResult`'s, written through `quantities.py` as the QA 2.0 XML writes them; the rating colors
-are the theme's.
+"""R2R's certificate: the overall rating, the six tests, the infos and R2R's ranges (over
+every record before QC; the core report's statistics are over the fixes that pass QC), as PDF
+pages after the title (`pdf_report.FrontPages`) and as notebook cells. The ratings, results,
+bounds and ranges are written through `quantities.py` as the QA 2.0 XML writes them; the rating
+colors are the theme's.
 """
 
 from nbformat.v4 import new_code_cell, new_markdown_cell
 from reportlab.lib import colors
-from reportlab.platypus import Flowable, PageBreak, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import Flowable, KeepTogether, Paragraph, Spacer, Table, TableStyle
 
 from nav_qa_processing import quantities as q
 from nav_qa_processing.integrations.r2r.config import CruiseConfig
 from nav_qa_processing.integrations.r2r.rules import Bound, R2RResult, TestResult
+from nav_qa_processing.integrations.r2r.xml_report import supplemental_ranges
 from nav_qa_processing.pdf_report import FrontPages, Layout, escape, table, tint
 from nav_qa_processing.qa import NavQAResult
 
@@ -103,8 +105,28 @@ def certificate(result: NavQAResult, r2r: R2RResult) -> FrontPages:
             Spacer(1, 12),
             Paragraph("Infos", lay.subheading),
             table(lay, ["Info", "Value"], [[i.name, i.text] for i in r2r.infos], [0.3, 0.2]),
+            Spacer(1, 12),
+            KeepTogether(
+                [
+                    Paragraph("Ranges", lay.subheading),
+                    Paragraph(
+                        "Over every record before QC, as R2R reports them; the statistics "
+                        "below are over the fixes that pass QC.",
+                        lay.small,
+                    ),
+                    table(
+                        lay,
+                        ["Range", "Quantity", "Minimum", "Maximum"],
+                        [
+                            [name, quantity.label, minimum, maximum]
+                            for name, quantity, minimum, maximum in supplemental_ranges(result)
+                        ],
+                        [0.22, 0.42, 0.18, 0.18],
+                    ),
+                ]
+            ),
         ]
-        return story + [PageBreak()]
+        return story + [Spacer(1, 12)]  # the checks follow on the same page if they fit
 
     return pages
 
@@ -112,8 +134,9 @@ def certificate(result: NavQAResult, r2r: R2RResult) -> FrontPages:
 NOTEBOOK_CELLS = [
     new_markdown_cell(
         "## R2R certificate\n\n"
-        "R2R's six tests, rated G/Y/R against R2R's bounds from the statistics above, and the "
-        "infos: what the R2R QA 2.0 XML and the PDF's certificate say."
+        "R2R's six tests, rated G/Y/R against R2R's bounds from the statistics above, the "
+        "infos, and R2R's ranges, over every record before QC: what the R2R QA 2.0 XML and the "
+        "PDF's certificate say."
     ),
     new_code_cell(
         "display(pd.DataFrame([\n"
@@ -121,6 +144,10 @@ NOTEBOOK_CELLS = [
         '     "G": bound_text(t.bounds[0]), "Y": bound_text(t.bounds[1]), "detail": t.detail}\n'
         "    for t in r2r.tests\n"
         "]))\n"
-        'display(pd.DataFrame([{"info": i.name, "value": i.text} for i in r2r.infos]))'
+        'display(pd.DataFrame([{"info": i.name, "value": i.text} for i in r2r.infos]))\n'
+        "display(pd.DataFrame([\n"
+        '    {"range": name, "quantity": quantity.label, "minimum": low, "maximum": high}\n'
+        "    for name, quantity, low, high in supplemental_ranges(result)\n"
+        "]))"
     ),
 ]
