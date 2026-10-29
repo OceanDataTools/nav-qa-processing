@@ -93,14 +93,15 @@ fixes) takes about 1.4 GB; 30 days at 10 Hz (26 M fixes), about 10 GB.
 Install it where OpenVDM's workers can run it, in its own environment (not OpenVDM's venv), with
 the `openvdm` extra (pyyaml, to read `openvdm.yaml`). Do it as OpenVDM's user (`OPENVDM_USER`,
 `survey` by default):
-1. Put uv where every user finds it.
+1. Install uv for that user.
 2. Clone the repository in that user's home.
 3. Copy the clone to `/opt` and give the copy to that user, as OpenVDM's installer does with
    `/opt/openvdm`.
 4. Install the packages in `/opt/nav-qa-processing`.
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sudo env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"   # uv in this shell
 cd ~
 git clone https://github.com/OceanDataTools/nav-qa-processing.git
 sudo cp -r ~/nav-qa-processing /opt/nav-qa-processing
@@ -109,7 +110,9 @@ cd /opt/nav-qa-processing
 uv sync --no-dev --extra openvdm --no-managed-python   # the system Python 3.11+
 ```
 
-The copy is a git checkout, so [Updating](#updating) pulls into it directly.
+The copy is a git checkout, so [Updating](#updating) pulls into it directly. The hook runs the
+venv's own Python, `.venv/bin/nav-qa-processing`, never uv, so OpenVDM's workers run it as root
+(or any user) without uv on their `PATH`.
 
 On **Ubuntu 22.04**, whose Python is too old, run these in place of that `uv sync`. They install
 a Python with uv, kept beside the install so it doesn't depend on your home directory:
@@ -344,7 +347,8 @@ uv sync --no-dev --extra openvdm --no-managed-python   # the same options as the
 ```
 
 `uv sync` installs exactly the versions in `uv.lock`, so every install of a commit runs the same
-packages.
+packages. For the OpenVDM hook's install, update as the OpenVDM user, who owns
+`/opt/nav-qa-processing` and has uv.
 
 Installed: [COOKBOOK.md](COOKBOOK.md) has worked examples, on a directory of raw files and on an
 R2R fileset.
