@@ -605,8 +605,10 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
 2. add an extra directory for the reports in OpenVDM, `NAV_QA` by default;
 3. write the ship's [site TOML](#site-toml) with `site-config`: the GNSS feed's format and a
    glob of its files, and the vessel's details;
-4. add the hook to `openvdm.yaml`, under the collection system that logs the GNSS, and restart
-   OpenVDM's `post_hooks` worker:
+4. add the hooks to `openvdm.yaml`, under the keys it already has, and restart OpenVDM's
+   `post_hooks` worker: after each transfer of the collection system that logs the GNSS, at
+   most every `--min-interval`, and before the cruise is finalized, for the final reports (that
+   hook names the transfer, since `{collectionSystemTransferName}` has no value there):
 
    ```yaml
    postHookCommands:
@@ -622,6 +624,17 @@ the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
                - "--site-config=/opt/nav-qa-processing/configs/site.toml"
                - "--changed-files={newFiles}"
                - "--changed-files={updatedFiles}"
+               - "--min-interval=6h"
+
+       preFinalizeCurrentCruise:
+           commandList:
+           - name: "Navigation QA"
+             command:
+             - /opt/nav-qa-processing/.venv/bin/nav-qa-processing
+             - openvdm
+             - OpenRVDAS
+             - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
+             - "--site-config=/opt/nav-qa-processing/configs/site.toml"
    ```
 5. try it, by running the same command by hand.
 
@@ -631,7 +644,7 @@ The hook:
   carry its name (`<CRUISE>_seapath_…`);
 - **skips** feeds whose new or updated files include none matching their `files`, and
   transfers with no such feed. Use the `--changed-files={newFiles}` form, so an empty list
-  isn't dropped;
+  isn't dropped. With `--min-interval`, it also skips a feed whose reports are newer than that;
 - reads the cruise's nav files from the transfer's directory, within OpenVDM's cruise dates (an
   open-ended cruise ends today, UTC);
 - **writes into the extra directory**, replacing earlier ones: the three GeoCSV products, the
@@ -689,7 +702,7 @@ named as in sbe-qa-processing's hook.
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the site TOML's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook and save its outputs |
 | `--no-products` | off | Don't write the GeoCSV products into the extra directory, as for `run`. bestres has a line per fix and grows through the cruise (about 300 MB for 20 days at 2 Hz), and the hook rewrites it after every transfer |
-| `--min-interval DURATION` | none | Skip a feed whose reports are newer than this: a number and `s`, `m`, `h` or `d`, e.g. `6h`. Each run assesses the whole cruise so far, which takes minutes for a long cruise, longer than OpenVDM's transfer interval; with this the post-transfer hook reassesses at most that often. Leave it out of a `preFinalizeCurrentCruise` hook, which writes the final reports ([INSTALL.md](INSTALL.md#4-add-the-hook-to-openvdmyaml)) |
+| `--min-interval DURATION` | none | Skip a feed whose reports are newer than this: a number and `s`, `m`, `h` or `d`, e.g. `6h`. Each run assesses the whole cruise so far, which takes minutes for a long cruise, longer than OpenVDM's transfer interval; with this the post-transfer hook reassesses at most that often. Leave it out of a `preFinalizeCurrentCruise` hook, which writes the final reports ([INSTALL.md](INSTALL.md#4-add-the-hooks-to-openvdmyaml)) |
 
 #### `config-from-openvdm`
 
