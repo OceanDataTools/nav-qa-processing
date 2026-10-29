@@ -255,7 +255,9 @@ postHookCommands:
 
 Optional arguments, one list item each: `--execute-notebook` saves the notebook with its outputs
 (an install without `--no-dev`); `--theme=/path/theme.toml` changes the reports' look;
-`--no-set-extent` leaves OpenVDM's cruise extent alone (below).
+`--no-set-extent` leaves OpenVDM's cruise extent alone (below); `--no-products` leaves out the
+GeoCSV products, keeping the reports (bestres, a line per fix, is about 300 MB for 20 days at
+2 Hz, rewritten after every transfer).
 
 **The cruise extent.** From OpenVDM 2.17 the hook sets the cruise's bounding box
 (`cruiseExtent`) to the fixes that pass QC, so a jump to 0, 0 doesn't stretch it. That needs

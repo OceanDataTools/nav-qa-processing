@@ -106,9 +106,11 @@ def build_notebook(
     output_dir: Path,
     extras: NotebookExtras | None = None,
     theme_file: Path | None = None,
+    products: bool = True,
 ) -> nbformat.NotebookNode:
     """The notebook in notebook_template.py, for this run (theme_file is the --theme file the
-    reports were written with, if any)
+    reports were written with, if any; without `products`, it writes the reports without the
+    GeoCSV products, as they were)
     """
     config = result.config
     extras = extras or NotebookExtras()
@@ -136,6 +138,7 @@ def build_notebook(
         "config_lines": config_lines,
         "after_run": extras.after_run,
         "report_arguments": "    result, OUTPUT_DIR, theme_file=THEME_FILE, notebook=False"
+        + ("" if products else ", products=False")
         + extras.report_arguments,
         "write": extras.write,
     }
@@ -164,6 +167,7 @@ def write_notebook(
     execute: bool = False,
     extras: NotebookExtras | None = None,
     theme_file: Path | None = None,
+    products: bool = True,
 ) -> Path:
     """Writes the notebook; with `execute`, runs it first and saves its outputs (needs nbclient
     and ipykernel, in the dev group). The last cell, which writes the reports, isn't run: they
@@ -171,7 +175,7 @@ def write_notebook(
     reports, such as R2R's XML, again under a new name)
     """
     path = Path(path)
-    notebook = build_notebook(result, Path(output_dir), extras, theme_file)
+    notebook = build_notebook(result, Path(output_dir), extras, theme_file, products)
     if execute:
         try:
             from nbclient import NotebookClient

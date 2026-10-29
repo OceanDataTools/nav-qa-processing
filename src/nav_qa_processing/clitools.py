@@ -71,3 +71,14 @@ def add_report_output(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="run the notebook and save its outputs (needs nbclient and ipykernel)",
     )
+    add_no_products(parser)
+
+
+def add_no_products(parser: argparse.ArgumentParser) -> None:
+    """--no-products, for every command that writes the reports, the hook's included"""
+    parser.add_argument(
+        "--no-products",
+        action="store_true",
+        help="don't write the GeoCSV products (bestres, 1min, control); the reports still give "
+        "their record counts",
+    )

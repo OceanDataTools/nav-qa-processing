@@ -514,9 +514,16 @@ def _gaps(lay: Layout, result: NavQAResult) -> list[Flowable]:
     ]
 
 
-def _products(lay: Layout, result: NavQAResult) -> Table:
+def _products(lay: Layout, result: NavQAResult, written: bool = True) -> Table:
+    """Each product's file and records, the files marked when they weren't written
+    (--no-products): the records are the QA's either way
+    """
+    name = lambda product: geocsv.file_name(result.config.stem, product)
     rows = [
-        [geocsv.file_name(result.config.stem, product), q.FIXES.format(len(frame))]
+        [
+            name(product) if written else f"{name(product)} (not written)",
+            q.FIXES.format(len(frame)),
+        ]
         for product, frame in (
             (geocsv.BESTRES, result.bestres),
             (geocsv.ONE_MINUTE, result.one_minute),
@@ -526,7 +533,7 @@ def _products(lay: Layout, result: NavQAResult) -> Table:
     return table(lay, ["File", "Records"], rows, [0.7, 0.3])
 
 
-def _summary(lay: Layout, result: NavQAResult) -> list[Flowable]:
+def _summary(lay: Layout, result: NavQAResult, products: bool = True) -> list[Flowable]:
     return [
         KeepTogether([Paragraph("Checks", lay.heading), checks_table(lay, result.stats.checks)]),
         Spacer(1, 10),
@@ -551,7 +558,7 @@ def _summary(lay: Layout, result: NavQAResult) -> list[Flowable]:
             ]
         ),
         Spacer(1, 10),
-        KeepTogether([Paragraph("Products", lay.subheading), _products(lay, result)]),
+        KeepTogether([Paragraph("Products", lay.subheading), _products(lay, result, products)]),
     ]
 
 
@@ -601,8 +608,10 @@ def write_pdf(
     front: FrontPages | None = None,
     subject: str = "Navigation quality assessment",
     theme: Theme = DEFAULT_THEME,
+    products: bool = True,
 ) -> Path:
-    """Writes the PDF, embedding the figures' SVGs (`reports.write_figures`). `front` makes the
+    """Writes the PDF, embedding the figures' SVGs (`reports.write_figures`); `products` says
+    whether the GeoCSV products were written beside it. `front` makes the
     pages an integration puts between the title and the checks, e.g. R2R's certificate
     """
     path = Path(path)
@@ -634,7 +643,7 @@ def write_pdf(
     story = (
         _title(lay, result)
         + (front(lay) if front else [])
-        + _summary(lay, result)
+        + _summary(lay, result, products)
         + _figures(lay, result, svgs)
     )
     document.build(story, onFirstPage=decorate, onLaterPages=decorate)

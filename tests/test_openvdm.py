@@ -605,6 +605,21 @@ def test_hook_sets_the_cruise_extent_from_the_good_fixes(hook_with_key, api_stat
     assert "set OpenVDM's cruise extent to 32.6" in out
 
 
+def test_the_hook_without_products(hook_with_key, tmp_path):
+    """--no-products: the reports alone, in the extra directory and OpenVDM's MD5 summary"""
+    assert main([*hook_with_key, "--no-products"]) == 0
+    output = tmp_path / "warehouse" / "SP2613" / "Products" / "NAV_QA"
+    names = {p.name for p in output.iterdir()}
+    assert names == {
+        "SP2613_config.toml",
+        "SP2613_plots",
+        "SP2613_qa_report.pdf",
+        "SP2613_qa.ipynb",
+    }
+    (command,) = openvdm.subprocess.run.commands
+    assert not any(f.endswith(".geoCSV") for f in command[4:])
+
+
 def test_a_refused_extent_is_a_warning(hook_with_key, api_state, caplog, capsys):
     api_state["status"] = 403
     assert main(hook_with_key) == 0  # the QA succeeded

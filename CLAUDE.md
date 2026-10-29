@@ -176,8 +176,11 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `tests/test_notebook.py` and `tests/test_r2r_certificate.py` execute the result.
 - `reports.py` (core): `report_paths`, `write_figures`, `write_reports(result, output,
   source=None, theme=None, pdf_front, pdf_subject, theme_file, notebook=True, execute_notebook,
-  notebook_extras)`: the GeoCSV products, the SVGs in `<CRUISE>_plots/`,
+  notebook_extras, products=True)`: the GeoCSV products, the SVGs in `<CRUISE>_plots/`,
   `<CRUISE>_qa_report.pdf` and `<CRUISE>_qa.ipynb` (the notebook itself passes `notebook=False`).
+  `products=False` (`--no-products` on `run`, `r2r run` and the hook) leaves out the GeoCSV
+  files only: the PDF marks them "not written" with their record counts, and the notebook
+  rewrites the reports without them.
 - `cli.py`: core's commands, `formats`, `run FILESET_DIR [-c CONFIG] [-f FORMAT_ID]` and
   `fetch-map-data`, plus `build_parser` and `main`. Each integration's commands are in its own
   `cli.py` (`integrations/r2r/cli.py`: the `r2r` group, `run`, `config-from-catalog`,
@@ -185,7 +188,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `config-from-openvdm`, `site-config`), each with `add_commands(commands)` and
   `EXPECTED_ERRORS`; core's `cli.py` adds them (`INTEGRATIONS`), importing nothing else of them
   (`tests/test_boundaries.py`; #145). `clitools.py` has what both sides share (refusing to
-  overwrite, writing a cruise TOML or reports, the report-output arguments). The hook's
+  overwrite, writing a cruise TOML or reports, the report-output arguments, `add_no_products`,
+  which the hook's parser adds too). The hook's
   "every error one line" is its parser default `every_error_one_line`. Conventions in
   `cli.py`'s docstring (`-o`/`--force`, integer fileset IDs, uppercase metavars, `-v`/`-vv` on
   every parser, expected errors one line), checked for every command by `tests/test_cli.py`.
