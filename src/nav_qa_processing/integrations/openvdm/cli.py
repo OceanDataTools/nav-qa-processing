@@ -8,7 +8,13 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-from nav_qa_processing.clitools import STDOUT, print_written, refuse_overwrite, write_cruise_toml
+from nav_qa_processing.clitools import (
+    STDOUT,
+    add_no_products,
+    print_written,
+    refuse_overwrite,
+    write_cruise_toml,
+)
 from nav_qa_processing.filenames import report_stem
 from nav_qa_processing.integrations.openvdm.hook import DEFAULT_OPENVDM_CONFIG, OpenVDMError
 
@@ -127,6 +133,7 @@ def _openvdm_feed(args: argparse.Namespace, run, site_root: str, key: str):
             theme=theme,
             theme_file=args.theme,
             execute_notebook=args.execute_notebook,
+            products=not args.no_products,
         ),
     ]
     openvdm.chown_tree(run.output_dir, run.owner)
@@ -308,6 +315,7 @@ def add_commands(commands) -> None:
         action="store_true",
         help="run the notebook and save its outputs (needs nbclient and ipykernel)",
     )
+    add_no_products(hook)
     # OpenVDM shows the hook's failure message, so every error is one line (cli.main)
     hook.set_defaults(handler=_openvdm, every_error_one_line=True)
 

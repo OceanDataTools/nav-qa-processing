@@ -18,14 +18,15 @@ from nav_qa_processing.qa import NavQAResult
 from nav_qa_processing.theme import DEFAULT_THEME, Theme, resolve_theme
 
 
-def report_paths(output: Path, stem: str) -> dict[str, Path]:
+def report_paths(output: Path, stem: str, products: bool = True) -> dict[str, Path]:
     """What write_reports writes for a config's `stem` (the cruise ID, and a non-primary feed's
-    name): the products by name, and "plots", the figures' directory. Each is a valid file name
-    in output whatever the stem (`filenames.report_stem`)
+    name): the products by name (unless not `products`), and "plots", the figures' directory.
+    Each is a valid file name in output whatever the stem (`filenames.report_stem`)
     """
     paths = {
         name: Path(output) / geocsv.file_name(stem, product)
         for name, product in geocsv.PRODUCTS.items()
+        if products
     }
     stem = report_stem(stem)
     paths["plots"] = Path(output) / f"{stem}_plots"
@@ -67,12 +68,14 @@ def write_reports(
     notebook: bool = True,
     execute_notebook: bool = False,
     notebook_extras: NotebookExtras | None = None,
+    products: bool = True,
 ) -> list[Path]:
     """The three GeoCSV products, created at the run's end, the figures as SVGs, the PDF and
     the notebook. `source` replaces the config's GeoCSV source values (e.g. R2R's); the look is
     `theme`, or the `theme_file` (a --theme file) with the config's [theme] on top; `pdf_front`
     and `notebook_extras` are what an integration adds. The notebook itself writes the reports
-    with `notebook=False`, so it doesn't replace itself
+    with `notebook=False`, so it doesn't replace itself. Without `products`, the GeoCSV products
+    aren't written (`--no-products`); the PDF still gives their record counts
     """
     if theme is None:
         theme = resolve_theme(theme_file, result.config)
@@ -83,22 +86,26 @@ def write_reports(
         geocsv.ONE_MINUTE.name: result.one_minute,
         geocsv.CONTROL.name: result.control,
     }
-    written = [
-        geocsv.write(
-            output,
-            geocsv.PRODUCTS[name],
-            frame,
-            result.nav.decimals,
-            source or result.source,
-            created=result.finished,
-            stem=result.config.stem,
-        )
-        for name, frame in frames.items()
-    ]
-    paths = report_paths(output, result.config.stem)
+    written: list[Path] = []
+    if products:
+        written += [
+            geocsv.write(
+                output,
+                geocsv.PRODUCTS[name],
+                frame,
+                result.nav.decimals,
+                source or result.source,
+                created=result.finished,
+                stem=result.config.stem,
+            )
+            for name, frame in frames.items()
+        ]
+    paths = report_paths(output, result.config.stem, products)
     svgs = write_figures(result, paths["plots"], theme)
     written += svgs.values()
-    written.append(write_pdf(result, paths["pdf"], svgs, pdf_front, pdf_subject, theme))
+    written.append(
+        write_pdf(result, paths["pdf"], svgs, pdf_front, pdf_subject, theme, products=products)
+    )
     if notebook:
         written.append(
             write_notebook(
@@ -108,6 +115,7 @@ def write_reports(
                 execute=execute_notebook,
                 extras=notebook_extras,
                 theme_file=theme_file,
+                products=products,
             )
         )
     return written

@@ -100,7 +100,7 @@ spelling is still accepted wherever a format ID is given (`-f`, `[nav] format`, 
 
 ```text
 nav-qa-processing run [-c CONFIG_TOML] [-f FORMAT_ID] [--nav NAME] [-o OUTPUT_DIR] [--force]
-                      [--theme THEME_TOML] [--execute-notebook] FILESET_DIR
+                      [--theme THEME_TOML] [--execute-notebook] [--no-products] FILESET_DIR
 ```
 
 Reads the fileset's primary GNSS feed, flags bad fixes, computes the QA statistics and checks,
@@ -116,6 +116,7 @@ and writes the three products, the figures and the PDF report.
 | `--force` | off | Replace existing products and reports; without it, `run` stops if any of them exists |
 | `--theme THEME_TOML` | none | A [theme](#themes) file for the PDF, figures and notebook; the config's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook (needs `nbclient` and `ipykernel`, in the dev group) and save it with its outputs. Its last cell, which writes the reports again, isn't run |
+| `--no-products` | off | Don't write the GeoCSV products (bestres, 1min, control): only the figures, PDF and notebook. The PDF still gives each product's record count, its file marked "not written", and the notebook rewrites the reports without them |
 
 It writes `<CRUISE>_bestres.geoCSV`, `<CRUISE>_1min.geoCSV` and `<CRUISE>_control.geoCSV`,
 and the figures as SVGs in `<CRUISE>_plots/`, where `<CRUISE>` is the config's `[cruise] id`, or
@@ -370,7 +371,7 @@ uv run nav-qa-processing r2r run configs/SP2613_169851.toml data/SP2613_169851_g
 
 ```text
 nav-qa-processing r2r run [-o OUTPUT_DIR] [--force] [--theme THEME_TOML] [--execute-notebook]
-                          [--r2rnav] CRUISE_TOML FILESET_DIR
+                          [--no-products] [--r2rnav] CRUISE_TOML FILESET_DIR
 ```
 
 Runs the QA as `run` does, then R2R's six tests, and writes the products, figures, PDF with
@@ -384,6 +385,7 @@ R2R's certificate, notebook and QA 2.0 XML.
 | `--force` | off | Replace existing products |
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the cruise TOML's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook and save its outputs |
+| `--no-products` | off | Don't write the GeoCSV products, as for `run`; the QA 2.0 XML, and with `--r2rnav` the r2rnav products, are written still |
 | `--r2rnav` | off | Also write the products as legacy r2rnav, `<CRUISE>_bestres\|1min\|control.r2rnav`, the format NavManager wrote them in (`format-r2rnav.txt`: tab-separated, three `//` header lines, a flagged bestres record as `#` and time through antenna height). R2R itself now publishes GeoCSV |
 
 It prints the R2R rating and each test's rating and result, then the core summary.
@@ -660,7 +662,7 @@ The hook:
 nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
                           [--site-config SITE_TOML] [--no-set-extent]
                           [--changed-files FILES] [--theme THEME_TOML]
-                          [--execute-notebook] TRANSFER
+                          [--execute-notebook] [--no-products] TRANSFER
 ```
 
 The post-transfer hook: assesses the collection system transfer's nav files for OpenVDM's
@@ -678,6 +680,7 @@ named as in sbe-qa-processing's hook.
 | `--changed-files FILES` | none | OpenVDM's `{newFiles}` and `{updatedFiles}`; repeatable. When given, the QA runs only if they include nav files (`[nav] files`, or any file without it) |
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the site TOML's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook and save its outputs |
+| `--no-products` | off | Don't write the GeoCSV products into the extra directory, as for `run`. bestres has a line per fix and grows through the cruise (about 300 MB for 20 days at 2 Hz), and the hook rewrites it after every transfer |
 
 #### `config-from-openvdm`
 

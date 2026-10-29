@@ -95,7 +95,11 @@ def _run(args: argparse.Namespace) -> int:
             )
             return 1
     themes = [resolve_theme(args.theme, config) for config in configs]  # fail before a run
-    paths = [p for c in configs for p in reports.report_paths(args.output, c.stem).values()]
+    paths = [
+        p
+        for c in configs
+        for p in reports.report_paths(args.output, c.stem, not args.no_products).values()
+    ]
     if refuse_existing_reports(paths, args.force):
         return 1
     for config, theme in zip(configs, themes, strict=True):
@@ -109,6 +113,7 @@ def _run(args: argparse.Namespace) -> int:
                 theme=theme,
                 theme_file=args.theme,
                 execute_notebook=args.execute_notebook,
+                products=not args.no_products,
             )
         )
     return 0

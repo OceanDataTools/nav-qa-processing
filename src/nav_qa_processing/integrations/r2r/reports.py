@@ -102,9 +102,10 @@ def write_r2r_reports(
     theme_file: Path | None = None,
     execute_notebook: bool = False,
     r2rnav: bool = False,
+    products: bool = True,
 ) -> list[Path]:
     """The core reports with R2R's source values and certificate, then the QA 2.0 XML, and with
-    `r2rnav` the products as legacy r2rnav too (#146)
+    `r2rnav` the products as legacy r2rnav too (#146); without `products`, no GeoCSV products
     """
     written = reports.write_reports(
         run.result,
@@ -116,6 +117,7 @@ def write_r2r_reports(
         theme_file=theme_file,
         execute_notebook=execute_notebook,
         notebook_extras=notebook_extras(run),
+        products=products,
     )
     written.append(write_qa_xml(run.result, run.r2r, report_paths(run, output)["xml"]))
     if r2rnav:

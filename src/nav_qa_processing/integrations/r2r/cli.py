@@ -31,7 +31,7 @@ def _r2r_run(args: argparse.Namespace) -> int:
     # The XML's name has the run's time, so only the products can already exist
     config = load_cruise_config(args.cruise_toml)
     theme = resolve_theme(args.theme, config)  # a bad theme fails before the run
-    paths = list(reports.report_paths(args.output, config.stem).values())
+    paths = list(reports.report_paths(args.output, config.stem, not args.no_products).values())
     if args.r2rnav:
         from nav_qa_processing.integrations.r2r import r2rnav
 
@@ -41,7 +41,13 @@ def _r2r_run(args: argparse.Namespace) -> int:
     run = run_r2r(args.fileset_dir, args.cruise_toml)
     print(run)
     written = write_r2r_reports(
-        run, args.output, theme, args.theme, args.execute_notebook, r2rnav=args.r2rnav
+        run,
+        args.output,
+        theme,
+        args.theme,
+        args.execute_notebook,
+        r2rnav=args.r2rnav,
+        products=not args.no_products,
     )
     print_written(written)
     return 0
