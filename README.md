@@ -669,7 +669,8 @@ The hook:
 nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML | --site-root URL]
                           [--site-config SITE_TOML] [--no-set-extent]
                           [--changed-files FILES] [--theme THEME_TOML]
-                          [--execute-notebook] [--no-products] TRANSFER
+                          [--execute-notebook] [--no-products] [--min-interval DURATION]
+                          TRANSFER
 ```
 
 The post-transfer hook: assesses the collection system transfer's nav files for OpenVDM's
@@ -688,6 +689,7 @@ named as in sbe-qa-processing's hook.
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the site TOML's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook and save its outputs |
 | `--no-products` | off | Don't write the GeoCSV products into the extra directory, as for `run`. bestres has a line per fix and grows through the cruise (about 300 MB for 20 days at 2 Hz), and the hook rewrites it after every transfer |
+| `--min-interval DURATION` | none | Skip a feed whose reports are newer than this: a number and `s`, `m`, `h` or `d`, e.g. `6h`. Each run assesses the whole cruise so far, which takes minutes for a long cruise, longer than OpenVDM's transfer interval; with this the post-transfer hook reassesses at most that often. Leave it out of a `preFinalizeCurrentCruise` hook, which writes the final reports ([INSTALL.md](INSTALL.md#4-add-the-hook-to-openvdmyaml)) |
 
 #### `config-from-openvdm`
 

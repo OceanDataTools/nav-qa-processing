@@ -3,6 +3,7 @@ with an OpenRVDAS collection system logging GGA as nav33.
 """
 
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -627,6 +628,51 @@ def test_the_hook_without_products(hook_with_key, tmp_path):
     }
     (command,) = openvdm.subprocess.run.commands
     assert not any(f.endswith(".geoCSV") for f in command[4:])
+
+
+@pytest.mark.parametrize(
+    "text, seconds",
+    [("90s", 90), ("30m", 1800), ("6h", 21_600), ("1d", 86_400), ("1.5h", 5400), (" 2H ", 7200)],
+)
+def test_duration_seconds(text, seconds):
+    assert openvdm.duration_seconds(text) == seconds
+
+
+@pytest.mark.parametrize("text", ["6", "6x", "h", "-1h", ""])
+def test_not_a_duration(text):
+    with pytest.raises(ValueError, match="isn't a duration"):
+        openvdm.duration_seconds(text)
+
+
+def test_written_within(tmp_path):
+    path = tmp_path / "report.pdf"
+    now = datetime(2026, 7, 9, 12, tzinfo=UTC)
+    assert openvdm.written_within(path, 3600, now) is None  # no report yet
+    path.write_text("")
+    written = now - timedelta(minutes=30)
+    os.utime(path, (written.timestamp(), written.timestamp()))
+    assert openvdm.written_within(path, 3600, now) == written
+    assert openvdm.written_within(path, 1200, now) is None  # older than 20 minutes
+
+
+def test_min_interval_skips_a_feed_with_recent_reports(hook_with_key, api_state, tmp_path, capsys):
+    """--min-interval: a long cruise is reassessed at most that often (#157's 20-day cruise
+    takes minutes, longer than OpenVDM's transfer interval)
+    """
+    assert main(hook_with_key) == 0  # the first run writes the reports
+    pdf = tmp_path / "warehouse/SP2613/Products/NAV_QA/SP2613_qa_report.pdf"
+    written = pdf.stat().st_mtime
+    capsys.readouterr()
+    assert main([*hook_with_key, "--min-interval", "1h"]) == 0
+    out = capsys.readouterr().out
+    assert "are newer than --min-interval 1h; nothing to do" in out
+    assert pdf.stat().st_mtime == written and len(api_state["posts"]) == 1
+    # Two hours later, the hook runs again
+    two_hours_ago = written - 7200
+    os.utime(pdf, (two_hours_ago, two_hours_ago))
+    assert main([*hook_with_key, "--min-interval", "1h"]) == 0
+    assert "nothing to do" not in capsys.readouterr().out
+    assert pdf.stat().st_mtime > written and len(api_state["posts"]) == 2
 
 
 def test_a_refused_extent_is_a_warning(hook_with_key, api_state, caplog, capsys):
