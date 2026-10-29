@@ -24,25 +24,27 @@ EXPECTED_ERRORS: tuple[type[Exception], ...] = (OpenVDMError,)
 
 
 def _resolve_openvdm(args: argparse.Namespace, site=None, feeds=None):
-    """The current cruise's HookRuns from OpenVDM and the site config, one per feed (the site's
-    feeds for the transfer, the primary first, unless given), OpenVDM's web root, and the worker
-    key to set cruiseExtent with ('' when the hook won't set it)
+    """The cruise's HookRuns, one per feed (the site's feeds for the transfer, the primary
+    first, unless given): the current cruise from OpenVDM's API and the site config, or with
+    --cruise-config any cruise from its ovdmConfig.json. With them OpenVDM's web root ('' without
+    the API), and the worker key to set cruiseExtent with ('' when the hook won't set it)
     """
     from nav_qa_processing.integrations.openvdm import hook as openvdm
 
-    if args.site_root:
-        # No openvdm.yaml: resolve reads the vessel block from the cruise's ovdmConfig.json
-        site_root, vessel, key = args.site_root, None, ""
-        missing_key = "with --site-root there's no openvdm.yaml workerApiKey"
+    if args.cruise_config:
+        # Any cruise, past or current, without the API; OpenVDM's extent is the current
+        # cruise's, so it's never set from another's fixes
+        cruise_config = openvdm.load_cruise_json(args.cruise_config)
+        site_root, vessel, key, missing_key = "", None, "", ""
     else:
         settings = openvdm.load_openvdm_yaml(args.openvdm_config)
         site_root = openvdm.site_root_from_config(settings)
         vessel = openvdm.vessel_settings(settings.get("vessel"), "openvdm.yaml")
         key = openvdm.worker_key(settings)
         missing_key = "openvdm.yaml has no workerApiKey (OpenVDM 2.17)"
+        cruise_config = openvdm.fetch_cruise_config(site_root)
     if args.no_set_extent:
         key = ""
-    cruise_config = openvdm.fetch_cruise_config(site_root)
     site = site or openvdm.load_site_config(args.site_config)
     feeds = site.feeds_for(args.transfer) if feeds is None else feeds
     runs = [
@@ -52,9 +54,22 @@ def _resolve_openvdm(args: argparse.Namespace, site=None, feeds=None):
         for feed in feeds
     ]
     for run in runs:
-        if run.config.nav_primary and not args.no_set_extent and not key:
+        if not run.config.nav_primary:
+            continue
+        if args.cruise_config:
+            run.notes.insert(
+                0,
+                f"the cruise from {args.cruise_config.name}: OpenVDM's cruise extent is the "
+                "current cruise's, so it isn't set; the fixes are checked against this one's",
+            )
+        elif not args.no_set_extent and not key:
             run.notes.insert(0, f"{missing_key}, so the hook can't set OpenVDM's cruise extent")
     return runs, site_root, key if any(run.sets_extent for run in runs) else ""
+
+
+def _source(args: argparse.Namespace, site_root: str) -> str:
+    """Where the cruise came from, for the config snapshot's header"""
+    return str(args.cruise_config) if args.cruise_config else f"OpenVDM ({site_root})"
 
 
 def _duration(text: str) -> str:
@@ -142,7 +157,7 @@ def _openvdm_feed(args: argparse.Namespace, run, site_root: str, key: str):
     run.output_dir.mkdir(parents=True, exist_ok=True)
     # Snapshot what OpenVDM supplied, so the notebook can re-run exactly this assessment
     snapshot = run.output_dir / f"{report_stem(run.config.stem)}_config.toml"
-    snapshot.write_text(openvdm.cruise_toml(run, site_root))
+    snapshot.write_text(openvdm.cruise_toml(run, _source(args, site_root)))
     result = run_qa(run.fileset_dir, snapshot)
     print(result)
     written = [
@@ -186,9 +201,8 @@ def _queue_md5_update(args: argparse.Namespace, run, written: list[Path]) -> Non
     """
     from nav_qa_processing.integrations.openvdm import hook as openvdm
 
-    # With --site-root there's no openvdm.yaml to find OpenVDM by; try the default install
-    openvdm_yaml = DEFAULT_OPENVDM_CONFIG if args.site_root else args.openvdm_config
-    problem = openvdm.queue_md5_update(openvdm.openvdm_install_dir(openvdm_yaml), run, written)
+    install = openvdm.openvdm_install_dir(args.openvdm_config)
+    problem = openvdm.queue_md5_update(install, run, written)
     if problem:
         logger.warning("the reports aren't in OpenVDM's MD5 summary: %s", problem)
     else:
@@ -208,7 +222,8 @@ def _config_from_openvdm(args: argparse.Namespace) -> int:
         print(f"{run.config.stem}: {_sources(run)}", file=sys.stderr)
         for note in run.notes:
             print(f"  note: {note}", file=sys.stderr)
-        status = write_cruise_toml(openvdm.cruise_toml(run, site_root), run.config.stem, args)
+        text = openvdm.cruise_toml(run, _source(args, site_root))
+        status = write_cruise_toml(text, run.config.stem, args)
         if status:
             return status
     return 0
@@ -271,20 +286,24 @@ def _add_openvdm_arguments(parser: argparse.ArgumentParser) -> None:
         metavar="TRANSFER",
         help="collection system transfer name, e.g. {collectionSystemTransferName}",
     )
-    source = parser.add_mutually_exclusive_group()
-    source.add_argument(
+    parser.add_argument(
         "--openvdm-config",
         metavar="OPENVDM_YAML",
         type=Path,
         default=DEFAULT_OPENVDM_CONFIG,
-        help="openvdm.yaml, for OpenVDM's siteRoot and vessel settings (default %(default)s)",
-    )
-    source.add_argument(
-        "--site-root",
-        metavar="URL",
         help=(
-            "OpenVDM's web root URL, instead of --openvdm-config; the vessel settings then come "
-            "from the cruise's ovdmConfig.json"
+            "openvdm.yaml, for OpenVDM's siteRoot, workerApiKey and vessel settings (default "
+            "%(default)s); with --cruise-config, only where OpenVDM is, for the MD5 summary"
+        ),
+    )
+    parser.add_argument(
+        "--cruise-config",
+        metavar="OVDM_CONFIG_JSON",
+        type=Path,
+        help=(
+            "a cruise's ovdmConfig.json, in its directory: that cruise, past or current, "
+            "without OpenVDM's API. Its directory is the cruise's; its vessel block is used, "
+            "and OpenVDM's cruise extent isn't set"
         ),
     )
     parser.add_argument(

@@ -138,6 +138,9 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   files, device, transfer; `feeds_for(transfer)`, #58), `[extent]`, `[openvdm]
   output_extra_directory` (`NAV_QA`), `[provenance]`, `[geocsv] attribution`, `[thresholds]`,
   `[theme]`), `load_site_config`, `site_config_to_toml`,
+  `load_cruise_json` (a cruise's `ovdmConfig.json`, for `--cruise-config`, which replaced
+  `--site-root`: any cruise without the API, in the API's shape, its `warehouseConfig` rebuilt
+  from the file's directory, which must be named after the cruise; the extent never set),
   `resolve(getCruiseConfig, site, transfer, vessel, set_extent, feed)` -> `HookRun` for one
   feed (the `QAConfig`, directories, owner, extent and vessel sources, notes); the CLI loops
   over the transfer's feeds, primary first, and one feed's failure doesn't stop the others,
@@ -145,7 +148,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `duration_seconds` and `written_within` (`--min-interval`: skip a feed whose reports are
   newer; for long cruises, with the same command as a `preFinalizeCurrentCruise` hook for the
   final reports, INSTALL.md),
-  `queue_md5_update`, `chown_tree`, `set_cruise_extent` (#1: OpenVDM 2.17's `cruiseExtent`
+  `queue_md5_update` (OpenVDM's `update_md5_summary.py --cruise-id`, OpenVDM #398, the files
+  by full paths, which OpenVDM checks are in its directory for the cruise), `chown_tree`, `set_cruise_extent` (#1: OpenVDM 2.17's `cruiseExtent`
   from `NavQAResult.track_extent`, with `workerApiKey`; `--no-set-extent` checks against it
   instead); pyyaml only in `load_openvdm_yaml`. The `openvdm` and
   `config-from-openvdm` commands (`tests/test_openvdm.py`, a stand-in API).

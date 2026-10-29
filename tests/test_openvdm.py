@@ -344,12 +344,14 @@ def test_queue_md5_update(tmp_path, monkeypatch):
     assert command[:4] == [
         str(install / "venv/bin/python"),
         str(install / "utils/update_md5_summary.py"),
-        "--cruiseID",
+        "--cruise-id",  # the option in every OpenVDM release with the script
         "SP2613",
     ]
+    # By their full paths: OpenVDM checks they're in its directory for the cruise
+    output = run.output_dir.absolute()
     assert command[4:] == [
-        "Products/NAV_QA/SP2613_plots/track_map.svg",
-        "Products/NAV_QA/SP2613_qa_report.pdf",
+        str(output / "SP2613_plots/track_map.svg"),
+        str(output / "SP2613_qa_report.pdf"),
     ]
 
 
@@ -435,14 +437,10 @@ def test_hook_writes_reports_into_the_extra_directory(
 ):
     site_root, cruise_dir = openvdm_api
     site = str(site_config(tmp_path))
-    install = openvdm_install(tmp_path / "openvdm")
-    monkeypatch.setattr(
-        "nav_qa_processing.integrations.openvdm.cli.DEFAULT_OPENVDM_CONFIG",
-        install / "server/etc/openvdm.yaml",
-    )
+    config = str(openvdm_yaml(tmp_path, site_root, key=None))  # no key: the extent is checked
     md5_update = FakeRun(1, "Unable to queue the MD5 summary update: no Gearman")
     monkeypatch.setattr(openvdm.subprocess, "run", md5_update)
-    hook = ["openvdm", "OpenRVDAS", "--site-root", site_root, "--site-config", site]
+    hook = ["openvdm", "OpenRVDAS", "--openvdm-config", config, "--site-config", site]
 
     # Before the first transfer there's nothing to assess
     assert main(hook) == 0
@@ -479,9 +477,9 @@ def test_hook_writes_reports_into_the_extra_directory(
 
     # Every file written goes to OpenVDM's MD5 summary; a failure to queue doesn't fail the hook
     (command,) = md5_update.commands
-    assert command[2:4] == ["--cruiseID", "SP2613"]
+    assert command[2:4] == ["--cruise-id", "SP2613"]
     queued = set(command[4:])
-    assert {"Products/NAV_QA/SP2613_config.toml", "Products/NAV_QA/SP2613_qa.ipynb"} < queued
+    assert {str(output / "SP2613_config.toml"), str(output / "SP2613_qa.ipynb")} < queued
     assert len([f for f in queued if f.endswith(".svg")]) == 4
     assert "the reports aren't in OpenVDM's MD5 summary" in caplog.text
 
@@ -495,11 +493,12 @@ def test_hook_writes_reports_into_the_extra_directory(
 
 def test_hook_reports_failures_to_openvdm_in_one_line(openvdm_api, tmp_path, capsys):
     site_root, cruise_dir = openvdm_api
-    assert main(["openvdm", "XBT", "--site-root", site_root]) == 1
+    config = str(openvdm_yaml(tmp_path, site_root))
+    assert main(["openvdm", "XBT", "--openvdm-config", config]) == 1
     err = capsys.readouterr().err
     assert err == "nav-qa-processing: OpenVDMError: no collection system transfer named 'XBT'\n"
     openrvdas(cruise_dir / "OpenRVDAS")
-    assert main(["openvdm", "OpenRVDAS", "--site-root", site_root]) == 1  # no site config
+    assert main(["openvdm", "OpenRVDAS", "--openvdm-config", config]) == 1  # no site config
     assert "no nav format: set [nav] format in the site config" in capsys.readouterr().err
 
 
@@ -508,10 +507,11 @@ def test_hook_reports_failures_to_openvdm_in_one_line(openvdm_api, tmp_path, cap
 
 def test_config_from_openvdm_writes_the_config(openvdm_api, tmp_path, capsys):
     site_root, _ = openvdm_api
-    args = ["config-from-openvdm", "OpenRVDAS", "--site-root", site_root, "-o", str(tmp_path)]
+    config = str(openvdm_yaml(tmp_path, site_root, key=None))
+    args = ["config-from-openvdm", "OpenRVDAS", "--openvdm-config", config, "-o", str(tmp_path)]
     assert main(args) == 0
     err = capsys.readouterr().err
-    assert "SP2613: cruise extent from openvdm, vessel settings from none" in err
+    assert "SP2613: cruise extent from openvdm, vessel settings from openvdm.yaml" in err
     assert "no [nav] format" in err  # no site config
     text = (tmp_path / "SP2613.toml").read_text()
     assert text.startswith(f"# Resolved from OpenVDM ({site_root}) for OpenRVDAS")
@@ -544,7 +544,7 @@ def test_openvdm_yaml_not_found(tmp_path, capsys):
     missing = tmp_path / "openvdm.yaml"
     assert main(["openvdm", "OpenRVDAS", "--openvdm-config", str(missing)]) == 1
     err = capsys.readouterr().err
-    assert f"no openvdm.yaml at {missing}" in err and "--site-root" in err
+    assert f"no openvdm.yaml at {missing}" in err and "--cruise-config" in err
     args = ["config-from-openvdm", "OpenRVDAS", "--openvdm-config", str(missing), "-o", "-"]
     assert main(args) == 1
     assert "give its path with --openvdm-config" in capsys.readouterr().err
@@ -709,7 +709,6 @@ def test_no_set_extent_checks_against_openvdms_extent(hook_with_key, api_state, 
 @pytest.mark.parametrize(
     "how, expected",
     [
-        ("site root", "with --site-root there's no openvdm.yaml workerApiKey"),
         ("no key", "openvdm.yaml has no workerApiKey (OpenVDM 2.17)"),
         ("OpenVDM 2.16", "OpenVDM has no cruiseExtent (it needs OpenVDM 2.17)"),
     ],
@@ -721,11 +720,8 @@ def test_without_a_way_to_set_the_extent_it_is_checked(
     site_root, cruise_dir = openvdm_api
     openrvdas(cruise_dir / "OpenRVDAS")
     hook = ["openvdm", "OpenRVDAS", "--site-config", str(site_config(tmp_path))]
-    if how == "site root":
-        hook += ["--site-root", site_root]
-    else:
-        key = None if how == "no key" else "worker-secret"
-        hook += ["--openvdm-config", str(openvdm_yaml(tmp_path, site_root, key))]
+    key = None if how == "no key" else "worker-secret"
+    hook += ["--openvdm-config", str(openvdm_yaml(tmp_path, site_root, key))]
     if how == "OpenVDM 2.16":
         del api_response["cruiseExtent"]  # getCruiseConfig before OpenVDM 2.17
     assert main(hook) == 0
@@ -838,3 +834,115 @@ def test_config_from_openvdm_writes_each_feed(two_feeds, tmp_path, capsys):
     assert load_config(out / "SP2613_seapath.toml").stem == "SP2613_seapath"
     assert main([*args, "-o", "-"]) == 1
     assert "several feeds (posmv, seapath): give -o OUTPUT_DIR" in capsys.readouterr().err
+
+
+# A past cruise from its ovdmConfig.json (--cruise-config) ------------------------------------
+
+
+def ovdm_config_json(cruise_dir: Path, cruise_id="AT50-12") -> Path:
+    """The ovdmConfig.json OpenVDM writes into a cruise's directory: getCruiseConfig without its
+    warehouse block, whose file names it keeps at the top level, with the vessel the cruise was
+    on (OpenVDM's cruise.py, export_cruise_config)
+    """
+    data = cruise_config(Path("/elsewhere"), cruise_id, extent=EXTENT)
+    del data["warehouseConfig"]
+    data["md5SummaryFn"] = "MD5_Summary.txt"
+    data["vessel"] = {"name": "Atlantis", "contact": {"email": "ops@example.org"}}
+    cruise_dir.mkdir(parents=True, exist_ok=True)
+    path = cruise_dir / "ovdmConfig.json"
+    path.write_text(json.dumps(data))
+    return path
+
+
+def test_load_cruise_json(tmp_path):
+    path = ovdm_config_json(tmp_path / "AT50-12")
+    assert openvdm.load_cruise_json(path)["cruiseID"] == "AT50-12"
+    with pytest.raises(openvdm.OpenVDMError, match="can't read the cruise config"):
+        openvdm.load_cruise_json(tmp_path / "missing.json")
+    path.write_text('{"cruiseName": "x"}')
+    with pytest.raises(openvdm.OpenVDMError, match="isn't an OpenVDM cruise config"):
+        openvdm.load_cruise_json(path)
+
+
+def test_resolve_a_cruise_from_its_ovdm_config_json(tmp_path):
+    """The JSON's directory is the cruise's, wherever it now is; its MD5 summary and vessel are
+    the cruise's own
+    """
+    cruise_dir = tmp_path / "archive" / "AT50-12"
+    data = openvdm.load_cruise_json(ovdm_config_json(cruise_dir))
+    site = openvdm.SiteConfig(feeds=[nav33()])
+    run = openvdm.resolve(data, site, "OpenRVDAS")  # as the API's would be
+    assert (run.cruise_dir, run.fileset_dir) == (cruise_dir, cruise_dir / "OpenRVDAS")
+    assert run.output_dir == cruise_dir / "Products/NAV_QA"
+    assert run.config.manifest_path == cruise_dir / "MD5_Summary.txt"
+    assert (run.config.cruise_id, run.config.cruise_pi) == ("AT50-12", "A. Scientist")
+    assert (run.config.vessel_name, run.vessel_source) == ("Atlantis", "ovdmConfig.json")
+    assert run.config.extent == Extent(**EXTENT) and not run.sets_extent
+    if hasattr(os, "geteuid"):
+        assert run.owner == cruise_dir.owner()
+
+
+def test_the_hook_on_a_past_cruise(tmp_path, monkeypatch, capsys):
+    """--cruise-config: no OpenVDM API (none is running here), the cruise's extent checked and
+    never set, and the reports given to OpenVDM's MD5 summary by their full paths, so OpenVDM
+    refuses them unless it has the cruise
+    """
+    cruise_dir = tmp_path / "archive" / "AT50-12"
+    path = ovdm_config_json(cruise_dir)
+    openrvdas(cruise_dir / "OpenRVDAS")
+    install = openvdm_install(tmp_path / "openvdm")
+    md5_update = FakeRun()
+    monkeypatch.setattr(openvdm.subprocess, "run", md5_update)
+    hook = ["openvdm", "OpenRVDAS", "--cruise-config", str(path)]
+    hook += ["--site-config", str(site_config(tmp_path))]
+    hook += ["--openvdm-config", str(install / "server/etc/openvdm.yaml")]
+    assert main(hook) == 0
+    out = capsys.readouterr().out
+    assert "OpenVDM's cruise extent is the current cruise's, so it isn't set" in out
+    assert "Within the expected area: 0 outside" in out and "set OpenVDM's cruise" not in out
+    output = cruise_dir / "Products/NAV_QA"
+    assert (output / "AT50-12_qa_report.pdf").exists()
+    snapshot = (output / "AT50-12_config.toml").read_text()
+    assert snapshot.startswith(f"# Resolved from {path} for OpenRVDAS")
+    assert load_config(output / "AT50-12_config.toml").cruise_pi == "A. Scientist"
+    (command,) = md5_update.commands
+    assert command[2:4] == ["--cruise-id", "AT50-12"]
+    assert str(output / "AT50-12_qa_report.pdf") in command[4:]
+
+
+def test_a_cruise_directory_named_after_another_cruise(tmp_path):
+    """The warehouse is rebuilt from the directory, which OpenVDM names after the cruise"""
+    path = ovdm_config_json(tmp_path / "AT50-12")
+    renamed = tmp_path / "AT50-12-copy"
+    path.parent.rename(renamed)
+    with pytest.raises(openvdm.OpenVDMError, match="named 'AT50-12-copy', but its cruise is"):
+        openvdm.load_cruise_json(renamed / "ovdmConfig.json")
+
+
+def test_a_past_cruise_away_from_openvdm(tmp_path, monkeypatch, caplog):
+    """Without OpenVDM installed, the reports are written and the MD5 summary is left alone"""
+    cruise_dir = tmp_path / "AT50-12"
+    path = ovdm_config_json(cruise_dir)
+    openrvdas(cruise_dir / "OpenRVDAS")
+    md5_update = FakeRun()
+    monkeypatch.setattr(openvdm.subprocess, "run", md5_update)
+    nowhere = tmp_path / "no-openvdm/server/etc/openvdm.yaml"
+    hook = ["openvdm", "OpenRVDAS", "--cruise-config", str(path), "--openvdm-config", str(nowhere)]
+    assert main([*hook, "--site-config", str(site_config(tmp_path))]) == 0
+    assert md5_update.commands == []
+    assert "the reports aren't in OpenVDM's MD5 summary: no " in caplog.text
+    assert (cruise_dir / "Products/NAV_QA/AT50-12_qa_report.pdf").exists()
+
+
+def test_config_from_a_past_cruise(tmp_path, capsys):
+    """config-from-openvdm --cruise-config caches the cruise as a config TOML, to run anywhere"""
+    path = ovdm_config_json(tmp_path / "AT50-12")
+    args = ["config-from-openvdm", "OpenRVDAS", "--cruise-config", str(path)]
+    assert main([*args, "--site-config", str(site_config(tmp_path)), "-o", "-"]) == 0
+    config = load_config_text(capsys.readouterr().out)
+    assert (config.cruise_id, config.cruise_pi, config.nav_format) == (
+        "AT50-12",
+        "A. Scientist",
+        "nav33",
+    )
+    assert config.depart_date == date(2026, 7, 9) and config.extent == Extent(**EXTENT)

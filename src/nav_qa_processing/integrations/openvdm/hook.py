@@ -28,6 +28,15 @@ than OpenVDM's 5-minute transfer interval, and OpenVDM runs its post hooks one a
 that (`written_within`); the same command, without it, as a ``preFinalizeCurrentCruise`` hook
 writes the final reports on the whole cruise, which OpenVDM waits for before finalizing.
 
+A past cruise, or any cruise without OpenVDM's API, comes from the ``ovdmConfig.json`` OpenVDM
+writes into each cruise's directory (``--cruise-config``). `load_cruise_json` gives it the
+API's shape: the file is the API's cruise config without its warehouse block, which it rebuilds
+from the file's directory (the cruise's, named after it as OpenVDM names it; the warehouse is
+its parent) and the MD5 summary's name the file keeps at its top level. From there it's
+resolved as the current cruise is, the vessel from the same file. OpenVDM's cruise extent isn't
+set for it (that's the current cruise's), and OpenVDM takes the reports into the cruise's MD5
+summary only if its warehouse has the cruise there (`queue_md5_update`).
+
 The OpenVDM API is read over HTTP, so this runs in its own environment, not OpenVDM's venv.
 Reading ``openvdm.yaml`` needs pyyaml, the ``openvdm`` extra.
 """
@@ -324,8 +333,8 @@ def load_openvdm_yaml(openvdm_config: Path | str) -> dict:
     except FileNotFoundError:
         # e.g. OpenVDM installed outside /opt (its installer's INSTALL_ROOT)
         raise OpenVDMError(
-            f"no openvdm.yaml at {openvdm_config}: give its path with --openvdm-config, or "
-            "OpenVDM's web root URL with --site-root"
+            f"no openvdm.yaml at {openvdm_config}: give its path with --openvdm-config, or a "
+            "cruise's ovdmConfig.json with --cruise-config"
         ) from None
 
 
@@ -380,6 +389,43 @@ def cruise_vessel(cruise_dir: Path, config_filename: str) -> OpenVDMVessel:
         logger.warning("can't read the vessel settings from %s: %s", path, error)
         return OpenVDMVessel()
     return vessel_settings(block, "ovdmConfig.json") if block else OpenVDMVessel()
+
+
+def load_cruise_json(path: Path | str) -> dict:
+    """A cruise's config from the ovdmConfig.json OpenVDM writes into its directory: any cruise,
+    past or current, without OpenVDM's API (--cruise-config)
+    """
+    path = Path(path)
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError) as error:
+        raise OpenVDMError(f"can't read the cruise config {path}: {error}") from None
+    if not isinstance(data, dict) or not data.get("cruiseID"):
+        raise OpenVDMError(f"{path} isn't an OpenVDM cruise config: it has no cruiseID")
+    cruise_dir = path.absolute().parent
+    if cruise_dir.name != data["cruiseID"]:
+        raise OpenVDMError(
+            f"{cruise_dir} is named {cruise_dir.name!r}, but its cruise is "
+            f"{data['cruiseID']!r}: OpenVDM names a cruise's directory after it"
+        )
+    # The warehouse block the API has and the file doesn't: the cruise's directory is in it
+    warehouse = {
+        "shipboardDataWarehouseBaseDir": str(cruise_dir.parent),
+        "shipboardDataWarehouseUsername": _owner_of(cruise_dir),
+        "md5SummaryFn": data.get("md5SummaryFn", ""),
+        "cruiseConfigFn": path.name,
+    }
+    return {**data, "warehouseConfig": warehouse}
+
+
+def _owner_of(path: Path) -> str:
+    """The user owning path, to give the reports to; '' where that can't be told (Windows)"""
+    try:
+        import pwd
+
+        return pwd.getpwuid(path.stat().st_uid).pw_name
+    except (ImportError, KeyError, OSError):
+        return ""
 
 
 def fetch_cruise_config(site_root: str) -> dict:
@@ -452,7 +498,8 @@ def resolve(
     default) in a collection system transfer. vessel is openvdm.yaml's vessel block; without
     it, the one in the cruise's ovdmConfig.json is used. With set_extent, the hook will set
     OpenVDM's cruiseExtent from the primary feed's fixes, so its config has no expected area,
-    unless OpenVDM is too old to have one
+    unless OpenVDM is too old to have one. cruise_config is the API's, or a cruise's
+    ovdmConfig.json as `load_cruise_json` gives it
     """
     feed = feed or site.primary
     set_extent = set_extent and feed.primary
@@ -615,9 +662,11 @@ def _get_json(url: str) -> dict:
         return json.loads(response.read())
 
 
-def cruise_toml(run: HookRun, site_root: str) -> str:
-    """The resolved config TOML, headed by where it came from and what it's missing"""
-    header = [f"# Resolved from OpenVDM ({site_root}) for {run.transfer}"]
+def cruise_toml(run: HookRun, source: str) -> str:
+    """The resolved config TOML, headed by where it came from (OpenVDM's API or a cruise's
+    ovdmConfig.json) and what it's missing
+    """
+    header = [f"# Resolved from {source} for {run.transfer}"]
     header += [f"# Note: {note}" for note in run.notes]
     return "\n".join(header) + "\n" + config_to_toml(run.config)
 
@@ -691,8 +740,10 @@ def openvdm_install_dir(openvdm_config: Path | str) -> Path:
 def queue_md5_update(install_dir: Path, run: HookRun, written: list[Path]) -> str | None:
     """Queues an MD5 summary update for the files the hook wrote, with OpenVDM's
     utils/update_md5_summary.py (OpenVDM 2.16.1). OpenVDM only hashes the files a transfer or
-    data dashboard job reports, so without this the reports stay out of the summary. Returns
-    what went wrong, or None
+    data dashboard job reports, so without this the reports stay out of the summary. The files
+    are given by their full paths: for the current cruise those are OpenVDM's own, and for a
+    cruise from its ovdmConfig.json OpenVDM refuses them unless its warehouse has the cruise
+    there. Returns what went wrong, or None
     """
     python = install_dir / "venv" / "bin" / "python"
     script = install_dir / "utils" / "update_md5_summary.py"
@@ -706,12 +757,12 @@ def queue_md5_update(install_dir: Path, run: HookRun, written: list[Path]) -> st
             if f.is_file()
         }
     )
-    try:
-        # OpenVDM's MD5 summary uses / separators on every platform
-        relative = [f.relative_to(run.cruise_dir).as_posix() for f in files]
-    except ValueError:
+    if not all(f.is_relative_to(run.cruise_dir) for f in files):
         return f"the reports in {run.output_dir} are outside the cruise directory {run.cruise_dir}"
-    command = [str(python), str(script), "--cruiseID", run.config.cruise_id, *relative]
+    paths = [str(f.absolute()) for f in files]
+    # --cruise-id: the script's option in every OpenVDM release that has it (2.16.1-2.16.3);
+    # its first version's --cruiseID was renamed before release (OpenVDM #398)
+    command = [str(python), str(script), "--cruise-id", run.config.cruise_id, *paths]
     try:
         completed = subprocess.run(
             command, capture_output=True, text=True, timeout=MD5_UPDATE_TIMEOUT, check=False
