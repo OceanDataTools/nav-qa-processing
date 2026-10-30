@@ -351,6 +351,6 @@ OpenVDM's API ([README](README.md#a-past-cruise)):
 
 ```bash
 sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \
-    --cruise-config /data/CruiseData/AT50-12/ovdmConfig.json \
+    --cruise-config /data/CruiseData/SP2613/ovdmConfig.json \
     --site-config=/opt/nav-qa-processing/configs/site.toml
 ```

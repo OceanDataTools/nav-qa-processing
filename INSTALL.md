@@ -4,21 +4,18 @@ nav-qa-processing needs **Python 3.11 or later**, [uv](https://docs.astral.sh/uv
 compiled dependencies (cartopy, pyproj, shapely, numpy) install as binary wheels on Linux
 (x86_64 and aarch64), macOS and Windows, so no system GEOS, PROJ or compiler is needed.
 
+## Platform:
+
 - [macOS](#macos)
 - [Debian and Ubuntu](#debian-and-ubuntu)
 - [RHEL, AlmaLinux and Rocky Linux](#rhel-almalinux-and-rocky-linux)
 - [Windows](#windows)
-- [Install for the OpenVDM hook](#install-for-the-openvdm-hook)
-- [Check the install](#check-the-install)
-- [Map data](#map-data)
-- [Proxies and ships without internet](#proxies-and-ships-without-internet)
-- [Updating](#updating)
 
 The Linux commands below were run in clean containers (Debian 12, Ubuntu 22.04 and 24.04,
 AlmaLinux 8, Rocky Linux 9; aarch64, and x86_64 for Debian and AlmaLinux) through to a QA run on
 a committed fileset.
 
-## macOS
+### macOS
 
 ```bash
 brew install uv                       # git comes with the Xcode command line tools
@@ -28,7 +25,7 @@ uv sync
 uv run pytest
 ```
 
-## Debian and Ubuntu
+### Debian and Ubuntu
 
 | Release | System Python | Use |
 |---|---|---|
@@ -46,7 +43,7 @@ uv sync                          # Ubuntu 22.04: uv python install 3.12 && uv sy
 uv run pytest
 ```
 
-## RHEL, AlmaLinux and Rocky Linux
+### RHEL, AlmaLinux and Rocky Linux
 
 Releases 8 and 9. Their default Python (3.6 or 3.9) is too old, but both have a `python3.11`
 package. curl comes installed: on 9, `curl-minimal` provides it, and asking for `curl` conflicts
@@ -61,7 +58,7 @@ uv sync
 uv run pytest
 ```
 
-## Windows
+### Windows
 
 The core and R2R commands run on Windows (CI tests them there); the OpenVDM hook runs where
 OpenVDM does, on Linux. In PowerShell, with [Git for Windows](https://git-scm.com/download/win):
@@ -77,7 +74,15 @@ uv run pytest
 `uv run pytest` runs the whole suite (about 10 minutes) on the reference filesets committed in
 `tests/data/`; it downloads nothing.
 
-## Install for the OpenVDM hook
+## Post-Install:
+
+- [Install for the OpenVDM hook](#install-for-the-openvdm-hook)
+- [Check the install](#check-the-install)
+- [Map data](#map-data)
+- [Proxies and ships without internet](#proxies-and-ships-without-internet)
+- [Updating](#updating)
+
+### Install for the OpenVDM hook
 
 [OpenVDM](https://github.com/OceanDataTools/openvdm) runs the QA from two of its hooks: after
 each transfer of the collection system that logs the ship's GNSS, during the cruise, and when the
@@ -90,7 +95,7 @@ The hook assesses the whole cruise so far after each transfer, so its memory gro
 cruise: about 400 bytes a fix, with about 300 MB to start. A 20-day cruise logged at 2 Hz (3.5 M
 fixes) takes about 1.4 GB; 30 days at 10 Hz (26 M fixes), about 10 GB.
 
-### 1. Install
+#### 1. Install
 
 Install it where OpenVDM's workers can run it, in its own environment (not OpenVDM's venv), with
 the `openvdm` extra (pyyaml, to read `openvdm.yaml`). Do it as OpenVDM's user (`OPENVDM_USER`,
@@ -134,14 +139,14 @@ sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing fetch-map-data
 
 Leave out `--no-dev` to use the hook's `--execute-notebook` (it needs nbclient and ipykernel).
 
-### 2. Add an extra directory
+#### 2. Add an extra directory
 
 In OpenVDM's web interface, add an extra directory for the reports (Configuration > Extra
 Directories): name `NAV_QA`, destination e.g. `Products/NAV_QA`. The hook writes each run's
 products and reports there, replacing the previous run's. Another name goes in the site TOML's
 `[openvdm] output_extra_directory`.
 
-### 3. Write the site TOML
+#### 3. Write the site TOML
 
 OpenVDM knows the cruise (ID, name, PI, dates) and where each transfer's files go, but not which
 of a collection system's files are the GNSS feed, or their format. The **site TOML** says so,
@@ -224,7 +229,7 @@ config the hook would use:
 It shows the cruise's dates, the feed's format and files, the vessel and the extent, and notes
 what's missing or assumed (e.g. an open-ended cruise, which ends today).
 
-### 4. Add the hooks to openvdm.yaml
+#### 4. Add the hooks to openvdm.yaml
 
 The QA runs from two of OpenVDM's hooks, set in its `openvdm.yaml`
 (`/opt/openvdm/server/etc/openvdm.yaml` by default) under `postHookCommands`:
@@ -305,7 +310,7 @@ OpenVDM reads `openvdm.yaml` when its workers start, so restart the hook worker 
 sudo supervisorctl restart openvdm:post_hooks
 ```
 
-### 5. Try it
+#### 5. Try it
 
 The hook runs after the next transfer that brings new or updated GNSS files. To run it now, give
 the same command by hand, as root (as OpenVDM runs it) and without `--changed-files` or
@@ -324,7 +329,7 @@ directory (in the cruise's directory, e.g. `Products/NAV_QA`). OpenVDM logs its 
 message. The README's [Troubleshooting](README.md#troubleshooting) table says what each
 message means.
 
-## Check the install
+### Check the install
 
 ```bash
 .venv/bin/nav-qa-processing --version
@@ -342,7 +347,7 @@ tar -xJf tests/data/BH19-30_136141_gnss.tar.xz -C /tmp
 It prints 9097 fixes (nav31) from 2 files and the checks, and writes the GeoCSV products, plots,
 PDF and notebook into `/tmp/navqa`.
 
-## Map data
+### Map data
 
 The trackline map's coastlines and the "Over water" check use Natural Earth's land, lakes,
 coastline and river layers, which cartopy downloads on first use. `fetch-map-data` downloads
@@ -350,7 +355,7 @@ them all at once (about 27 MB to download, 32 MB on disk) into cartopy's data di
 (`$XDG_DATA_HOME/cartopy` when that's set). Without them, the maps have no coastlines and the
 over-water check is n/a; nothing else changes.
 
-## Proxies and ships without internet
+### Proxies and ships without internet
 
 - **A proxy:** uv and `fetch-map-data` use the usual `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY`
   variables. Keep them for `sudo` with `sudo -E` (or `sudo env HTTPS_PROXY=... ...`).
@@ -362,7 +367,7 @@ over-water check is n/a; nothing else changes.
   and `python/` on Ubuntu 22.04) and the map data directory (`~/.local/share/cartopy` of the
   user who'll run it). A venv only works at the path it was made in.
 
-## Updating
+### Updating
 
 ```bash
 cd /opt/nav-qa-processing
