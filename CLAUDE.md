@@ -241,7 +241,11 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
 - CI (`.github/workflows/ci.yml`, #115): Ruff and pytest on Linux 3.11–3.14, macOS and Windows,
   downloading nothing. SP2613, SP2503, BH19-30 and RC0014 are committed as
   `tests/data/*_gnss.tar.xz`, which `tests/conftest.py` unpacks into `data/` when missing; the
-  other references skip. Natural Earth clipped to their areas is in `tests/data/natural_earth/`
+  other references skip. The "OpenVDM contract" job clones OpenVDM's `2.17` branch and runs
+  `tests/test_openvdm_contract.py`: OpenVDM's own code (its hook worker's commands from
+  INSTALL.md's YAML, `update_md5_summary.py` through `tests/openvdm_md5/sitecustomize.py`, its
+  cruise config export) run under its venv by `tests/openvdm_driver.py`; locally it uses
+  `OPENVDM_SOURCE` (default `../openvdm`) and skips without it. Natural Earth clipped to their areas is in `tests/data/natural_earth/`
   (`make_natural_earth.py`), used only by tests marked `map_data(clipped=True)`.
 - `/data/` (downloaded R2R filesets) and `/output/` (generated reports) are gitignored. `configs/`
   is the users' space: the commands write `site.toml` and cruise TOMLs there, and git ignores
