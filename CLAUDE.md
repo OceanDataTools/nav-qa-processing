@@ -138,7 +138,7 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   files, device, transfer; `feeds_for(transfer)`, #58), `[extent]`, `[openvdm]
   output_extra_directory` (`NAV_QA`), `[provenance]`, `[geocsv] attribution`, `[thresholds]`,
   `[theme]`), `load_site_config`, `site_config_to_toml`,
-  `load_cruise_json` (a cruise's `ovdmConfig.json`, for `--cruise-config`, which replaced
+  `load_cruise_json` (a cruise's `cruise_config.json`, for `--cruise-config`, which replaced
   `--site-root`: any cruise without the API, in the API's shape, its `warehouseConfig` rebuilt
   from the file's directory, which must be named after the cruise; the extent never set),
   `resolve(getCruiseConfig, site, transfer, vessel, set_extent, feed)` -> `HookRun` for one

@@ -586,7 +586,7 @@ OpenVDM's hooks through the cruise:
   missing feed shows while there's time to fix it.
 - **When the cruise is finalized** (`preFinalizeCurrentCruise`): the final reports, on the whole
   cruise. OpenVDM waits for them, so they're in the finalized cruise.
-- **Afterwards, by hand:** any earlier cruise, from the `ovdmConfig.json` in its directory
+- **Afterwards, by hand:** any earlier cruise, from the `cruise_config.json` in its directory
   ([A past cruise](#a-past-cruise)).
 
 Each run writes the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's,
@@ -598,13 +598,13 @@ site TOML and the hooks in `openvdm.yaml`) is in
 
 - **The cruise,** from OpenVDM's API (`api/warehouse/getCruiseConfig`): its ID, name, PI,
   location, dates and extent, the warehouse directory, the transfer's destination, the extra
-  directories and the MD5 summary. For a past cruise, from its `ovdmConfig.json` instead. The
-  current cruise comes from the API rather than its `ovdmConfig.json` for two reasons: the hook
+  directories and the MD5 summary. For a past cruise, from its `cruise_config.json` instead. The
+  current cruise comes from the API rather than its `cruise_config.json` for two reasons: the hook
   sets the cruise extent through the API, after asking it which cruise is current, and OpenVDM
   rewrites the file only at setup, when the cruise is edited, on an export and at finalize, so
   an extra directory or transfer added mid-cruise isn't in it yet.
 - **The vessel's name and contact,** from the site TOML, or where it leaves them blank, from
-  `openvdm.yaml`'s `vessel` block (OpenVDM 2.17). For a past cruise, from its `ovdmConfig.json`,
+  `openvdm.yaml`'s `vessel` block (OpenVDM 2.17). For a past cruise, from its `cruise_config.json`,
   the vessel it was on.
 - **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the GNSS
   feed, or their format, so the ship's [site TOML](#site-toml) says (`[nav] format` and
@@ -661,7 +661,7 @@ assumed (`note:` lines), the QA summary and the files it wrote.
 #### `openvdm`
 
 ```text
-nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML] [--cruise-config OVDM_CONFIG_JSON]
+nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML] [--cruise-config CRUISE_CONFIG_JSON]
                           [--site-config SITE_TOML] [--no-set-extent]
                           [--changed-files FILES] [--theme THEME_TOML]
                           [--execute-notebook] [--no-products] [--min-interval DURATION]
@@ -676,7 +676,7 @@ files call it, so its arguments keep their names; they're named as in sbe-qa-pro
 |---|---|---|
 | `TRANSFER` | required | The collection system transfer's name; in a hook, `{collectionSystemTransferName}` |
 | `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml` | OpenVDM's settings: its web root (`siteRoot`), the `workerApiKey` and, from OpenVDM 2.17, the `vessel` block. Needs the `openvdm` extra. With `--cruise-config`, only where OpenVDM is installed, for the MD5 summary |
-| `--cruise-config OVDM_CONFIG_JSON` | none | A cruise's `ovdmConfig.json`, which OpenVDM writes into each cruise's directory: assess that cruise, past or current, without OpenVDM's API. [A past cruise](#a-past-cruise) says how |
+| `--cruise-config CRUISE_CONFIG_JSON` | none | A cruise's `cruise_config.json`, which OpenVDM writes into each cruise's directory: assess that cruise, past or current, without OpenVDM's API. [A past cruise](#a-past-cruise) says how |
 | `--site-config SITE_TOML` | none | The ship's [site TOML](#site-toml); the hook needs its `[nav] format` |
 | `--no-set-extent` | off | Don't set OpenVDM's `cruiseExtent` from the fixes that pass QC; check the fixes against it (else the site TOML's `[extent]`) instead |
 | `--changed-files FILES` | none | OpenVDM's `{newFiles}` and `{updatedFiles}`; repeatable. When given, the QA runs only if they include nav files (`[nav] files`, or any file without it) |
@@ -689,7 +689,7 @@ files call it, so its arguments keep their names; they're named as in sbe-qa-pro
 
 ```text
 nav-qa-processing config-from-openvdm [--openvdm-config OPENVDM_YAML]
-                                      [--cruise-config OVDM_CONFIG_JSON]
+                                      [--cruise-config CRUISE_CONFIG_JSON]
                                       [--site-config SITE_TOML] [--no-set-extent]
                                       [-o OUTPUT_DIR] [--force] TRANSFER
 ```
@@ -713,8 +713,8 @@ uv run nav-qa-processing run /path/to/cruise/OpenRVDAS -c configs/<CRUISE>.toml 
 #### A past cruise
 
 OpenVDM's API knows only the current cruise, but OpenVDM writes each cruise's config into its
-directory as `ovdmConfig.json` (OpenVDM's `cruiseConfigFn` setting names it, `ovdmConfig.json`
-by default): its ID, name, PI, location, dates and extent, the transfers' and
+directory as `cruise_config.json` (its default name, set by `CRUISE_CONFIG_FN` in OpenVDM's
+`www/app/Core/Config.php`): its ID, name, PI, location, dates and extent, the transfers' and
 extra directories' destinations, the MD5 summary's name, and the vessel it was on. Give it with
 `--cruise-config`, and the hook or `config-from-openvdm` take the cruise from it instead of the
 API, with the site TOML as for the current cruise:
@@ -722,12 +722,12 @@ API, with the site TOML as for the current cruise:
 ```bash
 # Rebuild a past cruise's reports in its NAV_QA extra directory, as the hook would have
 sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \
-    --cruise-config /data/CruiseData/SP2613/ovdmConfig.json \
+    --cruise-config /data/CruiseData/SP2613/cruise_config.json \
     --site-config /opt/nav-qa-processing/configs/site.toml
 
 # Or keep it as a config TOML, and run the QA anywhere
 nav-qa-processing config-from-openvdm OpenRVDAS --site-config configs/site.toml \
-    --cruise-config /data/CruiseData/SP2613/ovdmConfig.json -o configs   # configs/SP2613.toml
+    --cruise-config /data/CruiseData/SP2613/cruise_config.json -o configs   # configs/SP2613.toml
 nav-qa-processing run /data/CruiseData/SP2613/OpenRVDAS -c configs/SP2613.toml -o output/SP2613
 ```
 

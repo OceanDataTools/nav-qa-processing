@@ -26,7 +26,7 @@ EXPECTED_ERRORS: tuple[type[Exception], ...] = (OpenVDMError,)
 def _resolve_openvdm(args: argparse.Namespace, site=None, feeds=None):
     """The cruise's HookRuns, one per feed (the site's feeds for the transfer, the primary
     first, unless given): the current cruise from OpenVDM's API and the site config, or with
-    --cruise-config any cruise from its ovdmConfig.json. With them OpenVDM's web root ('' without
+    --cruise-config any cruise from its cruise_config.json. With them OpenVDM's web root ('' without
     the API), and the worker key to set cruiseExtent with ('' when the hook won't set it)
     """
     from nav_qa_processing.integrations.openvdm import hook as openvdm
@@ -298,10 +298,10 @@ def _add_openvdm_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--cruise-config",
-        metavar="OVDM_CONFIG_JSON",
+        metavar="CRUISE_CONFIG_JSON",
         type=Path,
         help=(
-            "a cruise's ovdmConfig.json, in its directory: that cruise, past or current, "
+            "a cruise's cruise_config.json, in its directory: that cruise, past or current, "
             "without OpenVDM's API. Its directory is the cruise's; its vessel block is used, "
             "and OpenVDM's cruise extent isn't set"
         ),

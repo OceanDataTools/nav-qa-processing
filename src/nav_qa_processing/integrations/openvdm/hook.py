@@ -10,8 +10,8 @@ What OpenVDM doesn't store comes from the per-ship site TOML (`SiteConfig`): abo
 feed, ``[nav] format`` and ``files`` (e.g. ``raw/POSMV_GGA-*.txt`` within an ``OpenRVDAS``
 collection system), and the GeoCSV attribution. OpenVDM 2.17 keeps the vessel's name and
 contact in ``openvdm.yaml``'s ``vessel`` block, which it copies into each cruise's
-``ovdmConfig.json``; the hook reads it from ``openvdm.yaml`` when it has that file, else from
-``ovdmConfig.json``. The site TOML's values win; OpenVDM's fill the fields it leaves blank (#112),
+``cruise_config.json``; the hook reads it from ``openvdm.yaml`` when it has that file, else from
+``cruise_config.json``. The site TOML's values win; OpenVDM's fill the fields it leaves blank (#112),
 and `site-config` offers them as defaults. Its R2R IDs aren't used: the hook writes
 the core reports, not R2R's.
 
@@ -28,7 +28,7 @@ than OpenVDM's 5-minute transfer interval, and OpenVDM runs its post hooks one a
 that (`written_within`); the same command, without it, as a ``preFinalizeCurrentCruise`` hook
 writes the final reports on the whole cruise, which OpenVDM waits for before finalizing.
 
-A past cruise, or any cruise without OpenVDM's API, comes from the ``ovdmConfig.json`` OpenVDM
+A past cruise, or any cruise without OpenVDM's API, comes from the ``cruise_config.json`` OpenVDM
 writes into each cruise's directory (``--cruise-config``). `load_cruise_json` gives it the
 API's shape: the file is the API's cruise config without its warehouse block, which it rebuilds
 from the file's directory (the cruise's, named after it as OpenVDM names it; the warehouse is
@@ -334,7 +334,7 @@ def load_openvdm_yaml(openvdm_config: Path | str) -> dict:
         # e.g. OpenVDM installed outside /opt (its installer's INSTALL_ROOT)
         raise OpenVDMError(
             f"no openvdm.yaml at {openvdm_config}: give its path with --openvdm-config, or a "
-            "cruise's ovdmConfig.json with --cruise-config"
+            "cruise's cruise_config.json with --cruise-config"
         ) from None
 
 
@@ -363,7 +363,7 @@ class OpenVDMVessel:
     """The vessel settings OpenVDM has, by SiteConfig field, and where they came from"""
 
     settings: dict[str, str] = field(default_factory=dict)
-    source: str = "none"  # "openvdm.yaml", "ovdmConfig.json" or "none"
+    source: str = "none"  # "openvdm.yaml", the cruise config file's name, or "none"
 
 
 def vessel_settings(block, source: str) -> OpenVDMVessel:
@@ -379,7 +379,7 @@ def vessel_settings(block, source: str) -> OpenVDMVessel:
 
 
 def cruise_vessel(cruise_dir: Path, config_filename: str) -> OpenVDMVessel:
-    """The vessel block saved in the cruise's ovdmConfig.json, if any"""
+    """The vessel block saved in the cruise's cruise_config.json, if any"""
     path = cruise_dir / config_filename
     try:
         block = json.loads(path.read_text()).get("vessel")
@@ -388,11 +388,11 @@ def cruise_vessel(cruise_dir: Path, config_filename: str) -> OpenVDMVessel:
     except (OSError, ValueError, AttributeError) as error:
         logger.warning("can't read the vessel settings from %s: %s", path, error)
         return OpenVDMVessel()
-    return vessel_settings(block, "ovdmConfig.json") if block else OpenVDMVessel()
+    return vessel_settings(block, config_filename) if block else OpenVDMVessel()
 
 
 def load_cruise_json(path: Path | str) -> dict:
-    """A cruise's config from the ovdmConfig.json OpenVDM writes into its directory: any cruise,
+    """A cruise's config from the cruise_config.json OpenVDM writes into its directory: any cruise,
     past or current, without OpenVDM's API (--cruise-config)
     """
     path = Path(path)
@@ -479,8 +479,8 @@ class HookRun:
     output_dir: Path
     owner: str  # the warehouse user, for file ownership
     extent_source: str  # "openvdm", "site config" or "none"
-    vessel_source: str  # where OpenVDM's vessel block came from: "openvdm.yaml",
-    # "ovdmConfig.json" or "none"
+    vessel_source: str  # where OpenVDM's vessel block came from: "openvdm.yaml", the cruise
+    # config file's name (cruise_config.json by default), or "none"
     # What the config is missing, or had to assume
     notes: list[str] = field(default_factory=list)
     sets_extent: bool = False  # the hook sets cruiseExtent from the fixes, so has no area check
@@ -496,10 +496,10 @@ def resolve(
 ) -> HookRun:
     """The QA configuration and directories for one of the site's feeds (the primary by
     default) in a collection system transfer. vessel is openvdm.yaml's vessel block; without
-    it, the one in the cruise's ovdmConfig.json is used. With set_extent, the hook will set
+    it, the one in the cruise's cruise_config.json is used. With set_extent, the hook will set
     OpenVDM's cruiseExtent from the primary feed's fixes, so its config has no expected area,
     unless OpenVDM is too old to have one. cruise_config is the API's, or a cruise's
-    ovdmConfig.json as `load_cruise_json` gives it
+    cruise_config.json as `load_cruise_json` gives it
     """
     feed = feed or site.primary
     set_extent = set_extent and feed.primary
@@ -569,7 +569,8 @@ def resolve(
             "after today are outside the cruise dates"
         )
     if vessel is None:
-        config_filename = warehouse.get("cruiseConfigFn") or "ovdmConfig.json"
+        # OpenVDM's default name (CRUISE_CONFIG_FN), when its API doesn't say
+        config_filename = warehouse.get("cruiseConfigFn") or "cruise_config.json"
         vessel = cruise_vessel(cruise_dir, config_filename)
     # The site config's vessel settings win; OpenVDM's fill those it leaves blank (#112)
     ship = {}
@@ -664,7 +665,7 @@ def _get_json(url: str) -> dict:
 
 def cruise_toml(run: HookRun, source: str) -> str:
     """The resolved config TOML, headed by where it came from (OpenVDM's API or a cruise's
-    ovdmConfig.json) and what it's missing
+    cruise_config.json) and what it's missing
     """
     header = [f"# Resolved from {source} for {run.transfer}"]
     header += [f"# Note: {note}" for note in run.notes]
@@ -742,7 +743,7 @@ def queue_md5_update(install_dir: Path, run: HookRun, written: list[Path]) -> st
     utils/update_md5_summary.py (OpenVDM 2.16.1). OpenVDM only hashes the files a transfer or
     data dashboard job reports, so without this the reports stay out of the summary. The files
     are given by their full paths: for the current cruise those are OpenVDM's own, and for a
-    cruise from its ovdmConfig.json OpenVDM refuses them unless its warehouse has the cruise
+    cruise from its cruise_config.json OpenVDM refuses them unless its warehouse has the cruise
     there. Returns what went wrong, or None
     """
     python = install_dir / "venv" / "bin" / "python"
