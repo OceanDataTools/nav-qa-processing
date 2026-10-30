@@ -582,97 +582,78 @@ without it and name the command.
 
 ## OpenVDM
 
-[OpenVDM](https://github.com/OceanDataTools/openvdm) can run the QA after each transfer of the
-collection system that logs the ship's GNSS, as a `postCollectionSystemTransfer` hook. It writes
-the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's.
+On a ship running [OpenVDM](https://github.com/OceanDataTools/openvdm), the QA runs from
+OpenVDM's hooks through the cruise:
+- **During the cruise,** after each transfer of the collection system that logs the GNSS
+  (`postCollectionSystemTransfer`), at most every `--min-interval`: a failing receiver or a
+  missing feed shows while there's time to fix it.
+- **When the cruise is finalized** (`preFinalizeCurrentCruise`): the final reports, on the whole
+  cruise. OpenVDM waits for them, so they're in the finalized cruise.
+- **Afterwards, by hand:** any earlier cruise, from the `ovdmConfig.json` in its directory
+  ([A past cruise](#a-past-cruise)).
 
-- **From OpenVDM's API** (`api/warehouse/getCruiseConfig`): the cruise ID, name, PI, location
-  and dates, the cruise extent (which the hook sets), the warehouse directory, the transfer's destination, the extra
-  directories and the MD5 summary.
-- **The vessel's name and contact:** the site TOML's, or where it leaves them blank, from
-  OpenVDM 2.17 on, the `vessel` block of `openvdm.yaml`.
-  With `--cruise-config`, they come from the copy in the cruise's `ovdmConfig.json`, the vessel
-  the cruise was on.
-- **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the primary
-  GNSS feed, or their format, so the ship's site TOML says (`[nav] format` and `files`). A ship
-  logging several position sensors lists each as a `[[nav]]` table.
+Each run writes the core products and reports (GeoCSV, SVG plots, PDF, notebook), not R2R's,
+into an OpenVDM extra directory. **Setting it up** (the install, the extra directory, the ship's
+site TOML and the hooks in `openvdm.yaml`) is in
+[INSTALL.md](INSTALL.md#install-for-the-openvdm-hook).
 
-**Setting it up** takes five steps, each described in
-[INSTALL.md](INSTALL.md#install-for-the-openvdm-hook):
+### Where its values come from
 
-1. install this project with the `openvdm` extra, and fetch the map data as root, which
-   OpenVDM's workers run as;
-2. add an extra directory for the reports in OpenVDM, `NAV_QA` by default;
-3. write the ship's [site TOML](#site-toml) with `site-config`: the GNSS feed's format and a
-   glob of its files, and the vessel's details;
-4. add the hooks to `openvdm.yaml`, under the keys it already has, and restart OpenVDM's
-   `post_hooks` worker: after each transfer of the collection system that logs the GNSS, at
-   most every `--min-interval`, and before the cruise is finalized, for the final reports (that
-   hook names the transfer, since `{collectionSystemTransferName}` has no value there):
+- **The cruise,** from OpenVDM's API (`api/warehouse/getCruiseConfig`): its ID, name, PI,
+  location, dates and extent, the warehouse directory, the transfer's destination, the extra
+  directories and the MD5 summary. For a past cruise, from its `ovdmConfig.json` instead.
+- **The vessel's name and contact,** from the site TOML, or where it leaves them blank, from
+  `openvdm.yaml`'s `vessel` block (OpenVDM 2.17). For a past cruise, from its `ovdmConfig.json`,
+  the vessel it was on.
+- **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the GNSS
+  feed, or their format, so the ship's [site TOML](#site-toml) says (`[nav] format` and
+  `files`). A ship logging several position sensors lists each as a `[[nav]]` table.
 
-   ```yaml
-   postHookCommands:
-       postCollectionSystemTransfer:
-           - collectionSystemTransferName: OpenRVDAS
-             commandList:
-             - name: "Navigation QA"
-               command:
-               - /opt/nav-qa-processing/.venv/bin/nav-qa-processing
-               - openvdm
-               - "{collectionSystemTransferName}"
-               - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
-               - "--site-config=/opt/nav-qa-processing/configs/site.toml"
-               - "--changed-files={newFiles}"
-               - "--changed-files={updatedFiles}"
-               - "--min-interval=6h"
+### What the hook does
 
-       preFinalizeCurrentCruise:
-           commandList:
-           - name: "Navigation QA"
-             command:
-             - /opt/nav-qa-processing/.venv/bin/nav-qa-processing
-             - openvdm
-             - OpenRVDAS
-             - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
-             - "--site-config=/opt/nav-qa-processing/configs/site.toml"
-   ```
-5. try it, by running the same command by hand.
+- **Assesses each feed of the transfer:** the site TOML's `[nav]`, or each `[[nav]]` whose
+  `transfer` is this one or has none, the primary first. A non-primary feed's outputs carry its
+  name (`<CRUISE>_seapath_…`).
+- **Skips** a transfer without new or updated files matching a feed's `files`
+  (`--changed-files`), and with `--min-interval` a feed whose reports are newer than that.
+- **Reads** the cruise's nav files from the transfer's directory, within the cruise's dates (an
+  open-ended cruise ends today, UTC), and **checks their checksums** against OpenVDM's MD5
+  summary. Files changed after the summary was written count as pending, not failures.
+- **Writes into the extra directory,** replacing earlier ones: the GeoCSV products, the plots,
+  the PDF, the notebook, and `<CRUISE>_config.toml`, a snapshot of what OpenVDM and the site TOML
+  supplied, which the notebook re-runs from. Run as root, it gives them to the warehouse user.
+- **Adds those files to the cruise's MD5 summary,** with OpenVDM's `utils/update_md5_summary.py`
+  (OpenVDM 2.16.1 or later).
+- **Sets OpenVDM's cruise extent** (`cruiseExtent`, OpenVDM 2.17) to the box around the primary
+  feed's fixes that pass QC, so a jump to 0, 0 never stretches it. Its "Within the expected
+  area" check is then n/a, and other feeds are checked against the primary's track. With `--no-set-extent`, without a `workerApiKey`, for a past cruise or
+  before OpenVDM 2.17, it checks the fixes against OpenVDM's extent instead, else the site TOML's
+  `[extent]`. [INSTALL.md](INSTALL.md#4-add-the-hooks-to-openvdmyaml) covers the setup it needs.
+- **Fails in one line,** which OpenVDM shows as the hook's message. One feed's failure doesn't
+  stop the others. Updating the MD5 summary or the extent can fail without failing the hook: it
+  logs a warning.
 
-The hook:
-- **assesses each feed of the transfer:** the site TOML's `[nav]`, or each `[[nav]]` whose
-  `transfer` is this one or that has none, the primary first. A non-primary feed's outputs
-  carry its name (`<CRUISE>_seapath_…`);
-- **skips** feeds whose new or updated files include none matching their `files`, and
-  transfers with no such feed. Use the `--changed-files={newFiles}` form, so an empty list
-  isn't dropped. With `--min-interval`, it also skips a feed whose reports are newer than that;
-- reads the cruise's nav files from the transfer's directory, within OpenVDM's cruise dates (an
-  open-ended cruise ends today, UTC);
-- **writes into the extra directory**, replacing earlier ones: the three GeoCSV products, the
-  plots, the PDF and the notebook, and `<CRUISE>_config.toml`, a snapshot of what OpenVDM and the
-  site TOML supplied, which the notebook re-runs from. Run as root, it gives them to the
-  warehouse user;
-- **adds those files to the cruise's MD5 summary**, with OpenVDM's
-  `utils/update_md5_summary.py` (OpenVDM 2.16.1 or later). If that fails, the hook logs a
-  warning and still succeeds;
-- **checks the nav files' checksums** against OpenVDM's MD5 summary. Files changed after the
-  summary was written count as pending, not failures;
-- **sets OpenVDM's cruise extent** (`cruiseExtent`, OpenVDM 2.17) to the box around the fixes
-  that pass QC, so a jump to 0, 0 or minutes at a wrong position never stretches it. Across the
-  antimeridian, westernmost > easternmost, as OpenVDM computes it. It needs `workerApiKey` in
-  `openvdm.yaml` (matching `WORKER_API_KEY` in OpenVDM's `Config.php`), and is skipped if
-  OpenVDM's current cruise changed during the run. If OpenVDM refuses it or can't be reached,
-  the hook logs a warning and still succeeds. The area check is then n/a, since the extent is
-  the track's own. OpenVDM's `build_cruise_tracks.py` also sets `cruiseExtent`, from the data
-  dashboard's unchecked positions: add `--no-set-extent` to its hook so it doesn't overwrite
-  this one (the same option name in both; OpenVDM 2.17, openvdm#470);
-- **otherwise checks the fixes against an expected area:** with `--no-set-extent`, without a
-  `workerApiKey`, with `--cruise-config`, or before OpenVDM 2.17, it checks them against
-  OpenVDM's `cruiseExtent`, else the site TOML's `[extent]`; without either, the area check is
-  n/a;
-- with several feeds, sets `cruiseExtent` from the primary only, and checks the others against
-  the primary's track when it ran too, else OpenVDM's `cruiseExtent`;
-- exits non-zero with a one-line message on failure, which OpenVDM shows. One feed's failure
-  doesn't stop the others; the message lists each failed feed.
+### Troubleshooting
+
+OpenVDM logs the hook's output in `/var/log/openvdm/post_hooks.log`. To see it directly, run the
+hook's command by hand, as root, without `--changed-files` or `--min-interval`
+([INSTALL.md step 5](INSTALL.md#5-try-it)). Each run prints the cruise and feed it found, what it
+assumed (`note:` lines), the QA summary and the files it wrote.
+
+| Message | Meaning |
+|---|---|
+| `no new or updated nav files; nothing to do` | None of the transfer's files match a feed's `files` glob. By hand, leave `--changed-files` out |
+| `its reports, from ..., are newer than --min-interval 6h; nothing to do` | The last run was within the interval, so its reports stand. By hand, leave `--min-interval` out |
+| `... doesn't exist yet; nothing to do` | The transfer hasn't brought any files yet |
+| `0 fixes ... from 0 files` | The `files` glob matches nothing in the transfer's directory: check it with `ls` there |
+| `every nav file is outside the cruise window` | The files' dates aren't within the cruise's start and end in OpenVDM. OpenVDM's [sample data](https://github.com/OceanDataTools/openvdm_sample_data) is from 2012-04-28 and 29 |
+| `no nav format ...: set [nav] format in the site config` | The site TOML (`--site-config`) has no feed format |
+| `no collection system transfer named ...` | `TRANSFER` isn't a transfer's name in OpenVDM (Configuration > Collection System Transfers) |
+| `no extra directory named 'NAV_QA'` | Add it in OpenVDM (Configuration > Extra Directories), or set the site TOML's `[openvdm] output_extra_directory` |
+| `no openvdm.yaml at ...` | OpenVDM is installed elsewhere: give `--openvdm-config` |
+| `the reports aren't in OpenVDM's MD5 summary: ...` | OpenVDM's `update_md5_summary.py` is missing (OpenVDM before 2.16.1) or failed; for a past cruise, OpenVDM's warehouse doesn't have it. The reports are written all the same |
+| `OpenVDM's cruise extent wasn't set: ...` | OpenVDM refused it (its `WORKER_API_KEY` doesn't match `workerApiKey`), is older than 2.17, or moved on to another cruise during the run |
+| `note: openvdm.yaml has no workerApiKey ...` | The hook can't set the extent, so it checks the fixes against OpenVDM's instead |
 
 ### OpenVDM commands
 
@@ -686,10 +667,9 @@ nav-qa-processing openvdm [--openvdm-config OPENVDM_YAML] [--cruise-config OVDM_
                           TRANSFER
 ```
 
-The post-transfer hook: assesses the collection system transfer's nav files for OpenVDM's
-current cruise, or with `--cruise-config` any cruise, and writes the products and reports into
-an OpenVDM extra directory, replacing earlier ones. Installed `openvdm.yaml` files call it, so its arguments keep their names; they're
-named as in sbe-qa-processing's hook.
+The hook: assesses the collection system transfer's nav files for OpenVDM's current cruise, or
+with `--cruise-config` any cruise, as [above](#what-the-hook-does). Installed `openvdm.yaml`
+files call it, so its arguments keep their names; they're named as in sbe-qa-processing's hook.
 
 | Argument | Default | Description |
 |---|---|---|
@@ -702,7 +682,7 @@ named as in sbe-qa-processing's hook.
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the site TOML's `[theme]` applies on top |
 | `--execute-notebook` | off | Run the notebook and save its outputs |
 | `--no-products` | off | Don't write the GeoCSV products into the extra directory, as for `run`. bestres has a line per fix and grows through the cruise (about 300 MB for 20 days at 2 Hz), and the hook rewrites it after every transfer |
-| `--min-interval DURATION` | none | Skip a feed whose reports are newer than this: a number and `s`, `m`, `h` or `d`, e.g. `6h`. Each run assesses the whole cruise so far, which takes minutes for a long cruise, longer than OpenVDM's transfer interval; with this the post-transfer hook reassesses at most that often. Leave it out of a `preFinalizeCurrentCruise` hook, which writes the final reports ([INSTALL.md](INSTALL.md#4-add-the-hooks-to-openvdmyaml)) |
+| `--min-interval DURATION` | none | Skip a feed whose reports are newer than this: a number and `s`, `m`, `h` or `d`, e.g. `6h`. Each run assesses the whole cruise so far, so a long cruise's take longer than OpenVDM's transfer interval. Leave it out of a `preFinalizeCurrentCruise` hook, which writes the final reports. [Choosing it](INSTALL.md#4-add-the-hooks-to-openvdmyaml) |
 
 #### `config-from-openvdm`
 

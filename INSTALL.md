@@ -79,11 +79,12 @@ uv run pytest
 
 ## Install for the OpenVDM hook
 
-[OpenVDM](https://github.com/OceanDataTools/openvdm) runs the QA after each transfer of the
-collection system that logs the ship's GNSS, as a `postCollectionSystemTransfer` hook. Setting
-it up takes five steps: install, add an extra directory for the reports, write the ship's site
-TOML, add the hooks to `openvdm.yaml` (after each transfer, and before the cruise is
-finalized), and try it.
+[OpenVDM](https://github.com/OceanDataTools/openvdm) runs the QA from two of its hooks: after
+each transfer of the collection system that logs the ship's GNSS, during the cruise, and when the
+cruise is finalized, for the final reports. Setting it up takes five steps: install, add an
+extra directory for the reports, write the ship's site TOML, add the hooks to `openvdm.yaml`,
+and try it. The README's [OpenVDM section](README.md#openvdm) describes what the hook does,
+where its values come from, troubleshooting, and running it on a past cruise.
 
 The hook assesses the whole cruise so far after each transfer, so its memory grows through the
 cruise: about 400 bytes a fix, with about 300 MB to start. A 20-day cruise logged at 2 Hz (3.5 M
@@ -318,28 +319,10 @@ sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \
 ```
 
 It prints the cruise and feed it found, the QA summary and the files it wrote into the extra
-directory (in the cruise's directory, e.g. `Products/NAV_QA`). OpenVDM's runs are logged in
+directory (in the cruise's directory, e.g. `Products/NAV_QA`). OpenVDM logs its runs in
 `/var/log/openvdm/post_hooks.log`, and a failure shows in OpenVDM as the hook's one-line
-message.
-
-- **"every nav file is outside the cruise window":** the GNSS files' dates aren't within the
-  cruise's start and end dates in OpenVDM. OpenVDM's sample data
-  ([openvdm_sample_data](https://github.com/OceanDataTools/openvdm_sample_data)) is from
-  2012-04-28 and 29, so a sample cruise needs those dates.
-- **"no new or updated nav files; nothing to do":** none of the files given with
-  `--changed-files` match the site TOML's `files` glob; by hand, leave `--changed-files` out.
-- **"its reports, from ..., are newer than --min-interval 6h; nothing to do":** the last run
-  was within the interval, so the hook kept its reports; by hand, leave `--min-interval` out.
-- **"0 fixes ... from 0 files":** the `files` glob matches nothing in the transfer's directory;
-  check it with `ls` in that directory.
-
-The README's [OpenVDM section](README.md#openvdm) describes everything the hook does: the
-checksums it checks, the MD5 summary it updates, and how several sensors are handled.
-
-**An earlier cruise.** OpenVDM's API gives only the current cruise. For an earlier one, add
-`--cruise-config` with the `ovdmConfig.json` OpenVDM wrote into that cruise's directory, e.g.
-`--cruise-config /data/CruiseData/AT50-12/ovdmConfig.json`: the hook rebuilds that cruise's
-reports in its extra directory ([README](README.md#a-past-cruise)).
+message. The README's [Troubleshooting](README.md#troubleshooting) table says what each
+message means.
 
 ## Check the install
 
