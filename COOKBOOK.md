@@ -346,11 +346,11 @@ nav-qa-processing run /path/to/cruise/OpenRVDAS -c configs/<CRUISE>.toml -o outp
 ```
 
 Both take OpenVDM's current cruise. For an earlier one, add `--cruise-config` with the
-`ovdmConfig.json` OpenVDM wrote into that cruise's directory; the cruise comes from it rather than
+`cruise_config.json` OpenVDM wrote into that cruise's directory; the cruise comes from it rather than
 OpenVDM's API ([README](README.md#a-past-cruise)):
 
 ```bash
 sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \
-    --cruise-config /data/CruiseData/AT50-12/ovdmConfig.json \
+    --cruise-config /data/CruiseData/SP2613/cruise_config.json \
     --site-config=/opt/nav-qa-processing/configs/site.toml
 ```

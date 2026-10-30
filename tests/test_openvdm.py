@@ -54,7 +54,7 @@ def cruise_config(base_dir: Path, cruise_id="SP2613", extent: dict | None = None
             "shipboardDataWarehouseBaseDir": str(base_dir),
             "shipboardDataWarehouseUsername": "survey",
             "md5SummaryFn": "MD5_Summary.txt",
-            "cruiseConfigFn": "ovdmConfig.json",
+            "cruiseConfigFn": "cruise_config.json",
         },
         "collectionSystemTransfersConfig": [
             {"collectionSystemTransferID": "4", "name": "CTD", "destDir": "CTD"},
@@ -258,10 +258,10 @@ def test_resolve_prefers_the_site_configs_vessel_settings(tmp_path):
 def test_resolve_reads_the_vessel_from_ovdmconfig_json(tmp_path, caplog):
     cruise_dir = tmp_path / "SP2613"
     cruise_dir.mkdir()
-    (cruise_dir / "ovdmConfig.json").write_text(json.dumps({"vessel": {"name": "Sproul"}}))
+    (cruise_dir / "cruise_config.json").write_text(json.dumps({"vessel": {"name": "Sproul"}}))
     run = openvdm.resolve(cruise_config(tmp_path), openvdm.SiteConfig(), "OpenRVDAS")
-    assert (run.vessel_source, run.config.vessel_name) == ("ovdmConfig.json", "Sproul")
-    (cruise_dir / "ovdmConfig.json").write_text("{not json")
+    assert (run.vessel_source, run.config.vessel_name) == ("cruise_config.json", "Sproul")
+    (cruise_dir / "cruise_config.json").write_text("{not json")
     run = openvdm.resolve(cruise_config(tmp_path), openvdm.SiteConfig(), "OpenRVDAS")
     assert run.vessel_source == "none" and "can't read the vessel settings" in caplog.text
 
@@ -836,11 +836,11 @@ def test_config_from_openvdm_writes_each_feed(two_feeds, tmp_path, capsys):
     assert "several feeds (posmv, seapath): give -o OUTPUT_DIR" in capsys.readouterr().err
 
 
-# A past cruise from its ovdmConfig.json (--cruise-config) ------------------------------------
+# A past cruise from its cruise_config.json (--cruise-config) ------------------------------------
 
 
-def ovdm_config_json(cruise_dir: Path, cruise_id="AT50-12") -> Path:
-    """The ovdmConfig.json OpenVDM writes into a cruise's directory: getCruiseConfig without its
+def cruise_config_json(cruise_dir: Path, cruise_id="AT50-12") -> Path:
+    """The cruise_config.json OpenVDM writes into a cruise's directory: getCruiseConfig without its
     warehouse block, whose file names it keeps at the top level, with the vessel the cruise was
     on (OpenVDM's cruise.py, export_cruise_config)
     """
@@ -849,13 +849,13 @@ def ovdm_config_json(cruise_dir: Path, cruise_id="AT50-12") -> Path:
     data["md5SummaryFn"] = "MD5_Summary.txt"
     data["vessel"] = {"name": "Atlantis", "contact": {"email": "ops@example.org"}}
     cruise_dir.mkdir(parents=True, exist_ok=True)
-    path = cruise_dir / "ovdmConfig.json"
+    path = cruise_dir / "cruise_config.json"
     path.write_text(json.dumps(data))
     return path
 
 
 def test_load_cruise_json(tmp_path):
-    path = ovdm_config_json(tmp_path / "AT50-12")
+    path = cruise_config_json(tmp_path / "AT50-12")
     assert openvdm.load_cruise_json(path)["cruiseID"] == "AT50-12"
     with pytest.raises(openvdm.OpenVDMError, match="can't read the cruise config"):
         openvdm.load_cruise_json(tmp_path / "missing.json")
@@ -864,19 +864,19 @@ def test_load_cruise_json(tmp_path):
         openvdm.load_cruise_json(path)
 
 
-def test_resolve_a_cruise_from_its_ovdm_config_json(tmp_path):
+def test_resolve_a_cruise_from_its_cruise_config_json(tmp_path):
     """The JSON's directory is the cruise's, wherever it now is; its MD5 summary and vessel are
     the cruise's own
     """
     cruise_dir = tmp_path / "archive" / "AT50-12"
-    data = openvdm.load_cruise_json(ovdm_config_json(cruise_dir))
+    data = openvdm.load_cruise_json(cruise_config_json(cruise_dir))
     site = openvdm.SiteConfig(feeds=[nav33()])
     run = openvdm.resolve(data, site, "OpenRVDAS")  # as the API's would be
     assert (run.cruise_dir, run.fileset_dir) == (cruise_dir, cruise_dir / "OpenRVDAS")
     assert run.output_dir == cruise_dir / "Products/NAV_QA"
     assert run.config.manifest_path == cruise_dir / "MD5_Summary.txt"
     assert (run.config.cruise_id, run.config.cruise_pi) == ("AT50-12", "A. Scientist")
-    assert (run.config.vessel_name, run.vessel_source) == ("Atlantis", "ovdmConfig.json")
+    assert (run.config.vessel_name, run.vessel_source) == ("Atlantis", "cruise_config.json")
     assert run.config.extent == Extent(**EXTENT) and not run.sets_extent
     if hasattr(os, "geteuid"):
         assert run.owner == cruise_dir.owner()
@@ -888,7 +888,7 @@ def test_the_hook_on_a_past_cruise(tmp_path, monkeypatch, capsys):
     refuses them unless it has the cruise
     """
     cruise_dir = tmp_path / "archive" / "AT50-12"
-    path = ovdm_config_json(cruise_dir)
+    path = cruise_config_json(cruise_dir)
     openrvdas(cruise_dir / "OpenRVDAS")
     install = openvdm_install(tmp_path / "openvdm")
     md5_update = FakeRun()
@@ -912,17 +912,17 @@ def test_the_hook_on_a_past_cruise(tmp_path, monkeypatch, capsys):
 
 def test_a_cruise_directory_named_after_another_cruise(tmp_path):
     """The warehouse is rebuilt from the directory, which OpenVDM names after the cruise"""
-    path = ovdm_config_json(tmp_path / "AT50-12")
+    path = cruise_config_json(tmp_path / "AT50-12")
     renamed = tmp_path / "AT50-12-copy"
     path.parent.rename(renamed)
     with pytest.raises(openvdm.OpenVDMError, match="named 'AT50-12-copy', but its cruise is"):
-        openvdm.load_cruise_json(renamed / "ovdmConfig.json")
+        openvdm.load_cruise_json(renamed / "cruise_config.json")
 
 
 def test_a_past_cruise_away_from_openvdm(tmp_path, monkeypatch, caplog):
     """Without OpenVDM installed, the reports are written and the MD5 summary is left alone"""
     cruise_dir = tmp_path / "AT50-12"
-    path = ovdm_config_json(cruise_dir)
+    path = cruise_config_json(cruise_dir)
     openrvdas(cruise_dir / "OpenRVDAS")
     md5_update = FakeRun()
     monkeypatch.setattr(openvdm.subprocess, "run", md5_update)
@@ -936,7 +936,7 @@ def test_a_past_cruise_away_from_openvdm(tmp_path, monkeypatch, caplog):
 
 def test_config_from_a_past_cruise(tmp_path, capsys):
     """config-from-openvdm --cruise-config caches the cruise as a config TOML, to run anywhere"""
-    path = ovdm_config_json(tmp_path / "AT50-12")
+    path = cruise_config_json(tmp_path / "AT50-12")
     args = ["config-from-openvdm", "OpenRVDAS", "--cruise-config", str(path)]
     assert main([*args, "--site-config", str(site_config(tmp_path)), "-o", "-"]) == 0
     config = load_config_text(capsys.readouterr().out)
