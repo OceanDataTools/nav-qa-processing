@@ -805,6 +805,18 @@ reference filesets committed in `tests/data/` and draw on Natural Earth clipped 
 The tests never download map data either; with `fetch-map-data` run, the tests marked `map_data`
 use the full layers.
 
+`tests/test_openvdm_contract.py` checks the OpenVDM hook against OpenVDM's own code rather than
+stand-ins: how OpenVDM runs the hook commands INSTALL.md documents, its
+`update_md5_summary.py`, and the cruise config file it writes. It needs a checkout of OpenVDM's
+`2.17` branch with a `venv` of its requirements, at `OPENVDM_SOURCE` (default `../openvdm`), and
+skips without one; CI's "OpenVDM contract" job clones it:
+
+```bash
+git clone --branch 2.17 https://github.com/OceanDataTools/openvdm.git ../openvdm
+uv venv --python 3.12 ../openvdm/venv && VIRTUAL_ENV=../openvdm/venv uv pip install -r ../openvdm/requirements.txt
+uv run pytest tests/test_openvdm_contract.py
+```
+
 ## License
 
 [MIT](LICENSE.md)
