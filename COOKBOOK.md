@@ -328,8 +328,9 @@ nav-qa-processing run data/BH19-30_136141_gnss -c configs/BH19-30_136141.toml -o
 
 ## An OpenVDM cruise, by hand
 
-On a ship running OpenVDM, the hook runs the QA after each transfer ([INSTALL.md](INSTALL.md#install-for-the-openvdm-hook)).
-To run it yourself, either give the hook's command without `--changed-files`:
+On a ship running OpenVDM, OpenVDM's hooks run the QA during the cruise and when it's finalized
+([INSTALL.md](INSTALL.md#install-for-the-openvdm-hook)). To run it yourself, either give the
+hook's command without `--changed-files` or `--min-interval`:
 
 ```bash
 sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \

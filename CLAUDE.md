@@ -230,6 +230,10 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
   (#111); its Linux commands were run in clean containers, so re-run them after changing it.
   `COOKBOOK.md` has worked examples (a directory of raw files; an R2R fileset) whose commands
   and output come from real runs: re-run them when a command or its output changes.
+  The OpenVDM text has one home per topic: setup and the `openvdm.yaml` hooks in INSTALL.md
+  only, what the hook does, troubleshooting and past cruises in the README's OpenVDM section;
+  `tests/test_docs.py` parses INSTALL.md's hooks and every `nav-qa-processing` command in the
+  docs' shell examples with the CLI's parser, so a changed option fails there.
   `docs/examples/` has SP2613's outputs (PDF reports from `run` and `r2r run`, 1min, control,
   the map, the XML), linked from the README: rebuild them, by its README's commands, when the
   reports change.
