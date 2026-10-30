@@ -577,6 +577,14 @@ without it and name the command.
 | RR2212 / 151339 (Revelle) | R: out of sequence 50.08 %, files processed out of order | G |
 | SP2220 / 150139 (Sproul) | R: no fix for most of the cruise | R: bad quality 82.61 %, completeness, gap |
 
+### Performance against NavManager
+
+On the same filesets and machine, this tool takes 1.6 to 2.5 times less time than NavManager and
+4.5 to 37 times more memory: NavManager streams through fixed buffers, and this tool holds the
+whole cruise, about 300 bytes a fix. A 20-day cruise at 2 Hz (3.5 M fixes) takes NavManager
+8.8 minutes in 279 MB, and this tool 3.5 minutes in 1.2 GB. The measurements, why, and how to
+repeat them are in [docs/performance.md](docs/performance.md).
+
 ## OpenVDM
 
 On a ship running [OpenVDM](https://github.com/OceanDataTools/openvdm), the QA runs from

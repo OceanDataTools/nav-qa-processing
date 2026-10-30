@@ -29,7 +29,7 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 | R4 | reader | An equal time of day advances the date | A repeated fix dated 24 h later (none in the references) | Fixed (#15) |
 | R5 | reader | Sentences split across logger lines read as short sentences, missing fields as 0 | RR2406: 191,414 of 266,841 records flagged; R on five tests from absurd values | Rejoined; a truncated sentence is rejected (#26) |
 | R6 | reader | A coordinate without its hemisphere letter read as N or E | RR2406: 45,243 fixes at 83°E | Missing (#26) |
-| R8 | navcopy nav33, nav02 | The 86,400th fix of each buffer dropped | FKt230417: 18 fixes; EN735: 3 | Every fix kept (#48, #81) |
+| R8 | navcopy nav33, nav02 | The 86,400th fix of each buffer dropped | FKt230417: 18 fixes; EN735: 3; 2 a day at 2 Hz | Every fix kept (#48, #81) |
 | R9 | navcopy nav33, nav02 | The last fix of the cruise dropped | FKt230417, EN735: the final fix | Every fix kept (#48, #81) |
 | R10 | navcopy nav33, nav02 | A GGA repeating the previous one's time of day dropped, keeping the later | EN735: 5 records | Kept; QC flags the repeat (#81) |
 | R11 | nmeatools | An empty numeric GGA field read as 0 | HLY08TD: 2 records with HDOP 0 (flagged by both) | Missing (`NAN`) |
@@ -130,9 +130,9 @@ SP2424 (161900, 150,925 fixes, rated G), SP2503 (167484, rated R on completeness
 
 - **NavManager:** `parse_nav33()` (`include/parsers/nav33.php`, ~line 231) collects valid GGAs in a buffer of `$maxBuffer = 86400`. When it's full, it dates and prints entries 1 to `$maxBuffer - 1` and discards the buffer, so the last entry is never written. `parse_nav2()` (`include/parsers/nav2.php`) has the same buffer and loop.
 - **Here:** the reader keeps every valid GGA (`formats/timestamped_gga.py`).
-- **Evidence:** FKt230417: one fix missing after every 86,399 that R2R kept, 18 in all (`tests/test_r2r_references.py`). EN735 (nav02, 1 Hz): 08-20T12:39:20, 08-21T12:39:21 and 08-22T12:39:22, one a day (#81).
+- **Evidence:** FKt230417: one fix missing after every 86,399 that R2R kept, 18 in all (`tests/test_r2r_references.py`). EN735 (nav02, 1 Hz): 08-20T12:39:20, 08-21T12:39:21 and 08-22T12:39:22, one a day (#81). A synthetic 20-day nav33 cruise at 2 Hz (`docs/performance.md`): 40 of 3,456,000 fixes, the one at 11:59:59.5 and at 23:59:59.5 each day, as each buffer holds 12 hours.
 - **Why (confirmed in code):** an off-by-one in the buffer's print loop; the other parsers of `navcopy.inc.php` with the same buffer may share it.
-- **Effect:** one fix a day at 1 Hz; too few to change a rating.
+- **Effect:** one fix a day at 1 Hz, two at 2 Hz; too few to change a rating.
 
 ### R9. nav33 and nav02: the cruise's last fix is dropped
 
