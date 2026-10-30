@@ -56,7 +56,8 @@ jobs:
       # Nothing is fetched from R2R or Natural Earth: the tests unpack the reference filesets
       # committed in tests/data/ (SP2613, SP2503, BH19-30, RC0014) and use Natural Earth
       # clipped to their areas. The other R2R references skip; -rs lists them
-      - run: uv run --locked pytest -rs
+      # On every core, a reference fileset's tests on one worker (README, Development)
+      - run: uv run --locked pytest -rs -n auto --dist loadgroup
 
   openvdm-contract:
     # The OpenVDM hook against OpenVDM's own code: how it runs the hook commands INSTALL.md

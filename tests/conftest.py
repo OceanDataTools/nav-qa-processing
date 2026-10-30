@@ -1,5 +1,7 @@
 import os
+import re
 import tarfile
+import tempfile
 from pathlib import Path
 
 import cartopy
@@ -23,12 +25,37 @@ CLIPPED_MAP_DATA = COMMITTED / "natural_earth"
 
 
 def pytest_sessionstart(session):
-    """Unpack each committed reference fileset that data/ doesn't have (a fetched copy stays)"""
+    """Unpack each committed reference fileset that data/ doesn't have (a fetched copy stays).
+    Into a temporary directory, then renamed into place: with `pytest -n`, each worker starts a
+    session too, and one that loses the race drops its copy, so none sees half a fileset
+    """
     for archive in sorted(COMMITTED.glob("*_gnss.tar.xz")):
-        if not (DATA / archive.name.removesuffix(".tar.xz")).exists():
-            DATA.mkdir(exist_ok=True)
+        fileset = DATA / archive.name.removesuffix(".tar.xz")
+        if fileset.exists():
+            continue
+        DATA.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=DATA) as unpacking:
             with tarfile.open(archive) as tar:
-                tar.extractall(DATA, filter="data")
+                tar.extractall(unpacking, filter="data")
+            try:
+                Path(unpacking, fileset.name).rename(fileset)
+            except OSError:  # another worker's copy got there first
+                pass
+
+
+# A reference fileset's ID, e.g. SP2220_150139, as a test's `name` parameter
+REFERENCE = re.compile(r"[A-Za-z0-9-]+_\d+")
+
+
+def pytest_collection_modifyitems(items):
+    """With `pytest -n auto --dist loadgroup`, the tests on one reference fileset run on one
+    worker, so its run (test_r2r_references.ours, cached per process) is made once. The
+    fileset's tests in test_r2r_references are marked; a test taking it as `name` is grouped here
+    """
+    for item in items:
+        name = getattr(item, "callspec", None) and item.callspec.params.get("name")
+        if isinstance(name, str) and REFERENCE.fullmatch(name):
+            item.add_marker(pytest.mark.xdist_group(name))
 
 
 @pytest.fixture(autouse=True, scope="session")
