@@ -225,7 +225,12 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
 
 - uv, hatchling, `src/` layout, package `nav_qa_processing`, console script `nav-qa-processing`
   (`nav_qa_processing.cli:main`). Python ≥3.11.
-- Install: `uv sync`. Tests: `uv run pytest`. One test: `uv run pytest tests/test_x.py::test_name`.
+- Install: `uv sync`. Tests: `uv run pytest -n auto --dist loadgroup` (pytest-xdist; about 3
+  minutes on 8 cores with every reference fileset downloaded, 11 serially). One test: `uv run
+  pytest tests/test_x.py::test_name`. `--dist loadgroup` keeps a reference fileset's tests on one
+  worker, so its run (`test_r2r_references.ours`, cached per process) is made once: its tests in
+  `test_r2r_references` are `xdist_group`-marked, and `conftest.py` groups a test taking it as
+  `name`. A test on those runs takes the same `map_data` state as theirs, or makes its own.
   `INSTALL.md` has the install per OS and Linux distribution, for the OpenVDM hook and offline
   (#111); its Linux commands were run in clean containers, so re-run them after changing it.
   `COOKBOOK.md` has worked examples (a directory of raw files; an R2R fileset) whose commands

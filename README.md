@@ -794,7 +794,7 @@ TOML, is an error that says so.
 ## Development
 
 ```bash
-uv run pytest                                   # all tests
+uv run pytest -n auto --dist loadgroup          # all tests, on every core
 uv run pytest tests/test_cli.py::test_version   # one test
 uv run ruff check . && uv run ruff format --check .
 ```

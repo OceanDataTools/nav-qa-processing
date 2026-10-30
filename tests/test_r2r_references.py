@@ -83,6 +83,7 @@ def ratings(run):
     return run.r2r.rating, {t.name: (t.rating, t.result) for t in run.r2r.tests}
 
 
+@pytest.mark.xdist_group("RR2406_161075")
 def test_rr2406_split_sentences():
     """R2R: R on five tests, from absurd values (653,911 % out of sequence, 14 million m s-1):
     NavManager reads the first part of each sentence its logger split across lines as a whole
@@ -111,6 +112,7 @@ def test_rr2406_split_sentences():
     assert len(run.result.nav.frame) == 385_321 and (run.result.nav.frame["lon"] < 0).all()
 
 
+@pytest.mark.xdist_group("RR2212_151339")
 def test_rr2212_files_out_of_order():
     """R2R: R on out of sequence (50.08 %). R2R's bestres runs Nov 5, 4, 3, 6, 7, so Nov 3 and 4
     come after Nov 5, all flagged out of sequence; navdatalist sorts by each file's first ZDA,
@@ -138,6 +140,7 @@ def test_rr2212_files_out_of_order():
         assert over_water.status == "n/a"
 
 
+@pytest.mark.xdist_group("SP2220_150139")
 def test_sp2220_no_fix():
     """The receiver logged empty GGAs (quality 0, no position) for most of the cruise. Both rate
     R; R2R's completeness (33.99 %) counts records without a position, ours only fixes
@@ -193,6 +196,7 @@ def test_sp2220_no_fix():
     assert epoch.findtext(f"{{{R2R_NAMESPACE}}}test_result") == "102103.500"
 
 
+@pytest.mark.xdist_group("FKt230417_157454")
 def test_fkt230417_nav33():
     """Falkor (too)'s Applanix POS/MV, logged as ISO timestamp + GGA (nav33). Both rate G. R2R's
     bestres has every fix but the GGAs with checksum 0A-0F (R1: 48,427), every 86,400th (R8:
@@ -262,6 +266,7 @@ def _times(frame_times) -> np.ndarray:
     return frame_times.dt.as_unit("ns").astype("int64").to_numpy()
 
 
+@pytest.mark.xdist_group("EN735_165419")
 def test_en735_nav2():
     """Endeavor's NOAA SCS (nav02: the logger's date and time, then GGA). Both rate G. R2R's
     bestres is ours less 9 records: every 86,400th GGA (R8: 3), the last (R9) and the earlier of
@@ -287,6 +292,7 @@ def test_en735_nav2():
     assert (kept["alt"].to_numpy() == best["antenna_height"].to_numpy()).all()
 
 
+@pytest.mark.xdist_group("SKQ202516S_165743")
 def test_skq202516s_nav24():
     """Sikuliaq's Seapath 380+ (nav24: logger ID, ISO timestamp, NMEA; R2R format 100103). Both
     rate G with the same results, and flag the same 62 records. R2R's bestres is ours less the
@@ -308,6 +314,7 @@ def test_skq202516s_nav24():
     assert int(flagged.sum()) == int(records["flagged"].sum()) == 62
 
 
+@pytest.mark.xdist_group("SR2612_169918")
 def test_sr2612_five_hz():
     """Sally Ride's Seapath 380+ at an unbroken 5 Hz (nav29). R2R's bestres is ours less the
     final fix (R2), with the same 960 flags. Completeness is 100 % here, 80.05 % in R2R's report,

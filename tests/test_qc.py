@@ -301,6 +301,7 @@ def test_sp2424_flags_short_excursions_that_r2r_misses():
     assert result.notes[0].startswith("3 position step(s) of up to 3.5 m")
 
 
+@pytest.mark.map_data  # QC doesn't use it; it shares test_r2r_references' runs, which do
 @pytest.mark.parametrize(
     "name", ["SP2503_167484", "RR2406_161075", "RR2212_151339", "SP2220_150139"]
 )

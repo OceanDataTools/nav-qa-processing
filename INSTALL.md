@@ -71,8 +71,8 @@ uv sync
 uv run pytest
 ```
 
-`uv run pytest` runs the whole suite (about 10 minutes) on the reference filesets committed in
-`tests/data/`; it downloads nothing.
+`uv run pytest` runs the whole suite on the reference filesets committed in `tests/data/`; it
+downloads nothing. `uv run pytest -n auto --dist loadgroup` runs it on every core.
 
 ## Post-Install:
 
