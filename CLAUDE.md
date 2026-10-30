@@ -242,6 +242,9 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
   `docs/examples/` has SP2613's outputs (PDF reports from `run` and `r2r run`, 1min, control,
   the map, the XML), linked from the README: rebuild them, by its README's commands, when the
   reports change.
+  `docs/performance.md` compares time and memory with NavManager's on four filesets, by
+  `docs/performance/`'s scripts (PHP 7.4 in Docker; NavManager's navqc fails on PHP 8): re-run
+  them when reading, QC or the products change how fast they run or what they hold.
 - Lint and format: `uv run ruff check .` and `uv run ruff format --check .` (line length 99).
 - CI (`.github/workflows/ci.yml`, #115): Ruff and pytest on Linux 3.11–3.14, macOS and Windows,
   downloading nothing. SP2613, SP2503, BH19-30 and RC0014 are committed as

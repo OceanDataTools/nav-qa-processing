@@ -12,7 +12,7 @@ from conftest import ROOT
 
 from nav_qa_processing.cli import build_parser
 
-DOCS = ("README.md", "INSTALL.md", "COOKBOOK.md")
+DOCS = ("README.md", "INSTALL.md", "COOKBOOK.md", "docs/performance.md")
 INSTALLED = "/opt/nav-qa-processing/.venv/bin/nav-qa-processing"
 # OpenVDM's placeholders, as it fills them in
 PLACEHOLDERS = {
