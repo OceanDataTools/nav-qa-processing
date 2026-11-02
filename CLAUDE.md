@@ -45,7 +45,8 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   `DatedFix`; `drain` hands them to the frame, which keeps them, #174), and the whole-cruise
   steps after it work a chunk at a time (`geodesy.CHUNK`, `geocsv.rows`,
   `plots.SIMPLIFY_POINTS`), and `stats.compute` a statistic at a time, each step's arrays freed
-  as it returns (#172). About 400 bytes a fix in all; `tests/test_memory.py`.
+  as it returns (#172). About 400 bytes a fix in all; `tests/test_memory.py`. A file's lines
+  are `Lines`, its bytes and line bounds, released as the reader moves on (#175).
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
 - `config.py`: `QAConfig` (every field optional; integration tables ignored; one feed:

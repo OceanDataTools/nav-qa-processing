@@ -6,7 +6,7 @@ reader can be processed; the reader turns a fileset's lines into dated fixes. Fo
 share a reader (most are "some line prefix plus NMEA GGA + ZDA") differ only in their spec.
 """
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
@@ -31,13 +31,13 @@ class Reader:
     nav31, uhdas) find it by name (#157)
     """
 
-    read: Callable[[Iterable[tuple[str, list[str]]]], gga_zda.Result]
+    read: Callable[[Iterable[tuple[str, Sequence[str]]]], gga_zda.Result]
     span: Callable[..., tuple[datetime, datetime] | None]
     dated_by: str  # what dates a file, for "no …, skipped"
     sentences: str  # the sentences read, for checksum failures
     named: bool = False
 
-    def span_of(self, name: str, lines: list[str]) -> tuple[datetime, datetime] | None:
+    def span_of(self, name: str, lines: Sequence[str]) -> tuple[datetime, datetime] | None:
         """A file's span, by `span` with its name when the reader needs it"""
         return self.span(lines, name=name) if self.named else self.span(lines)
 

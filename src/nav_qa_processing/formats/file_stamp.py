@@ -17,7 +17,7 @@ skipped (`rawnav` reports it unread); a GGA without a parseable time is skipped.
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
 from pathlib import PurePath
 
@@ -55,7 +55,7 @@ def name_time(name: str) -> tuple[date, int] | None:
     return None
 
 
-def _dated(name: str, lines: list[str]) -> tuple[Fixes, int, int, int]:
+def _dated(name: str, lines: Sequence[str]) -> tuple[Fixes, int, int, int]:
     """A file's fixes dated from its name's stamp, the GGAs without a time, and the GGAs that
     failed their checksum
     """
@@ -83,7 +83,7 @@ def _dated(name: str, lines: list[str]) -> tuple[Fixes, int, int, int]:
     return fixes, timeless, rejected, cut
 
 
-def span(lines: list[str], name: str = "") -> tuple[datetime, datetime] | None:
+def span(lines: Sequence[str], name: str = "") -> tuple[datetime, datetime] | None:
     """The first and last fix of a file, dated from its name, to select and order files by"""
     if name_time(name) is None:
         return None
@@ -93,7 +93,7 @@ def span(lines: list[str], name: str = "") -> tuple[datetime, datetime] | None:
     return (fixes[0].moment, fixes[-1].moment) if fixes else None
 
 
-def read(files: Iterable[tuple[str, list[str]]]) -> Result:
+def read(files: Iterable[tuple[str, Sequence[str]]]) -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given"""
     result = Result(Fixes(), [], {}, {})
     for name, lines in files:

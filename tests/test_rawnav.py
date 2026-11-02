@@ -1,3 +1,7 @@
+import bz2
+import gzip
+import io
+import random
 from datetime import UTC, date, datetime
 
 import numpy as np
@@ -31,6 +35,75 @@ def test_read_fileset_selects_files_by_zda_window(tmp_path):
     assert any("junk.txt" in e for e in nav.errors)
     assert nav.frame["time"].iloc[0] == pd.Timestamp("2026-07-09T12:00:00Z")
     assert nav.decimals == {"time": 2, "lon": 6, "lat": 6, "hdop": 1, "alt": 3}
+
+
+def _as_text(data: bytes) -> list[str]:
+    """A file's lines as they were read before #175: as ASCII text, a byte that isn't one as
+    U+FFFD, with universal newlines, split by str.splitlines
+    """
+    text = io.TextIOWrapper(io.BytesIO(data), encoding="ascii", errors="replace", newline=None)
+    return text.read().splitlines()
+
+
+EDGES = [
+    b"",
+    b"\n",
+    b"\r",
+    b"\r\n",
+    b"a",
+    b"a\n",
+    b"a\r",
+    b"a\r\nb",
+    b"\r\r\n",
+    b"\n\r",
+    b"\r\n\n\r\r\n",
+    b"$GPGGA\x0b,1\x0c2\x1c3\x1d4\x1e5\x1f6\t7",  # what splitlines also splits on, or not
+    b"bad \xff byte\x85\n\x00",
+]
+
+
+@pytest.mark.parametrize("data", EDGES)
+def test_lines_are_the_texts_lines(data):
+    lines = rawnav.Lines(data)
+    want = _as_text(data)
+    assert list(lines) == want and lines[:] == want and len(lines) == len(want)
+    if want:
+        assert (lines[0], lines[-1]) == (want[0], want[-1])
+
+
+def test_lines_are_the_texts_lines_wherever_the_ends_fall(monkeypatch):
+    """Random bytes, line ends among them, searched and decoded a few at a time and with
+    int64 bounds as well as int32 ones
+    """
+    rng = random.Random(175)
+    pieces = [b"a", b",", b"\n", b"\r", b"\r\n", b"\x0b", b"\x1c", b"\x1f", b"\xff", b"\x00"]
+    cases = [b"".join(rng.choices(pieces, k=rng.randint(0, 30))) for _ in range(3_000)]
+    for chunk, at_a_time, int32 in ((1 << 24, 1 << 16, 2**31 - 1), (3, 2, 0)):
+        monkeypatch.setattr(rawnav, "_CHUNK", chunk)
+        monkeypatch.setattr(rawnav, "_LINES_AT_A_TIME", at_a_time)
+        monkeypatch.setattr(rawnav, "_INT32_BYTES", int32)
+        for data in cases:
+            assert list(rawnav.Lines(data)) == _as_text(data), data
+
+
+@pytest.mark.parametrize(
+    "suffix, compress", [(".txt", bytes), (".gz", gzip.compress), (".bz2", bz2.compress)]
+)
+def test_read_lines_reads_compressed_files(tmp_path, suffix, compress):
+    data = b"$GPZDA,120000.00,09,07,2026,,*6B\r\n$GPGGA,120000.00\r\n"
+    path = tmp_path / f"gps{suffix}"
+    path.write_bytes(compress(data))
+    assert list(rawnav.read_lines(path)) == _as_text(data)
+
+
+def test_released_lines_cannot_be_read():
+    lines = rawnav.Lines(b"a\nb\n")
+    lines.release()
+    assert len(lines) == 2
+    with pytest.raises(ValueError, match="released"):
+        lines[0]
+    with pytest.raises(ValueError, match="released"):
+        list(lines)
 
 
 def test_unknown_format():

@@ -10,13 +10,15 @@ Memory (#157): a file's lines are read to find its span and dropped, and the sel
 read again, one at a time, as the reader goes; the reader keeps its fixes as columns
 (`gga_zda.Fixes`). A run's memory is then about the largest file's lines plus about 90 bytes
 per fix, not every file's lines plus about 660 bytes per fix as Python objects (a 20-day cruise
-at 2 Hz ran a 4 GB OpenVDM server out of memory).
+at 2 Hz ran a 4 GB OpenVDM server out of memory). A file's lines are `Lines` (#175): its bytes
+and where each line starts and ends, about 1 byte a character and 16 a line, rather than its
+text and a list of strings (SR2612's 396 MB file: 1.1 GB as both).
 """
 
 import bz2
 import gzip
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -67,10 +69,104 @@ class RawNav:
     skipped_spans: dict[str, tuple[datetime, datetime]] = field(default_factory=dict)
 
 
-def read_lines(path: Path) -> list[str]:
+def read_lines(path: Path) -> "Lines":
     opener = {".gz": gzip.open, ".bz2": bz2.open}.get(path.suffix, open)
-    with opener(path, "rt", encoding="ascii", errors="replace", newline=None) as f:
-        return f.read().splitlines()
+    with opener(path, "rb") as f:
+        return Lines(f.read())
+
+
+# What str.splitlines splits an ASCII text on, once universal newlines have made \r and \r\n
+# into \n: the bytes ending a line, \r\n one ending
+LINE_ENDS = b"\n\r\x0b\x0c\x1c\x1d\x1e"
+_ENDS = np.zeros(256, dtype=bool)
+_ENDS[list(LINE_ENDS)] = True
+_CHUNK = 1 << 24  # [bytes] searched for line ends at a time
+_LINES_AT_A_TIME = 1 << 16  # lines' bounds made Python ints at a time, as they're iterated
+_INT32_BYTES = 2**31 - 1  # [bytes] a file's bounds are int32 below this
+
+
+class Lines(Sequence[str]):
+    """A file's lines as `str.splitlines` gave them from its text read as ASCII (a byte that
+    isn't one read as U+FFFD) with universal newlines, held as its bytes and where each line
+    starts and ends rather than as a list of strings (#175). `release` lets the bytes go once
+    a reader is done with them; reading them after is an error
+    """
+
+    def __init__(self, data: bytes):
+        self._data: bytes | None = data
+        self._starts, self._ends = _line_bounds(data)
+
+    def release(self) -> None:
+        self._data = None
+
+    def _bytes(self) -> bytes:
+        if self._data is None:
+            raise ValueError("the file's lines were released: the reader had moved on")
+        return self._data
+
+    def __len__(self) -> int:
+        return len(self._ends)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        if not -len(self) <= index < len(self):
+            raise IndexError(index)
+        start, end = int(self._starts[index]), int(self._ends[index])
+        return self._bytes()[start:end].decode("ascii", "replace")
+
+    def __iter__(self) -> Iterator[str]:
+        # A block of lines decoded at a time: decoding ASCII with "replace" gives a character
+        # a byte, so the bounds index the block's text as they do its bytes
+        for first in range(0, len(self), _LINES_AT_A_TIME):
+            part = slice(first, first + _LINES_AT_A_TIME)
+            starts, ends = self._starts[part].tolist(), self._ends[part].tolist()
+            base = starts[0]
+            text = self._bytes()[base : ends[-1]].decode("ascii", "replace")
+            for start, end in zip(starts, ends):
+                yield text[start - base : end - base]
+
+
+def _line_bounds(data: bytes) -> tuple[np.ndarray, np.ndarray]:
+    """Where each line starts and ends (the index of the byte after it) in `data`, as int32
+    for a file under 2 GiB
+    """
+    size = len(data)
+    dtype = np.int32 if size < _INT32_BYTES else np.int64
+    if not size:
+        return np.zeros(0, dtype), np.zeros(0, dtype)
+    view = np.frombuffer(data, np.uint8)
+    ends = np.concatenate(
+        [_ends_in(view[start : start + _CHUNK], start, dtype) for start in range(0, size, _CHUNK)]
+    )
+    if not len(ends):  # one line, without an end
+        return np.zeros(1, dtype), np.full(1, size, dtype)
+    # \r\n is one end: its \r ends the line, 2 bytes wide, and its \n isn't another end
+    following = np.add(ends, 1, dtype=np.int64)
+    np.minimum(following, size - 1, out=following)
+    crlf = (view[ends] == 13) & (view[following] == 10)
+    del following
+    crlf[-1] &= int(ends[-1]) + 1 < size
+    keep = np.ones(len(ends), dtype=bool)
+    keep[1:] = ~crlf[:-1]
+    ends, crlf = ends[keep], crlf[keep]
+    del keep
+    starts = np.empty(len(ends), dtype)
+    starts[0] = 0
+    np.add(ends[:-1], 1, out=starts[1:])
+    starts[1:] += crlf[:-1]
+    last = int(ends[-1]) + 1 + int(crlf[-1])
+    if last < size:  # a last line without an end
+        starts, ends = np.append(starts, last), np.append(ends, size)
+    return starts, ends
+
+
+def _ends_in(chunk: np.ndarray, offset: int, dtype) -> np.ndarray:
+    """The line ends' positions in `chunk`, from `offset`: the bytes below 31 (control
+    characters, few but the line ends), then those that end a line
+    """
+    candidates = np.flatnonzero(chunk < 31)
+    return (candidates[_ENDS[chunk[candidates]]] + offset).astype(dtype)
 
 
 def _natural_key(name: str) -> list:
@@ -166,6 +262,7 @@ def _read_again(
             unread[name] = str(error)
             continue
         yield name, lines
+        lines.release()  # the reader asked for the next file, so it's done with this one
 
 
 def _most(decimals: np.ndarray) -> int:
