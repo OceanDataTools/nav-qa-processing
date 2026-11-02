@@ -12,7 +12,7 @@ import pytest
 import shapely
 from test_gga_zda import nmea
 
-from nav_qa_processing import formats, geocsv, geodesy, plots, qc, rawnav, stats
+from nav_qa_processing import formats, geocsv, geodesy, plots, products, qc, rawnav, stats
 from nav_qa_processing.config import Thresholds
 from nav_qa_processing.formats import catalog
 from nav_qa_processing.formats.gga_zda import Fixes, SpanCache
@@ -146,6 +146,21 @@ def test_statistics_free_each_steps_arrays(tmp_path, monkeypatch):
         tracemalloc.stop()
     assert result.speeds == 19_999
     assert (peak - before) / len(nav.frame) < 140  # [bytes]
+
+
+def test_bestres_shares_the_raw_columns(tmp_path):
+    """bestres holds its own flags, speed and course, and the raw frame's record columns,
+    not a copy of them (#173); a write to either still leaves the other as it was
+    """
+    lines = _stamped(datetime(2026, 7, 9, tzinfo=UTC), 100)
+    (tmp_path / "gps.txt").write_text("\n".join(lines) + "\n")
+    nav = rawnav.read_fileset([tmp_path / "gps.txt"], "nav33")
+    best = products.bestres(nav, qc.flag(nav, Thresholds(), None, None))
+    for column in ("lon", "lat", "hdop", "alt"):
+        assert np.shares_memory(best[column].to_numpy(), nav.frame[column].to_numpy()), column
+    first = nav.frame["lat"].iloc[0]
+    best.loc[0, "lat"] = 0.0
+    assert nav.frame["lat"].iloc[0] == first
 
 
 def test_speeds_are_the_segments_speeds():

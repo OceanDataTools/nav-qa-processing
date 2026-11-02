@@ -1226,7 +1226,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "nbformat", specifier = ">=5.10" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "pandas", specifier = ">=2.2.2" },
+    { name = "pandas", specifier = ">=3.0" },
     { name = "pyproj", specifier = ">=3.6" },
     { name = "pyyaml", marker = "extra == 'openvdm'", specifier = ">=6.0" },
     { name = "reportlab", specifier = ">=4.2" },
