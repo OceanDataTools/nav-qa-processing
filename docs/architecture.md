@@ -585,6 +585,8 @@ Linux, for a synthetic nav33 cruise of that size (`run` with Natural Earth): 4.2
   next, so one file is held, not two. SR2612 (a 396 MB file of 5.6 M lines): reading's traced
   peak 1,149 -> 624 MB, the same work's peak RSS 2,290 -> about 1,250 MB (macOS), in the same
   time; every line of the 1,607 files in `data/` (60 M lines) identical.
+- With #172 to #175, the synthetic cruise's `run` takes 883 MB on Linux (1,341 MB before them),
+  about 200 bytes a fix; `docs/performance.md` has the four filesets.
 
 **QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
 `POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `UNREACHABLE`, `STALE_REPEAT`, `ACCELERATION`. A record with
