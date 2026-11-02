@@ -136,21 +136,15 @@ def _line_bounds(data: bytes) -> tuple[np.ndarray, np.ndarray]:
     if not size:
         return np.zeros(0, dtype), np.zeros(0, dtype)
     view = np.frombuffer(data, np.uint8)
-    ends = np.concatenate(
-        [_ends_in(view[start : start + _CHUNK], start, dtype) for start in range(0, size, _CHUNK)]
-    )
+    ends = np.concatenate([_ends_in(view, start, dtype) for start in range(0, size, _CHUNK)])
     if not len(ends):  # one line, without an end
         return np.zeros(1, dtype), np.full(1, size, dtype)
-    # \r\n is one end: its \r ends the line, 2 bytes wide, and its \n isn't another end
+    # \r\n is one end, 2 bytes wide: its \r ends the line
     following = np.add(ends, 1, dtype=np.int64)
     np.minimum(following, size - 1, out=following)
     crlf = (view[ends] == 13) & (view[following] == 10)
     del following
     crlf[-1] &= int(ends[-1]) + 1 < size
-    keep = np.ones(len(ends), dtype=bool)
-    keep[1:] = ~crlf[:-1]
-    ends, crlf = ends[keep], crlf[keep]
-    del keep
     starts = np.empty(len(ends), dtype)
     starts[0] = 0
     np.add(ends[:-1], 1, out=starts[1:])
@@ -161,12 +155,17 @@ def _line_bounds(data: bytes) -> tuple[np.ndarray, np.ndarray]:
     return starts, ends
 
 
-def _ends_in(chunk: np.ndarray, offset: int, dtype) -> np.ndarray:
-    """The line ends' positions in `chunk`, from `offset`: the bytes below 31 (control
-    characters, few but the line ends), then those that end a line
+def _ends_in(view: np.ndarray, offset: int, dtype) -> np.ndarray:
+    """The line ends' positions in the chunk of `view` from `offset`: the bytes below 31
+    (control characters, few but the line ends), then those that end a line, but a \n after
+    a \r, whose \r ended the line (so a file with \r\n has an end a line, not two)
     """
+    chunk = view[offset : offset + _CHUNK]
     candidates = np.flatnonzero(chunk < 31)
-    return (candidates[_ENDS[chunk[candidates]]] + offset).astype(dtype)
+    candidates = candidates[_ENDS[chunk[candidates]]]
+    after_cr = (chunk[candidates] == 10) & (view[np.maximum(candidates + offset - 1, 0)] == 13)
+    after_cr &= candidates + offset > 0
+    return (candidates[~after_cr] + offset).astype(dtype)
 
 
 def _natural_key(name: str) -> list:

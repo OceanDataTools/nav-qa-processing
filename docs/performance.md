@@ -1,19 +1,19 @@
 # Performance against NavManager
 
 How long nav-qa-processing and NavManager take to assess the same filesets, and how much memory
-they need, measured 2026-10-30 on one machine. In short, nav-qa-processing takes 1.6 to 2.5 times
-less time and 4.5 to 37 times more memory. NavManager streams through its files in fixed buffers,
+they need, measured 2026-11-02 on one machine. In short, nav-qa-processing takes 1.7 to 2.5 times
+less time and 2.8 to 11 times more memory. NavManager streams through its files in fixed buffers,
 so its memory stays at tens of megabytes whatever the cruise's length. nav-qa-processing holds
-the whole cruise in arrays, about 300 bytes a fix, and a raw file's lines while it reads it.
+the whole cruise in arrays, about 190 bytes a fix, and a raw file while it reads it.
 What it does with that memory is in [docs/navmanager-differences.md](navmanager-differences.md):
 QC over the whole series rather than in buffers, and every fix kept.
 
 | Fileset | Fixes | NavManager | nav-qa-processing, the same work | nav-qa-processing, `run` |
 |---|---:|---:|---:|---:|
-| SP2613 (nav29, 2 Hz, 8 hours) | 56,925 | 9.7 s, 48 MB | 4.9 s, 219 MB (2.0× faster) | 8.6 s, 264 MB |
-| MGL1509 (nav12, 1 Hz, 7 days) | 601,027 | 87.7 s, 66 MB | 39.6 s, 388 MB (2.2×) | 49.3 s, 535 MB |
-| SR2612 (nav29, 5 Hz, 2 days) | 880,236 | 160.9 s, 66 MB | 99.3 s, 2,445 MB (1.6×) | 108.0 s, 2,495 MB |
-| Synthetic (nav33, 2 Hz, 20 days) | 3,456,000 | 530.1 s, 279 MB | 211.8 s, 1,243 MB (2.5×) | 227.1 s, 1,341 MB |
+| SP2613 (nav29, 2 Hz, 8 hours) | 56,925 | 9.5 s, 48 MB | 4.9 s, 172 MB (2.0× faster) | 8.7 s, 234 MB |
+| MGL1509 (nav12, 1 Hz, 7 days) | 601,027 | 88.6 s, 66 MB | 40.2 s, 311 MB (2.2×) | 50.3 s, 454 MB |
+| SR2612 (nav29, 5 Hz, 2 days) | 880,236 | 162.4 s, 66 MB | 94.6 s, 713 MB (1.7×) | 101.9 s, 739 MB |
+| Synthetic (nav33, 2 Hz, 20 days) | 3,456,000 | 532.9 s, 279 MB | 214.4 s, 786 MB (2.5×) | 233.8 s, 883 MB |
 
 Wall time and peak resident memory (MB of 2^20 bytes), medians of three runs. NavManager's time
 is its six steps' added, and its memory the largest of their peaks.
@@ -36,7 +36,7 @@ The window `-t` is the cruise's first day 00:00Z to the day after its last. Not 
 navdatalist, decompressor and navbounds (no compressed files, the extent not needed here), and
 writing the QA 2.0 XML (xmltools2).
 
-**nav-qa-processing** (ab59071, before 1.0.0), twice:
+**nav-qa-processing** (aae2d9b, before 1.0.0), twice:
 - **The same work:** [`performance/same_work.py`](performance/same_work.py): `qa.run_qa` on the
   raw files (read, QC, bestres, 1min, control and the QA statistics and checks) and the three
   GeoCSV products written. No map data, so no over-water check, which NavManager has no
@@ -79,8 +79,9 @@ PHP 7, because NavManager's navqc doesn't run on PHP 8: with no speeds in a buff
 `TypeError` that stops navqc in PHP 8 (8.2 here, with SP2613).
 
 Neither tool uses more than one core: their CPU time is their wall time, within a few percent.
-The three runs of each NavManager step over 10 s were within 5 % of each other; ours varied
-more, up to 11 % (SR2612's same work, 11 s in 99 s) and 21 % (SP2613's `run`, 2 s in 9 s).
+The three runs of each NavManager step over 10 s were within 5 % of each other but SR2612's
+navcopy (36 to 45 s); ours were within 8 % (SR2612's same work, 93 to 101 s) but SP2613's `run`
+(8.3 to 9.7 s).
 
 ## The steps
 
@@ -88,15 +89,15 @@ Wall time [s], CPU time [s] and peak memory [MB], medians of three runs.
 
 | Step | SP2613 | MGL1509 | SR2612 | Synthetic |
 |---|---:|---:|---:|---:|
-| navcopy | 1.41, 1.40, 24 | 6.36, 6.24, 24 | 37.40, 37.34, 23 | 44.20, 44.08, 279 |
-| navqc | 1.99, 1.97, 24 | 19.49, 19.47, 24 | 29.73, 29.69, 24 | 118.34, 118.25, 24 |
-| navsogcog | 0.22, 0.21, 48 | 1.55, 1.55, 66 | 3.32, 3.30, 66 | 11.61, 11.59, 66 |
-| navsample 1min | 0.17, 0.17, 24 | 1.59, 1.59, 24 | 2.58, 2.58, 24 | 10.54, 10.52, 23 |
-| navsample control | 0.11, 0.15, 45 | 0.13, 0.23, 53 | 0.13, 0.20, 49 | 0.16, 0.31, 68 |
-| navqa | 5.76, 5.74, 24 | 58.32, 58.28, 26 | 87.57, 87.52, 24 | 345.89, 345.81, 24 |
-| **NavManager** | **9.66, 9.63, 48** | **87.70, 87.64, 66** | **160.85, 160.73, 66** | **530.12, 529.91, 279** |
-| **Same work** | **4.88, 5.45, 219** | **39.56, 40.03, 388** | **99.26, 98.48, 2,445** | **211.76, 211.68, 1,243** |
-| `run` | 8.60, 9.19, 264 | 49.26, 49.72, 535 | 107.95, 107.62, 2,495 | 227.09, 227.03, 1,341 |
+| navcopy | 1.37, 1.35, 24 | 6.37, 6.14, 24 | 39.05, 38.94, 24 | 44.22, 44.04, 279 |
+| navqc | 1.95, 1.94, 24 | 19.58, 19.55, 24 | 29.96, 29.92, 24 | 117.30, 117.18, 24 |
+| navsogcog | 0.21, 0.20, 48 | 1.61, 1.60, 66 | 2.99, 2.98, 66 | 12.80, 12.77, 66 |
+| navsample 1min | 0.17, 0.16, 24 | 1.69, 1.69, 24 | 2.52, 2.50, 24 | 10.39, 10.22, 23 |
+| navsample control | 0.12, 0.18, 45 | 0.12, 0.22, 53 | 0.14, 0.21, 49 | 0.15, 0.29, 68 |
+| navqa | 5.65, 5.63, 24 | 59.14, 59.09, 26 | 87.78, 87.73, 24 | 348.16, 348.10, 24 |
+| **NavManager** | **9.51, 9.48, 48** | **88.57, 88.48, 66** | **162.44, 162.28, 66** | **532.93, 532.69, 279** |
+| **Same work** | **4.85, 5.43, 172** | **40.21, 40.65, 311** | **94.55, 94.02, 713** | **214.41, 214.57, 786** |
+| `run` | 8.67, 9.25, 234 | 50.34, 50.77, 454 | 101.87, 101.33, 739 | 233.78, 233.82, 883 |
 
 ## Why
 
@@ -118,15 +119,19 @@ These are where nav-qa-processing would get faster; none changes a result.
 records in navcopy and navsogcog, 3,600 in navqc. Its memory is constant, about 25 MB a step,
 but for nav33's navcopy, whose buffer holds up to 86,400 parsed GGA objects (279 MB).
 nav-qa-processing holds the whole cruise, for QC and statistics over the whole series: about
-300 bytes a fix at its peak on top of about 200 MB for Python and its libraries (SP2613's 219 MB
-and the synthetic cruise's 1,243 MB; `run` about 320 bytes a fix on 250 MB). Of those 300, it
-keeps about 145 bytes a fix to the end: the raw fixes as columns (64), bestres (72, most of it a
-copy of the raw columns, #173), the QC flags and what each check counted. The rest is a step's
-temporaries: the statistics' (180 bytes a fix, measured on the synthetic cruise), reading's
-(135, #174) and bestres's speeds and courses (86). #172 since freed each statistic's arrays as
-it's made, 98 bytes a fix: the synthetic cruise's same work 1,032 MB instead of 1,255 on macOS;
-the tables above are from before. While it reads a file it also holds the file and its lines,
-one file at a time (#157): SR2612's 396 MB file of 5.6 M lines is most of its 2.4 GB (#175).
+190 bytes a fix at its peak on top of about 160 MB for Python and its libraries (SP2613's 172 MB
+and the synthetic cruise's 786 MB; `run` about 200 bytes a fix on 220 MB). Of those 190, it
+keeps about 90 bytes a fix to the end: the raw fixes as columns, bestres's flags, speeds and
+courses (sharing the raw columns, #173), the QC flags and what each check counted. The rest is
+a step's temporaries, freed as it ends: the statistics' (98 bytes a fix, measured on the
+synthetic cruise, #172) and reading's (#174). While it reads a file it also holds that file's
+bytes and where its lines start and end, one file at a time (#157, #175): SR2612's 396 MB file
+of 5.6 M lines is most of its 713 MB.
+
+Before #172 to #175 (2026-10-30, ab59071), the same work took 219 MB for SP2613, 388 MB for
+MGL1509, 2,445 MB for SR2612 and 1,243 MB for the synthetic cruise, about 300 bytes a fix and,
+while reading, the file's text and a string a line, about 1.7 times the file and 50 bytes a line.
+Its times were within the runs' spread of today's.
 [INSTALL.md](../INSTALL.md) gives the memory to plan for a cruise.
 
 ## Reproduce

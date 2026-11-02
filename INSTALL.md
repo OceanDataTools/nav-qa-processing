@@ -92,8 +92,9 @@ and try it. The README's [OpenVDM section](README.md#openvdm) describes what the
 where its values come from, troubleshooting, and running it on a past cruise.
 
 The hook assesses the whole cruise so far after each transfer, so its memory grows through the
-cruise: about 400 bytes a fix, with about 300 MB to start. A 20-day cruise logged at 2 Hz (3.5 M
-fixes) takes about 1.4 GB; 30 days at 10 Hz (26 M fixes), about 10 GB.
+cruise: about 200 bytes a fix, with about 250 MB to start, and the largest raw file while it's
+read. A 20-day cruise logged at 2 Hz (3.5 M fixes) takes about 900 MB; 30 days at 10 Hz (26 M
+fixes), about 5.5 GB.
 
 #### 1. Install
 

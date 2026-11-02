@@ -579,10 +579,10 @@ without it and name the command.
 
 ### Performance against NavManager
 
-On the same filesets and machine, this tool takes 1.6 to 2.5 times less time than NavManager and
-4.5 to 37 times more memory: NavManager streams through fixed buffers, and this tool holds the
-whole cruise, about 300 bytes a fix. A 20-day cruise at 2 Hz (3.5 M fixes) takes NavManager
-8.8 minutes in 279 MB, and this tool 3.5 minutes in 1.2 GB. The measurements, why, and how to
+On the same filesets and machine, this tool takes 1.7 to 2.5 times less time than NavManager and
+2.8 to 11 times more memory: NavManager streams through fixed buffers, and this tool holds the
+whole cruise, about 190 bytes a fix. A 20-day cruise at 2 Hz (3.5 M fixes) takes NavManager
+8.9 minutes in 279 MB, and this tool 3.6 minutes in 786 MB. The measurements, why, and how to
 repeat them are in [docs/performance.md](docs/performance.md).
 
 ## OpenVDM
