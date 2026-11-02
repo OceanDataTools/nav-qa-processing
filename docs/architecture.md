@@ -563,6 +563,12 @@ Linux, for a synthetic nav33 cruise of that size (`run` with Natural Earth): 4.2
   GEOS's topology-preserving simplifier indexed every segment, 750 MB for the track).
   `tests/test_memory.py` checks each against the whole, and that reading stays under 400
   traced bytes a fix.
+- `stats.compute` makes each statistic in a step of its own (`_timing`, `_quality`, `_motion`,
+  `_good_fixes`), which keeps only its summary and what it counted (a byte a record), so its
+  whole-cruise arrays are freed as it returns; `geodesy.speeds` gives the segments' speeds
+  without their other arrays (#172). The statistics' temporaries went from 180 to 98 bytes a
+  fix (synthetic cruise, tracemalloc), and its same work's peak from 1,255 to 1,032 MB (macOS);
+  `tests/test_memory.py` keeps them under 140 bytes a fix.
 
 **QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
 `POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `UNREACHABLE`, `STALE_REPEAT`, `ACCELERATION`. A record with
