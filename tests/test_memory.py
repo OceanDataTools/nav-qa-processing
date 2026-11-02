@@ -174,14 +174,16 @@ def test_speeds_are_the_segments_speeds():
     np.testing.assert_array_equal(geodesy.speeds(t, lon, lat), geodesy.segments(t, lon, lat).speed)
 
 
-def test_a_file_is_held_as_its_bytes_and_bounds(tmp_path, monkeypatch):
+@pytest.mark.parametrize("end", ["\n", "\r\n"])
+def test_a_file_is_held_as_its_bytes_and_bounds(tmp_path, monkeypatch, end):
     """A file's lines take its bytes and 8 bytes a line (int32 bounds), with the line ends
     searched a chunk at a time as in a large file: not its text and a string a line as well
-    (about twice its size and 57 bytes a line before #175)
+    (about twice its size and 57 bytes a line before #175), and \r\n's \n dropped as each
+    chunk is searched (37 bytes a line rather than 23 before)
     """
     lines = _stamped(datetime(2026, 7, 9, tzinfo=UTC), 20_000)
     path = tmp_path / "gps.txt"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_bytes((end.join(lines) + end).encode())
     size = path.stat().st_size
     monkeypatch.setattr(rawnav, "_CHUNK", 1 << 16)
     tracemalloc.start()

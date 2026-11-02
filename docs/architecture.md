@@ -580,7 +580,8 @@ Linux, for a synthetic nav33 cruise of that size (`run` with Natural Earth): 4.2
 - A file's lines are `rawnav.Lines` (#175): its bytes and where each line starts and ends
   (int32 under 2 GiB), giving each line as `str.splitlines` did from the ASCII text with
   universal newlines (line ends found among the control bytes with numpy, a block of lines
-  decoded at a time), rather than the text and a list of strings, about 1.7 times the file
+  decoded at a time; a \r\n's \n dropped as each chunk is searched, so a Windows logger's
+  file takes no more), rather than the text and a list of strings, about 1.7 times the file
   and 50 bytes a line. `_read_again` releases each file's bytes when the reader asks for the
   next, so one file is held, not two. SR2612 (a 396 MB file of 5.6 M lines): reading's traced
   peak 1,149 -> 624 MB, the same work's peak RSS 2,290 -> about 1,250 MB (macOS), in the same
