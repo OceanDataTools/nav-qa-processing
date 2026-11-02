@@ -13,7 +13,7 @@ the repeat (TIME_SEQUENCE).
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime, timedelta
 from functools import partial
 from itertools import groupby
@@ -43,19 +43,19 @@ def doy_time(line: str) -> tuple[date, int] | None:
 _spans = gga_zda.SpanCache()  # whether a file has a valid ZDA, as its span found
 
 
-def _has_zda(name: str, lines: list[str]) -> bool:
+def _has_zda(name: str, lines: Sequence[str]) -> bool:
     kept = _spans.take(name, lines)
     return gga_zda.span(lines) is not None if kept is None else kept
 
 
-def span(lines: list[str], name: str = "") -> tuple[datetime, datetime] | None:
+def span(lines: Sequence[str], name: str = "") -> tuple[datetime, datetime] | None:
     """A file's first and last ZDA, or without one its first and last logger timestamps"""
     zda_span = gga_zda.span(lines)
     _spans.keep(name, lines, zda_span is not None)
     return zda_span or timestamped_gga.span(lines, stamp=doy_time)
 
 
-def read(files: Iterable[tuple[str, list[str]]]) -> Result:
+def read(files: Iterable[tuple[str, Sequence[str]]]) -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given, one file at a
     time
     """

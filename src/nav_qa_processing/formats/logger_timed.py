@@ -11,7 +11,7 @@ GLL by the logger and writes a GLL's quality from its status (missing: `NAN`).
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import replace
 
 from nav_qa_processing.formats.gga_zda import (
@@ -39,7 +39,7 @@ def _logger_time(line: str, ns: int) -> TimeOfDay:
     return TimeOfDay(ns, len(match.group(1) or "") if match else 0)
 
 
-def read(files: Iterable[tuple[str, list[str]]], stamp: Stamp = scs_time) -> Result:
+def read(files: Iterable[tuple[str, Sequence[str]]], stamp: Stamp = scs_time) -> Result:
     """Fixes from the GLL and GGA sentences of `files`, each (name, lines), in the order given,
     timed by their lines' logger timestamps
     """

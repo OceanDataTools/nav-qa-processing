@@ -577,6 +577,14 @@ Linux, for a synthetic nav33 cruise of that size (`run` with Natural Earth): 4.2
   datetime64 and localized, not `pd.to_datetime`'s copies), and drops the span pass's last
   file's lines before reading (#174). Reading's peak on the synthetic cruise: 688 -> 370 MB;
   `tests/test_memory.py` keeps it under 180 traced bytes a fix (230 before).
+- A file's lines are `rawnav.Lines` (#175): its bytes and where each line starts and ends
+  (int32 under 2 GiB), giving each line as `str.splitlines` did from the ASCII text with
+  universal newlines (line ends found among the control bytes with numpy, a block of lines
+  decoded at a time), rather than the text and a list of strings, about 1.7 times the file
+  and 50 bytes a line. `_read_again` releases each file's bytes when the reader asks for the
+  next, so one file is held, not two. SR2612 (a 396 MB file of 5.6 M lines): reading's traced
+  peak 1,149 -> 624 MB, the same work's peak RSS 2,290 -> about 1,250 MB (macOS), in the same
+  time; every line of the 1,607 files in `data/` (60 M lines) identical.
 
 **QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
 `POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `UNREACHABLE`, `STALE_REPEAT`, `ACCELERATION`. A record with

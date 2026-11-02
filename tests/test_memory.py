@@ -174,6 +174,40 @@ def test_speeds_are_the_segments_speeds():
     np.testing.assert_array_equal(geodesy.speeds(t, lon, lat), geodesy.segments(t, lon, lat).speed)
 
 
+def test_a_file_is_held_as_its_bytes_and_bounds(tmp_path, monkeypatch):
+    """A file's lines take its bytes and 8 bytes a line (int32 bounds), with the line ends
+    searched a chunk at a time as in a large file: not its text and a string a line as well
+    (about twice its size and 57 bytes a line before #175)
+    """
+    lines = _stamped(datetime(2026, 7, 9, tzinfo=UTC), 20_000)
+    path = tmp_path / "gps.txt"
+    path.write_text("\n".join(lines) + "\n")
+    size = path.stat().st_size
+    monkeypatch.setattr(rawnav, "_CHUNK", 1 << 16)
+    tracemalloc.start()
+    try:
+        read = rawnav.read_lines(path)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert len(read) == 20_000 and read[-1] == lines[-1]
+    assert peak < size + 30 * len(lines)  # [bytes]
+
+
+def test_the_reader_has_one_file_at_a_time(tmp_path):
+    """Each file's bytes are let go as the reader asks for the next (#175)"""
+    paths = []
+    for day in range(3):
+        paths.append(tmp_path / f"gps-{day}.txt")
+        paths[-1].write_text("\n".join(_stamped(datetime(2026, 7, 9 + day, tzinfo=UTC), 10)))
+    selected = [(None, path.name, path) for path in paths]
+    given = []
+    for _, lines in rawnav._read_again(selected, [], {}):
+        given.append(lines)
+        assert [held._data is not None for held in given] == [False] * (len(given) - 1) + [True]
+    assert len(given) == 3 and given[-1]._data is None
+
+
 def test_inverse_in_chunks_matches(monkeypatch):
     rng = np.random.default_rng(1)
     lon1, lon2 = rng.uniform(-180, 180, (2, 1001))

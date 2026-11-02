@@ -34,7 +34,7 @@ Recorded in `errors`, not raised, counted per file:
 import math
 import re
 from array import array
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Self
@@ -244,13 +244,13 @@ class SpanCache:
         self._kept: dict[tuple, object] = {}
 
     @staticmethod
-    def _key(name: str, lines: list[str]) -> tuple:
+    def _key(name: str, lines: Sequence[str]) -> tuple:
         return (name, len(lines), lines[0] if lines else "", lines[-1] if lines else "")
 
-    def keep(self, name: str, lines: list[str], value: object) -> None:
+    def keep(self, name: str, lines: Sequence[str], value: object) -> None:
         self._kept[self._key(name, lines)] = value
 
-    def take(self, name: str, lines: list[str]) -> object | None:
+    def take(self, name: str, lines: Sequence[str]) -> object | None:
         return self._kept.pop(self._key(name, lines), None)
 
     def clear(self) -> None:
@@ -327,7 +327,7 @@ def _continuation(line: str) -> str | None:
     return None if not text.strip() and "$" in line else text.rstrip("\r\n")
 
 
-def sentences(lines: list[str]) -> Iterator[tuple[int, str]]:
+def sentences(lines: Sequence[str]) -> Iterator[tuple[int, str]]:
     """(line number, sentence text) for each line with a `$`; a sentence split across lines is
     joined with its continuations until it has a checksum
     """
@@ -352,7 +352,7 @@ def sentences(lines: list[str]) -> Iterator[tuple[int, str]]:
         yield index + 1, text
 
 
-def span(lines: list[str]) -> tuple[datetime, datetime] | None:
+def span(lines: Sequence[str]) -> tuple[datetime, datetime] | None:
     """The first and last valid ZDA times in a file, to select and order files by. Valid as
     `read` takes them: a year in YEARS and a real date (#99 review)
     """
@@ -372,7 +372,7 @@ def span(lines: list[str]) -> tuple[datetime, datetime] | None:
     return (times[0], times[-1]) if times else None
 
 
-def read(files: Iterable[tuple[str, list[str]]], kind: str = "GGA") -> Result:
+def read(files: Iterable[tuple[str, Sequence[str]]], kind: str = "GGA") -> Result:
     """Dated fixes from `files`, each (name, lines), in the order given: from GGA sentences, or
     with `kind` GLL from GLL (nav27, without satellites, HDOP or altitude). `files` is read
     once, one file at a time

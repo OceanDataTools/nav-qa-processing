@@ -16,7 +16,7 @@ like its GGA + ZDA parsers (`docs/navmanager-differences.md`).
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime, timedelta
 from pathlib import PurePath
 
@@ -63,7 +63,7 @@ def clock(fields: list[str], year: int | None) -> tuple[date, int] | None:
     return date(year, 1, 1) + timedelta(days=days), time_of_day
 
 
-def _dated(name: str, lines: list[str], kind: str) -> tuple[Fixes, int, int, int, int]:
+def _dated(name: str, lines: Sequence[str], kind: str) -> tuple[Fixes, int, int, int, int]:
     """A file's fixes, dated by the nearest clock sentence; with the GGAs without a time, those
     without a clock sentence in the file, and those that failed their checksum
     """
@@ -101,7 +101,7 @@ def _dated(name: str, lines: list[str], kind: str) -> tuple[Fixes, int, int, int
 
 
 def span(
-    lines: list[str], name: str = "", kind: str = "PYRTM"
+    lines: Sequence[str], name: str = "", kind: str = "PYRTM"
 ) -> tuple[datetime, datetime] | None:
     """The first and last fix of a file, to select and order files by"""
     dated = _dated(name, lines, kind)
@@ -110,7 +110,7 @@ def span(
     return (fixes[0].moment, fixes[-1].moment) if fixes else None
 
 
-def read(files: Iterable[tuple[str, list[str]]], kind: str = "PYRTM") -> Result:
+def read(files: Iterable[tuple[str, Sequence[str]]], kind: str = "PYRTM") -> Result:
     """Dated GGA fixes from `files`, each (name, lines), in the order given, by `kind`'s clock
     sentences, PYRTM or UNIXD
     """

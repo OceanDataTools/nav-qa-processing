@@ -32,7 +32,7 @@ its logger date, then correct the date across midnight buffer by buffer. Not rep
 """
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from datetime import UTC, date, datetime
 
 from nav_qa_processing.formats.gga_zda import (
@@ -97,7 +97,7 @@ def _stamp(year, month, day, hour, minute, seconds) -> tuple[date, int] | None:
     return day_, (hour * 3600 + minute * 60) * 10**9 + round(seconds * 1e9)
 
 
-def span(lines: list[str], stamp: Stamp = iso_time) -> tuple[datetime, datetime] | None:
+def span(lines: Sequence[str], stamp: Stamp = iso_time) -> tuple[datetime, datetime] | None:
     """The first and last logger timestamps in a file, to select and order files by"""
     times = []
     for line in lines:
@@ -112,7 +112,7 @@ def span(lines: list[str], stamp: Stamp = iso_time) -> tuple[datetime, datetime]
 
 
 def read(
-    files: Iterable[tuple[str, list[str]]], stamp: Stamp = iso_time, kind: str = "GGA"
+    files: Iterable[tuple[str, Sequence[str]]], stamp: Stamp = iso_time, kind: str = "GGA"
 ) -> Result:
     """Dated fixes from `files`, each (name, lines), in the order given: from GGA sentences, or
     with `kind` RMC from RMC (nav32, without satellites, HDOP or altitude). An RMC is dated by
