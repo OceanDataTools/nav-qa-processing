@@ -572,6 +572,11 @@ Linux, for a synthetic nav33 cruise of that size (`run` with Natural Earth): 4.2
 - bestres shares the raw frame's record columns rather than copying them (`products.bestres`,
   #173): pandas 3 copies a column only when it's written to, and nothing writes to either
   frame. It holds its flags, speed and course, 34 bytes a fix instead of 92; pandas ≥ 3.
+- `rawnav.read_fileset` builds the frame over the reader's drained columns (`copy=False`: a
+  block per column rather than one consolidated copy of the floats; the time viewed as
+  datetime64 and localized, not `pd.to_datetime`'s copies), and drops the span pass's last
+  file's lines before reading (#174). Reading's peak on the synthetic cruise: 688 -> 370 MB;
+  `tests/test_memory.py` keeps it under 180 traced bytes a fix (230 before).
 
 **QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
 `POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `UNREACHABLE`, `STALE_REPEAT`, `ACCELERATION`. A record with

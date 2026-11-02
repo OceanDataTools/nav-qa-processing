@@ -104,6 +104,7 @@ def read_fileset(
             skipped[path.name] = span
         else:
             selected.append((span[0], path.name, path))
+        del lines  # not the last file's held through the read
     selected.sort(key=lambda s: s[0])
 
     result = spec.reader.read(_read_again(selected, errors, unread))
@@ -113,7 +114,9 @@ def read_fileset(
         for name, count in result.rejected_checksums.items()
     ]
 
-    # Each column is taken from the reader's as the frame is built, so they're held once
+    # Each column is taken from the reader's as the frame is built, and the frame keeps it
+    # rather than a copy (copy=False: each column its own block, not one block of the floats;
+    # the time viewed as datetime64 and localized), so they're held once (#174)
     names, talker_ids = result.fixes.files, result.fixes.talkers
     columns = result.fixes.drain()
     decimals = {"time": _most(columns.pop("time_decimals"))}
@@ -124,7 +127,7 @@ def read_fileset(
     files = pd.Categorical.from_codes(columns.pop("file"), categories=names)
     frame = pd.DataFrame(
         {
-            "time": pd.to_datetime(columns.pop("time"), unit="ns", utc=True),
+            "time": pd.Series(columns.pop("time").view("M8[ns]")).dt.tz_localize("UTC"),
             "lon": columns.pop("lon"),
             "lat": columns.pop("lat"),
             "quality": pd.array(columns.pop("quality"), dtype="Float64").astype("Int64"),
@@ -133,7 +136,8 @@ def read_fileset(
             "alt": columns.pop("alt"),
             "source_file": files.reorder_categories(sorted(names)),
             "line": columns.pop("line").astype(np.int64),
-        }
+        },
+        copy=False,
     )
     return RawNav(
         frame,

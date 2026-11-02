@@ -106,9 +106,10 @@ def _stamped(start: datetime, count: int) -> list[str]:
     return lines
 
 
-def test_reading_takes_about_a_hundred_bytes_a_fix(tmp_path):
+def test_reading_holds_each_column_once(tmp_path):
     """Memory Python and numpy allocate while reading 20,000 fixes in 10 files: about 90 bytes
-    a fix in columns, a file's lines at a time and the frame; 1.1 KB a fix before #157
+    a fix in columns, a file's lines at a time, and the frame over the same columns (#174),
+    about 140 in all; 230 when the frame copied them, 1.1 KB a fix before #157
     """
     start = datetime(2026, 7, 9, tzinfo=UTC)
     for day in range(10):
@@ -121,7 +122,7 @@ def test_reading_takes_about_a_hundred_bytes_a_fix(tmp_path):
     finally:
         tracemalloc.stop()
     assert len(nav.frame) == 20_000
-    assert peak / len(nav.frame) < 400  # [bytes]
+    assert peak / len(nav.frame) < 180  # [bytes]
 
 
 def test_statistics_free_each_steps_arrays(tmp_path, monkeypatch):
