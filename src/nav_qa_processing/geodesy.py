@@ -90,9 +90,21 @@ def segments(times, lon, lat) -> Segments:
     lon, lat = np.asarray(lon, dtype=float), np.asarray(lat, dtype=float)
     distance, course = inverse(lon[:-1], lat[:-1], lon[1:], lat[1:])
     elapsed = np.diff(t)
+    return Segments(distance, elapsed, _speed(distance, elapsed), course, 0.5 * (t[:-1] + t[1:]))
+
+
+def speeds(times, lon, lat) -> np.ndarray:
+    """The segments' speeds [m s-1] alone, without the other arrays `segments` makes (#172)"""
+    t = epoch_seconds(times)
+    lon, lat = np.asarray(lon, dtype=float), np.asarray(lat, dtype=float)
+    distance, _ = inverse(lon[:-1], lat[:-1], lon[1:], lat[1:])
+    return _speed(distance, np.diff(t))
+
+
+def _speed(distance: np.ndarray, elapsed: np.ndarray) -> np.ndarray:
+    """NaN over no time"""
     with np.errstate(divide="ignore", invalid="ignore"):
-        speed = np.where(elapsed > 0, distance / elapsed, np.nan)
-    return Segments(distance, elapsed, speed, course, 0.5 * (t[:-1] + t[1:]))
+        return np.where(elapsed > 0, distance / elapsed, np.nan)
 
 
 def accelerations(segment_times, speeds) -> tuple[np.ndarray, np.ndarray]:

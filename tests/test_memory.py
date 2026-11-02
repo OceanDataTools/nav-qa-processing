@@ -12,7 +12,8 @@ import pytest
 import shapely
 from test_gga_zda import nmea
 
-from nav_qa_processing import formats, geocsv, geodesy, plots, qc, rawnav
+from nav_qa_processing import formats, geocsv, geodesy, plots, qc, rawnav, stats
+from nav_qa_processing.config import Thresholds
 from nav_qa_processing.formats import catalog
 from nav_qa_processing.formats.gga_zda import Fixes, SpanCache
 from nav_qa_processing.formats.nmea import GGA, TimeOfDay
@@ -121,6 +122,40 @@ def test_reading_takes_about_a_hundred_bytes_a_fix(tmp_path):
         tracemalloc.stop()
     assert len(nav.frame) == 20_000
     assert peak / len(nav.frame) < 400  # [bytes]
+
+
+def test_statistics_free_each_steps_arrays(tmp_path, monkeypatch):
+    """What the statistics allocate beyond their input, with the geodesics a small chunk at a
+    time as on a long cruise: each step's whole-cruise arrays freed as it returns, about 100
+    bytes a fix; 187 when they were all held until the end (#172)
+    """
+    start = datetime(2026, 7, 9, tzinfo=UTC)
+    for day in range(10):
+        lines = _stamped(start + timedelta(hours=day), 2_000)
+        (tmp_path / f"gps-{day:02d}.txt").write_text("\n".join(lines) + "\n")
+    nav = rawnav.read_fileset(sorted(tmp_path.iterdir()), "nav33")
+    thresholds = Thresholds()
+    flags = qc.flag(nav, thresholds, None, None)
+    monkeypatch.setattr(geodesy, "CHUNK", 1_000)
+    tracemalloc.start()
+    try:
+        before, _ = tracemalloc.get_traced_memory()
+        result = stats.compute(nav, flags, thresholds)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert result.speeds == 19_999
+    assert (peak - before) / len(nav.frame) < 140  # [bytes]
+
+
+def test_speeds_are_the_segments_speeds():
+    rng = np.random.default_rng(4)
+    t = np.cumsum(rng.uniform(0, 1.5, 1001))
+    t[10] = t[9]  # no time: NaN
+    lon = -117 + np.cumsum(rng.normal(0, 1e-5, 1001))
+    lat = 32 + np.cumsum(rng.normal(0, 1e-5, 1001))
+    lat[20] = np.nan
+    np.testing.assert_array_equal(geodesy.speeds(t, lon, lat), geodesy.segments(t, lon, lat).speed)
 
 
 def test_inverse_in_chunks_matches(monkeypatch):

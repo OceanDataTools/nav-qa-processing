@@ -226,64 +226,30 @@ def compute(
     extent: Extent | None = None,
     land: "Land | None" = None,
 ) -> NavStats:
+    """Each statistic is made by a step of its own, which keeps only its summary and the
+    records it counted (one byte a record), so its whole-cruise arrays are freed as it returns
+    rather than all held until the end (#157, #172)
+    """
     th = thresholds
     f = nav.frame
-    usable = (qc_result.flags & int(UNUSABLE)) == 0
-    in_sequence = usable & ((qc_result.flags & int(Flag.TIME_SEQUENCE)) == 0)
+    flags = qc_result.flags
+    usable = (flags & int(UNUSABLE)) == 0
+    in_sequence = usable & ((flags & int(Flag.TIME_SEQUENCE)) == 0)
+    index = np.flatnonzero(in_sequence)
     n = int(usable.sum())
-    t_all = geodesy.epoch_seconds(f["time"])
-    t = t_all[in_sequence]
-    lon = f["lon"].to_numpy(dtype=float)[in_sequence]
-    lat = f["lat"].to_numpy(dtype=float)[in_sequence]
+    timing = _timing(f, index, th)
+    quality = _quality(f, flags, th)
+    motion = _motion(f, index, th)
+    out_of_sequence = usable & ~in_sequence
 
-    steps = np.diff(t)
-    interval = modal_interval(steps)
-    if interval and len(t):
-        # Interval slots in integer nanoseconds: in float seconds since 1970, a step that
-        # isn't exact in binary (0.2 s) errs by ~1e-7 and one fix in five lands in its
-        # neighbour's slot (SR2612: 80 % for an unbroken 5 Hz feed, #108)
-        ns = f["time"][in_sequence].dt.as_unit("ns").astype("int64").to_numpy()
-        interval_ns = round(interval * 1e9)  # whole milliseconds, so exact
-        possible = int((ns[-1] - ns[0]) // interval_ns) + 1
-        occupied = len(np.unique((ns - ns[0]) // interval_ns))
-    else:
-        possible = occupied = len(t)
-
-    out_of_sequence = int((usable & ~in_sequence).sum())
-    dated = (qc_result.flags & int(Flag.DATE_RANGE)) == 0
-    quality_all = f["quality"].to_numpy(dtype=float, na_value=np.nan)
-    quality = quality_all[dated]
-    reported = int((~np.isnan(quality)).sum())
-    with np.errstate(invalid="ignore"):
-        bad = int(((quality < th.min_quality) | (quality > th.max_quality)).sum())
-    del quality  # what's kept of each whole-cruise array is its summary (#157)
-
-    all_speeds = geodesy.segments(t, lon, lat).speed if len(t) > 1 else np.array([])
-    speeds = all_speeds[~np.isnan(all_speeds)]
-    at_fixes = acceleration_at_fixes(t, lon, lat, th.accel_time_base)
-    acceleration = at_fixes[~np.isnan(at_fixes)]
-    change = _range(acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True))
-
-    # Which records each test counted: a test between two fixes at the later one
-    records = len(f)
-    later = np.flatnonzero(in_sequence)[1:]
-
-    def at(index: np.ndarray, hits: np.ndarray) -> np.ndarray:
-        mask = np.zeros(records, dtype=bool)
-        mask[index[hits]] = True
-        return mask
-
-    with np.errstate(invalid="ignore"):
-        counted = {
-            "out_of_sequence": usable & ~in_sequence,
-            "bad_quality": dated
-            & ~np.isnan(quality_all)
-            & ((quality_all < th.min_quality) | (quality_all > th.max_quality)),
-            "unreasonable_speeds": at(later, all_speeds > th.max_speed),
-            "unreasonable_accelerations": at(np.flatnonzero(in_sequence), at_fixes > th.max_accel),
-            "gaps": at(later, steps >= th.max_gap),
-            "flagged": qc_result.flags != 0,
-        }
+    counted = {
+        "out_of_sequence": out_of_sequence,
+        "bad_quality": quality.counted,
+        "unreasonable_speeds": _at(len(f), index[1:], motion.fast),
+        "unreasonable_accelerations": _at(len(f), index, motion.accelerating),
+        "gaps": _at(len(f), index[1:], timing.long),
+        "flagged": flags != 0,
+    }
     if extent is not None:
         counted["outside_area"] = usable & _outside(
             extent, f["lat"].to_numpy(dtype=float), f["lon"].to_numpy(dtype=float)
@@ -295,41 +261,139 @@ def compute(
         with np.errstate(invalid="ignore"):
             counted["over_land"] = inland > th.max_inland
 
-    times = f["time"][in_sequence]
+    out = int(out_of_sequence.sum())
     stats = NavStats(
         records=n,
-        first=times.iloc[0].to_pydatetime() if len(times) else None,
-        last=times.iloc[-1].to_pydatetime() if len(times) else None,
-        modal_interval=interval,
-        possible_epochs=possible,
-        occupied_epochs=occupied,
-        completeness=_percent(occupied, possible),
-        longest_gap=float(steps.max()) if len(steps) else None,
-        gaps=int((steps >= th.max_gap).sum()),
-        out_of_sequence=out_of_sequence,
-        out_of_sequence_percent=_percent(out_of_sequence, n),
-        quality_reported=reported,
-        bad_quality=bad,
-        bad_quality_percent=_percent(bad, reported),
-        speeds=len(speeds),
-        unreasonable_speeds=int((speeds > th.max_speed).sum()),
-        unreasonable_speeds_percent=_percent(int((speeds > th.max_speed).sum()), len(speeds)),
-        accelerations=len(acceleration),
-        unreasonable_accelerations=int((acceleration > th.max_accel).sum()),
+        first=f["time"].iloc[index[0]].to_pydatetime() if len(index) else None,
+        last=f["time"].iloc[index[-1]].to_pydatetime() if len(index) else None,
+        modal_interval=timing.interval,
+        possible_epochs=timing.possible,
+        occupied_epochs=timing.occupied,
+        completeness=_percent(timing.occupied, timing.possible),
+        longest_gap=timing.longest_gap,
+        gaps=int(timing.long.sum()),
+        out_of_sequence=out,
+        out_of_sequence_percent=_percent(out, n),
+        quality_reported=quality.reported,
+        bad_quality=quality.bad,
+        bad_quality_percent=_percent(quality.bad, quality.reported),
+        speeds=motion.speeds,
+        unreasonable_speeds=int(motion.fast.sum()),
+        unreasonable_speeds_percent=_percent(int(motion.fast.sum()), motion.speeds),
+        accelerations=motion.accelerations,
+        unreasonable_accelerations=int(motion.accelerating.sum()),
         unreasonable_accelerations_percent=_percent(
-            int((acceleration > th.max_accel).sum()), len(acceleration)
+            int(motion.accelerating.sum()), motion.accelerations
         ),
         nsv=_range(f["nsat"].to_numpy(dtype=float, na_value=np.nan)[usable]),
         hdop=_range(f["hdop"].to_numpy(dtype=float)[usable]),
         altitude=_range(f["alt"].to_numpy(dtype=float)[usable]),
-        speed=_range(speeds),
-        acceleration=change,
-        good=_good_fixes(f, t_all, qc_result, th),
+        speed=motion.speed,
+        acceleration=motion.change,
+        good=_good_fixes(f, qc_result, th),
         counted=counted,
         inland=inland,
     )
     stats.checks = _checks(stats, qc_result, th, extent)
     return stats
+
+
+def _at(records: int, index: np.ndarray, hits: np.ndarray) -> np.ndarray:
+    """Per record, whether a test counted it: `hits` of the records at `index`; a test between
+    two fixes counts at the later one
+    """
+    mask = np.zeros(records, dtype=bool)
+    mask[index[hits]] = True
+    return mask
+
+
+def _track(f: pd.DataFrame, index: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The records' time [s since 1970], lon and lat at `index`"""
+    return (
+        geodesy.epoch_seconds(f["time"].iloc[index]),
+        f["lon"].to_numpy(dtype=float)[index],
+        f["lat"].to_numpy(dtype=float)[index],
+    )
+
+
+@dataclass
+class _Timing:
+    interval: float | None
+    possible: int
+    occupied: int
+    longest_gap: float | None
+    long: np.ndarray  # per step between the in-sequence records: max_gap or longer
+
+
+def _timing(f: pd.DataFrame, index: np.ndarray, th) -> _Timing:
+    """The modal interval, completeness and gaps of the in-sequence records at `index`"""
+    ns = f["time"].iloc[index].dt.as_unit("ns").astype("int64").to_numpy()
+    steps = np.diff(ns / 1e9)  # as epoch_seconds gives them
+    interval = modal_interval(steps)
+    if interval and len(ns):
+        # Interval slots in integer nanoseconds: in float seconds since 1970, a step that
+        # isn't exact in binary (0.2 s) errs by ~1e-7 and one fix in five lands in its
+        # neighbour's slot (SR2612: 80 % for an unbroken 5 Hz feed, #108)
+        interval_ns = round(interval * 1e9)  # whole milliseconds, so exact
+        possible = int((ns[-1] - ns[0]) // interval_ns) + 1
+        occupied = len(np.unique((ns - ns[0]) // interval_ns))
+    else:
+        possible = occupied = len(ns)
+    return _Timing(
+        interval=interval,
+        possible=possible,
+        occupied=occupied,
+        longest_gap=float(steps.max()) if len(steps) else None,
+        long=steps >= th.max_gap,
+    )
+
+
+@dataclass
+class _Quality:
+    reported: int
+    bad: int
+    counted: np.ndarray  # per record: reporting a bad quality
+
+
+def _quality(f: pd.DataFrame, flags: np.ndarray, th) -> _Quality:
+    """The records within the dates reporting a quality indicator, and those outside QC's valid
+    range
+    """
+    dated = (flags & int(Flag.DATE_RANGE)) == 0
+    quality = f["quality"].to_numpy(dtype=float, na_value=np.nan)
+    with np.errstate(invalid="ignore"):
+        bad = dated & ((quality < th.min_quality) | (quality > th.max_quality))  # NaN: False
+    return _Quality(
+        reported=int((dated & ~np.isnan(quality)).sum()), bad=int(bad.sum()), counted=bad
+    )
+
+
+@dataclass
+class _Motion:
+    speeds: int
+    speed: Range
+    fast: np.ndarray  # per segment between the in-sequence records: over max_speed
+    accelerations: int
+    accelerating: np.ndarray  # per in-sequence record: over max_accel
+    change: Range
+
+
+def _motion(f: pd.DataFrame, index: np.ndarray, th) -> _Motion:
+    """Speeds between the in-sequence records at `index` and QC's accelerations at them"""
+    t, lon, lat = _track(f, index)
+    speeds = geodesy.speeds(t, lon, lat) if len(t) > 1 else np.array([])
+    with np.errstate(invalid="ignore"):
+        fast = speeds > th.max_speed
+    speeds = speeds[~np.isnan(speeds)]
+    count, speed = len(speeds), _range(speeds)
+    del speeds
+    at_fixes = acceleration_at_fixes(t, lon, lat, th.accel_time_base)
+    with np.errstate(invalid="ignore"):
+        accelerating = at_fixes > th.max_accel
+    accelerations = int((~np.isnan(at_fixes)).sum())
+    del at_fixes
+    change = _range(acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True))
+    return _Motion(count, speed, fast, accelerations, accelerating, change)
 
 
 def gaps(nav: RawNav, qc_result: QCResult, thresholds: Thresholds) -> pd.DataFrame:
@@ -356,24 +420,24 @@ def gaps(nav: RawNav, qc_result: QCResult, thresholds: Thresholds) -> pd.DataFra
     return table.sort_values("length", ascending=False, kind="stable").reset_index(drop=True)
 
 
-def _good_fixes(f: pd.DataFrame, t_all: np.ndarray, qc_result: QCResult, th) -> GoodFixes:
+def _good_fixes(f: pd.DataFrame, qc_result: QCResult, th) -> GoodFixes:
     good = qc_result.flags == 0  # in sequence: QC flags the others
-    t = t_all[good]
-    lon = f["lon"].to_numpy(dtype=float)[good]
-    lat = f["lat"].to_numpy(dtype=float)[good]
-    speeds = geodesy.segments(t, lon, lat).speed if len(t) > 1 else np.array([])
-    times = f["time"][good]
+    index = np.flatnonzero(good)
+    t, lon, lat = _track(f, index)
+    speed = _range(geodesy.speeds(t, lon, lat) if len(t) > 1 else [])
+    change = _range(
+        acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True) if len(t) else []
+    )
+    del t, lon, lat
     return GoodFixes(
-        records=int(good.sum()),
-        first=times.iloc[0].to_pydatetime() if len(times) else None,
-        last=times.iloc[-1].to_pydatetime() if len(times) else None,
+        records=len(index),
+        first=f["time"].iloc[index[0]].to_pydatetime() if len(index) else None,
+        last=f["time"].iloc[index[-1]].to_pydatetime() if len(index) else None,
         nsv=_range(f["nsat"].to_numpy(dtype=float, na_value=np.nan)[good]),
         hdop=_range(f["hdop"].to_numpy(dtype=float)[good]),
         altitude=_range(f["alt"].to_numpy(dtype=float)[good]),
-        speed=_range(speeds),
-        acceleration=_range(
-            acceleration_at_fixes(t, lon, lat, th.accel_time_base, signed=True) if len(t) else []
-        ),
+        speed=speed,
+        acceleration=change,
     )
 
 

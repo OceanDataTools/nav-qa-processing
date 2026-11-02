@@ -117,12 +117,17 @@ These are where nav-qa-processing would get faster; none changes a result.
 **Memory.** NavManager reads and writes a record at a time, holding at most a buffer: 86,400
 records in navcopy and navsogcog, 3,600 in navqc. Its memory is constant, about 25 MB a step,
 but for nav33's navcopy, whose buffer holds up to 86,400 parsed GGA objects (279 MB).
-nav-qa-processing holds the whole cruise: the fixes as numpy columns, the QC flags, the products and the
-statistics, for QC and statistics over the whole series. That is about 300 bytes a fix on top
-of about 200 MB for Python and its libraries (SP2613's 219 MB and the synthetic cruise's
-1,243 MB; `run` about 320 bytes a fix on 250 MB). While it reads a file
-it also holds the file and its lines, one file at a time (#157): SR2612's 396 MB file of 5.6 M
-lines is most of its 2.4 GB. [INSTALL.md](../INSTALL.md) gives the memory to plan for a cruise.
+nav-qa-processing holds the whole cruise, for QC and statistics over the whole series: about
+300 bytes a fix at its peak on top of about 200 MB for Python and its libraries (SP2613's 219 MB
+and the synthetic cruise's 1,243 MB; `run` about 320 bytes a fix on 250 MB). Of those 300, it
+keeps about 145 bytes a fix to the end: the raw fixes as columns (64), bestres (72, most of it a
+copy of the raw columns, #173), the QC flags and what each check counted. The rest is a step's
+temporaries: the statistics' (180 bytes a fix, measured on the synthetic cruise), reading's
+(135, #174) and bestres's speeds and courses (86). #172 since freed each statistic's arrays as
+it's made, 98 bytes a fix: the synthetic cruise's same work 1,032 MB instead of 1,255 on macOS;
+the tables above are from before. While it reads a file it also holds the file and its lines,
+one file at a time (#157): SR2612's 396 MB file of 5.6 M lines is most of its 2.4 GB (#175).
+[INSTALL.md](../INSTALL.md) gives the memory to plan for a cruise.
 
 ## Reproduce
 
