@@ -41,8 +41,11 @@ RECORD_COLUMNS = ["time", "lon", "lat", "quality", "nsat", "hdop", "alt"]
 
 
 def bestres(nav: RawNav, qc_result: QCResult) -> pd.DataFrame:
-    """Every record, with `flags` (0 for a good fix), `sog` [m s-1] and `cog` [degree]"""
-    frame = nav.frame[RECORD_COLUMNS].copy()
+    """Every record, with `flags` (0 for a good fix), `sog` [m s-1] and `cog` [degree]. The
+    record columns are `nav.frame`'s, shared, not copied: pandas copies a column on write
+    (#173), and nothing writes to either frame
+    """
+    frame = nav.frame[RECORD_COLUMNS]
     frame["flags"] = qc_result.flags
     sog, cog = geodesy.sog_cog(
         frame["time"], frame["lon"].to_numpy(), frame["lat"].to_numpy(), good=qc_result.good

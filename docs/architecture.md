@@ -569,6 +569,9 @@ Linux, for a synthetic nav33 cruise of that size (`run` with Natural Earth): 4.2
   without their other arrays (#172). The statistics' temporaries went from 180 to 98 bytes a
   fix (synthetic cruise, tracemalloc), and its same work's peak from 1,255 to 1,032 MB (macOS);
   `tests/test_memory.py` keeps them under 140 bytes a fix.
+- bestres shares the raw frame's record columns rather than copying them (`products.bestres`,
+  #173): pandas 3 copies a column only when it's written to, and nothing writes to either
+  frame. It holds its flags, speed and course, 34 bytes a fix instead of 92; pandas ≥ 3.
 
 **QC flags are a bitmask.** `qc.py` gives each record flag bits: `DATE_RANGE`, `NULL_ISLAND`,
 `POSITION`, `BAD_FIX`, `ALTITUDE`, `TIME_SEQUENCE`, `UNREACHABLE`, `STALE_REPEAT`, `ACCELERATION`. A record with
