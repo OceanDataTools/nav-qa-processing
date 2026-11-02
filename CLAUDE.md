@@ -42,10 +42,10 @@ GitHub: `OceanDataTools/nav-qa-processing`, private for now. What exists so far 
   ZDA, or logger timestamp), as navdatalist does. Memory (#157): a file's lines are dropped
   after its span and the selected files read again one at a time (readers take an iterable and
   go through it once); readers keep fixes as columns, `gga_zda.Fixes` (indexing gives a
-  `DatedFix`; `drain` hands them to the frame), and the whole-cruise steps after it work a
-  chunk at a time (`geodesy.CHUNK`, `geocsv.rows`, `plots.SIMPLIFY_POINTS`), and
-  `stats.compute` a statistic at a time, each step's arrays freed as it returns (#172). About
-  400 bytes a fix in all; `tests/test_memory.py`.
+  `DatedFix`; `drain` hands them to the frame, which keeps them, #174), and the whole-cruise
+  steps after it work a chunk at a time (`geodesy.CHUNK`, `geocsv.rows`,
+  `plots.SIMPLIFY_POINTS`), and `stats.compute` a statistic at a time, each step's arrays freed
+  as it returns (#172). About 400 bytes a fix in all; `tests/test_memory.py`.
 - `geodesy.py`: distance and azimuth with pyproj, segment speed/course, acceleration, and
   `sog_cog` (navsogcog's definition of SOG/COG, without its arithmetic quirks).
 - `config.py`: `QAConfig` (every field optional; integration tables ignored; one feed:
