@@ -657,6 +657,7 @@ assumed (`note:` lines), the QA summary and the files it wrote.
 | `0 fixes ... from 0 files` | The `files` glob matches nothing in the transfer's directory: check it with `ls` there |
 | `every nav file is outside the cruise window` | The files' dates aren't within the cruise's start and end in OpenVDM. OpenVDM's [sample data](https://github.com/OceanDataTools/openvdm_sample_data) is from 2012-04-28 and 29 |
 | `no nav format ...: set [nav] format in the site config` | The site TOML (`--site-config`) has no feed format |
+| `no site TOML at ...` | Neither `--site-config` nor the install's `configs/site.toml`: write it with `site-config` (INSTALL.md step 3). `config-from-openvdm` runs without one, to show what's missing |
 | `no collection system transfer named ...` | `TRANSFER` isn't a transfer's name in OpenVDM (Configuration > Collection System Transfers) |
 | `no extra directory named 'NAV_QA'` | Add it in OpenVDM (Configuration > Extra Directories), or set the site TOML's `[openvdm] output_extra_directory` |
 | `no openvdm.yaml at ...` | OpenVDM is installed elsewhere: give `--openvdm-config` |
@@ -685,7 +686,7 @@ files call it, so its arguments keep their names; they're named as in sbe-qa-pro
 | `TRANSFER` | required | The collection system transfer's name; in a hook, `{collectionSystemTransferName}` |
 | `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml` | OpenVDM's settings: its web root (`siteRoot`), the `workerApiKey` and, from OpenVDM 2.17, the `vessel` block. Needs the `openvdm` extra. With `--cruise-config`, only where OpenVDM is installed, for the MD5 summary |
 | `--cruise-config CRUISE_CONFIG_JSON` | none | A cruise's `cruise_config.json`, which OpenVDM writes into each cruise's directory: assess that cruise, past or current, without OpenVDM's API. [A past cruise](#a-past-cruise) says how |
-| `--site-config SITE_TOML` | none | The ship's [site TOML](#site-toml); the hook needs its `[nav] format` |
+| `--site-config SITE_TOML` | the install's `configs/site.toml` (the hook needs one) | The ship's [site TOML](#site-toml); the hook needs its `[nav] format` |
 | `--no-set-extent` | off | Don't set OpenVDM's `cruiseExtent` from the fixes that pass QC; check the fixes against it (else the site TOML's `[extent]`) instead |
 | `--changed-files FILES` | none | OpenVDM's `{newFiles}` and `{updatedFiles}`; repeatable. When given, the QA runs only if they include nav files (`[nav] files`, or any file without it) |
 | `--theme THEME_TOML` | none | A [theme](#themes) file; the site TOML's `[theme]` applies on top |
@@ -770,7 +771,7 @@ field keeps its default, so with no input the file is written back unchanged. Th
 
 | Argument | Default | Description |
 |---|---|---|
-| `-o`, `--output SITE_TOML` | `configs/site.toml` | The site TOML to write, or `-` for stdout |
+| `-o`, `--output SITE_TOML` | the install's `configs/site.toml`, where the hook reads it | The site TOML to write, or `-` for stdout |
 | `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml`, when it exists | From OpenVDM 2.17, its `vessel` block's name and contact are the prompts' defaults where the site TOML has none, and are written into it. Without the file, the defaults are the site TOML's, or blank |
 | `--force` | off | Replace an existing site TOML, starting from its values |
 
