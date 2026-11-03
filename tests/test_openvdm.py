@@ -40,6 +40,12 @@ def offline_maps(monkeypatch):
     monkeypatch.setattr(maps, "_feature", lambda *a: (_ for _ in ()).throw(OSError("offline")))
 
 
+@pytest.fixture(autouse=True)
+def no_installed_site_toml(monkeypatch, tmp_path):
+    """The hook reads the checkout's configs/site.toml without --site-config; not in these tests"""
+    monkeypatch.setattr(openvdm, "DEFAULT_SITE_CONFIG", tmp_path / "installed" / "site.toml")
+
+
 def cruise_config(base_dir: Path, cruise_id="SP2613", extent: dict | None = None) -> dict:
     """A getCruiseConfig response, trimmed to what the hook reads"""
     return {
@@ -494,11 +500,22 @@ def test_hook_writes_reports_into_the_extra_directory(
 def test_hook_reports_failures_to_openvdm_in_one_line(openvdm_api, tmp_path, capsys):
     site_root, cruise_dir = openvdm_api
     config = str(openvdm_yaml(tmp_path, site_root))
-    assert main(["openvdm", "XBT", "--openvdm-config", config]) == 1
+    site = str(site_config(tmp_path))
+    assert main(["openvdm", "XBT", "--openvdm-config", config, "--site-config", site]) == 1
     err = capsys.readouterr().err
     assert err == "nav-qa-processing: OpenVDMError: no collection system transfer named 'XBT'\n"
     openrvdas(cruise_dir / "OpenRVDAS")
     assert main(["openvdm", "OpenRVDAS", "--openvdm-config", config]) == 1  # no site config
+    err = capsys.readouterr().err
+    assert err == (
+        f"nav-qa-processing: OpenVDMError: no site TOML at {openvdm.DEFAULT_SITE_CONFIG}; "
+        "write it with `nav-qa-processing site-config`, or give --site-config\n"
+    )
+    site_toml = site_config(tmp_path, "[vessel]\nname = 'Sproul'\n")  # no [nav] format
+    assert (
+        main(["openvdm", "OpenRVDAS", "--openvdm-config", config, "--site-config", str(site_toml)])
+        == 1
+    )
     assert "no nav format: set [nav] format in the site config" in capsys.readouterr().err
 
 
@@ -540,9 +557,36 @@ def load_config_text(text: str) -> QAConfig:
     return loads_config(text)
 
 
+def test_the_installed_site_toml_is_the_default(tmp_path, monkeypatch):
+    """Without --site-config: the install's configs/site.toml when there's one, else none"""
+    given = tmp_path / "given.toml"
+    assert openvdm.site_config_path(given) == given
+    assert openvdm.site_config_path(None) is None
+    installed = openvdm.DEFAULT_SITE_CONFIG
+    installed.parent.mkdir()
+    installed.write_text("")
+    monkeypatch.chdir(tmp_path.parent)
+    assert openvdm.site_config_path(None) == installed
+    assert openvdm.site_config_path(given) == given
+
+
+def test_the_default_site_toml_is_in_the_checkout(tmp_path):
+    root = Path(__file__).parents[1]
+    assert openvdm.install_site_config(Path(openvdm.__file__)) == root / "configs" / "site.toml"
+    # Not in a checkout (a wheel in site-packages): the current directory's
+    wheel = tmp_path / "lib/python3.12/site-packages/nav_qa_processing/integrations/openvdm"
+    wheel.mkdir(parents=True)
+    (wheel / "hook.py").touch()
+    assert openvdm.install_site_config(wheel / "hook.py") == Path("configs/site.toml")
+
+
 def test_openvdm_yaml_not_found(tmp_path, capsys):
     missing = tmp_path / "openvdm.yaml"
-    assert main(["openvdm", "OpenRVDAS", "--openvdm-config", str(missing)]) == 1
+    site = str(site_config(tmp_path))
+    assert (
+        main(["openvdm", "OpenRVDAS", "--openvdm-config", str(missing), "--site-config", site])
+        == 1
+    )
     err = capsys.readouterr().err
     assert f"no openvdm.yaml at {missing}" in err and "--cruise-config" in err
     args = ["config-from-openvdm", "OpenRVDAS", "--openvdm-config", str(missing), "-o", "-"]

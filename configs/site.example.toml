@@ -1,4 +1,5 @@
-# Per-ship settings for the OpenVDM hook (nav-qa-processing openvdm --site-config ...).
+# Per-ship settings for the OpenVDM hook (nav-qa-processing openvdm ...),
+# read from the install's configs/site.toml unless --site-config names another.
 # OpenVDM supplies the cruise ID, name, PI, location and dates. From OpenVDM 2.17,
 # openvdm.yaml's vessel block has the vessel name and contact too; these win, and
 # openvdm.yaml fills any left blank.

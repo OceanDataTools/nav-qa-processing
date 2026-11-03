@@ -22,10 +22,24 @@ def no_openvdm_install(monkeypatch, tmp_path):
         "nav_qa_processing.integrations.openvdm.cli.DEFAULT_OPENVDM_CONFIG",
         tmp_path / "missing.yaml",
     )
+    monkeypatch.setattr(
+        "nav_qa_processing.integrations.openvdm.hook.DEFAULT_SITE_CONFIG",
+        tmp_path / "installed" / "site.toml",
+    )
 
 
 def answer(monkeypatch, *lines: str) -> None:
     monkeypatch.setattr("sys.stdin", io.StringIO("".join(f"{line}\n" for line in lines)))
+
+
+def test_writes_where_the_hook_reads_by_default(tmp_path, monkeypatch, capsys):
+    from nav_qa_processing.integrations.openvdm import hook
+
+    monkeypatch.chdir(tmp_path)
+    answer(monkeypatch)  # end of input: the defaults
+    assert main(["site-config"]) == 0
+    assert f"wrote {hook.DEFAULT_SITE_CONFIG}" in capsys.readouterr().err
+    assert hook.DEFAULT_SITE_CONFIG.is_file()
 
 
 def test_a_new_site_toml(tmp_path, monkeypatch, capsys):

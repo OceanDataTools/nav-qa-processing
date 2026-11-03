@@ -16,7 +16,11 @@ from nav_qa_processing.clitools import (
     write_cruise_toml,
 )
 from nav_qa_processing.filenames import report_stem
-from nav_qa_processing.integrations.openvdm.hook import DEFAULT_OPENVDM_CONFIG, OpenVDMError
+from nav_qa_processing.integrations.openvdm.hook import (
+    DEFAULT_OPENVDM_CONFIG,
+    DEFAULT_SITE_CONFIG,
+    OpenVDMError,
+)
 
 logger = logging.getLogger(__name__)
 # Errors that are a one-line message; in `openvdm` mode every error is one line anyway
@@ -45,7 +49,7 @@ def _resolve_openvdm(args: argparse.Namespace, site=None, feeds=None):
         cruise_config = openvdm.fetch_cruise_config(site_root)
     if args.no_set_extent:
         key = ""
-    site = site or openvdm.load_site_config(args.site_config)
+    site = site or openvdm.load_site_config(openvdm.site_config_path(args.site_config))
     feeds = site.feeds_for(args.transfer) if feeds is None else feeds
     runs = [
         openvdm.resolve(
@@ -90,10 +94,19 @@ def _sources(run) -> str:
 def _openvdm(args: argparse.Namespace) -> int:
     from nav_qa_processing.integrations.openvdm import hook as openvdm
 
-    site = openvdm.load_site_config(args.site_config)
+    path = openvdm.site_config_path(args.site_config)
+    if path is None:
+        # Only the site TOML says which files are the GNSS feed, and their format. An error, not
+        # a note: OpenVDM shows a failed hook's message, and logs a passing hook's output only
+        # at DEBUG. config-from-openvdm runs without one, to show what's missing
+        raise OpenVDMError(
+            f"no site TOML at {openvdm.DEFAULT_SITE_CONFIG}; write it with "
+            "`nav-qa-processing site-config`, or give --site-config"
+        )
+    site = openvdm.load_site_config(path)
     feeds = site.feeds_for(args.transfer)
     if not feeds:
-        print(f"{args.transfer}: the site config has no [nav] feed in it; nothing to do")
+        print(f"{args.transfer}: the site config ({path}) has no [nav] feed in it; nothing to do")
         return 0
     if args.changed_files is not None:
         feeds = [f for f in feeds if openvdm.has_nav_changes(args.changed_files, f.files)]
@@ -230,6 +243,7 @@ def _config_from_openvdm(args: argparse.Namespace) -> int:
 
 
 def _site_config(args: argparse.Namespace) -> int:
+    from nav_qa_processing.integrations.openvdm import hook as openvdm
     from nav_qa_processing.integrations.openvdm.hook import (
         SiteConfig,
         load_openvdm_yaml,
@@ -239,6 +253,7 @@ def _site_config(args: argparse.Namespace) -> int:
     )
     from nav_qa_processing.integrations.openvdm.site_setup import prompt_site_config
 
+    args.output = args.output or openvdm.DEFAULT_SITE_CONFIG
     if refuse_overwrite(args.output, args.force):
         return 1
     # OpenVDM 2.17's vessel settings are the defaults where the site config has none
@@ -310,7 +325,10 @@ def _add_openvdm_arguments(parser: argparse.ArgumentParser) -> None:
         "--site-config",
         metavar="SITE_TOML",
         type=Path,
-        help="per-ship TOML: the [nav] format and files, vessel, extent, ...",
+        help=(
+            "per-ship TOML: the [nav] format and files, vessel, extent, ... (default "
+            f"{DEFAULT_SITE_CONFIG}, the install's, when it exists; the openvdm hook needs one)"
+        ),
     )
     parser.add_argument(
         "--no-set-extent",
@@ -410,8 +428,10 @@ def add_commands(commands) -> None:
         "--output",
         metavar="SITE_TOML",
         type=Path,
-        default=Path("configs/site.toml"),
-        help="site TOML to write, or - for stdout (default %(default)s)",
+        help=(
+            f"site TOML to write, or - for stdout (default {DEFAULT_SITE_CONFIG}, the install's, "
+            "where the openvdm hook reads it)"
+        ),
     )
     site.add_argument(
         "--openvdm-config",

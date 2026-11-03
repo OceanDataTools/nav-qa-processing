@@ -160,6 +160,10 @@ cd /opt/nav-qa-processing
 .venv/bin/nav-qa-processing site-config        # writes configs/site.toml
 ```
 
+`configs/site.toml` in the install is where the hook reads it, so the hook commands below
+needn't name it, and `site-config` writes it there from any directory. (`-o` writes another,
+and the hook's `--site-config` reads another.)
+
 It asks for, in order (Enter keeps the `[default]`, `-` clears it):
 
 1. **The vessel and the report contact:** the vessel's name, the contact institution and
@@ -224,7 +228,7 @@ To check the site TOML against OpenVDM's current cruise without running the QA, 
 config the hook would use:
 
 ```bash
-.venv/bin/nav-qa-processing config-from-openvdm OpenRVDAS --site-config configs/site.toml -o -
+.venv/bin/nav-qa-processing config-from-openvdm OpenRVDAS -o -
 ```
 
 It shows the cruise's dates, the feed's format and files, the vessel and the extent, and notes
@@ -256,7 +260,6 @@ postHookCommands:
             - openvdm
             - "{collectionSystemTransferName}"
             - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
-            - "--site-config=/opt/nav-qa-processing/configs/site.toml"
             - "--changed-files={newFiles}"
             - "--changed-files={updatedFiles}"
             - "--min-interval=6h"
@@ -269,7 +272,6 @@ postHookCommands:
           - openvdm
           - OpenRVDAS
           - "--openvdm-config=/opt/openvdm/server/etc/openvdm.yaml"
-          - "--site-config=/opt/nav-qa-processing/configs/site.toml"
 ```
 
 | Line | What it is |
@@ -278,8 +280,8 @@ postHookCommands:
 | `/opt/.../nav-qa-processing`, `openvdm` | The install from step 1, and the hook command |
 | `"{collectionSystemTransferName}"` | OpenVDM fills in the transfer's name: the hook reads that transfer's directory, and runs the feeds whose `transfer` is it or blank |
 | `OpenRVDAS`, in `preFinalizeCurrentCruise` | The same transfer's name, written out: `{collectionSystemTransferName}` has no value in that hook, and OpenVDM skips a command that uses it |
+| (no `--site-config`) | The hook reads the site TOML from step 3 at `/opt/nav-qa-processing/configs/site.toml`; give `--site-config=PATH` for one elsewhere |
 | `--openvdm-config` | `openvdm.yaml` itself, for OpenVDM's web address (`siteRoot`), `workerApiKey` and `vessel` block. This path is the default; give yours if OpenVDM is installed elsewhere |
-| `--site-config` | The site TOML from step 3, by its full path |
 | `--changed-files={newFiles}`, `={updatedFiles}` | The transfer's new and updated files, so the QA runs only when GNSS files changed. Keep the `--changed-files=` form: OpenVDM drops a bare `{newFiles}` argument when there are none. Not in `preFinalizeCurrentCruise`, which assesses the whole cruise whatever changed |
 | `--min-interval=6h` | Skip a feed whose reports are newer than this (`s`, `m`, `h` or `d`): see below. Not in `preFinalizeCurrentCruise`, whose reports are the final ones |
 
@@ -320,8 +322,7 @@ pre-finalize hook's command, so this tries that one too:
 
 ```bash
 sudo /opt/nav-qa-processing/.venv/bin/nav-qa-processing openvdm OpenRVDAS \
-    --openvdm-config=/opt/openvdm/server/etc/openvdm.yaml \
-    --site-config=/opt/nav-qa-processing/configs/site.toml
+    --openvdm-config=/opt/openvdm/server/etc/openvdm.yaml
 ```
 
 It prints the cruise and feed it found, the QA summary and the files it wrote into the extra

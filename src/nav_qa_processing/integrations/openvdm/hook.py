@@ -80,6 +80,30 @@ from nav_qa_processing.theme import theme_table, theme_toml
 logger = logging.getLogger(__name__)
 
 DEFAULT_OPENVDM_CONFIG = Path("/opt/openvdm/server/etc/openvdm.yaml")
+
+
+def install_site_config(module: Path = Path(__file__)) -> Path:
+    """The site TOML's default path: configs/site.toml in the checkout this package runs from
+    (`uv sync` installs it editable, so the hook finds /opt/nav-qa-processing/configs/site.toml
+    whatever directory OpenVDM runs it in), else in the current directory
+    """
+    here = module.resolve()  # <checkout>/src/nav_qa_processing/integrations/openvdm/hook.py
+    checkout = here.parents[4]
+    if here.parents[3].name == "src" and (checkout / "pyproject.toml").is_file():
+        return checkout / "configs" / "site.toml"
+    return Path("configs/site.toml")
+
+
+DEFAULT_SITE_CONFIG = install_site_config()
+
+
+def site_config_path(given: Path | None) -> Path | None:
+    """--site-config, else the install's configs/site.toml when there's one, else none"""
+    if given is not None:
+        return given
+    return DEFAULT_SITE_CONFIG if DEFAULT_SITE_CONFIG.is_file() else None
+
+
 API_TIMEOUT = 30  # [s]
 EXTENT_DECIMALS = 6  # [degree] about 11 cm; as OpenVDM rounds the extents it sets
 MD5_UPDATE_TIMEOUT = 120  # [s] to queue the job, not to hash the files
