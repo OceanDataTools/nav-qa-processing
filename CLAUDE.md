@@ -249,7 +249,8 @@ and examples are in `docs/architecture.md` ("Package layout", "Configuration TOM
   `docs/performance/`'s scripts (PHP 7.4 in Docker; NavManager's navqc fails on PHP 8): re-run
   them when reading, QC or the products change how fast they run or what they hold.
 - Lint and format: `uv run ruff check .` and `uv run ruff format --check .` (line length 99).
-- CI (`.github/workflows/ci.yml`, #115): Ruff and pytest on Linux 3.11–3.14, macOS and Windows,
+- CI (`.github/workflows/ci.yml`, #115): Ruff and pytest on Linux 3.11–3.15 and 3.11.3 (no
+  tarfile "data" filter, as Debian 12's 3.11.2: `download.safe_extract`, #181), macOS and Windows,
   downloading nothing. SP2613, SP2503, BH19-30 and RC0014 are committed as
   `tests/data/*_gnss.tar.xz`, which `tests/conftest.py` unpacks into `data/` when missing; the
   other references skip. The "OpenVDM contract" job clones OpenVDM's `2.17` branch and runs

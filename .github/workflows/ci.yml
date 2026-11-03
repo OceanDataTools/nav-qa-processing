@@ -35,7 +35,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        # 3.11.3: before tarfile's "data" filter (3.11.4), like Debian 12's 3.11.2, which
+        # INSTALL.md recommends there and uv doesn't build (#181)
+        python-version: ["3.11.3", "3.11", "3.12", "3.13", "3.14", "3.15"]
         # The README says the core and R2R commands run on macOS and Windows too
         include:
           - os: macos-latest

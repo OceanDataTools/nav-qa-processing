@@ -36,7 +36,9 @@ def pytest_sessionstart(session):
         DATA.mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=DATA) as unpacking:
             with tarfile.open(archive) as tar:
-                tar.extractall(unpacking, filter="data")
+                # filter: Python 3.11.4 and later; these archives are this repo's own
+                safe = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
+                tar.extractall(unpacking, **safe)
             try:
                 Path(unpacking, fileset.name).rename(fileset)
             except OSError:  # another worker's copy got there first

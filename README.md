@@ -807,9 +807,10 @@ uv run pytest tests/test_cli.py::test_version   # one test
 uv run ruff check . && uv run ruff format --check .
 ```
 
-CI (`.github/workflows/ci.yml`) runs Ruff and the tests on Linux (Python 3.11 to 3.14), macOS and
-Windows on every pull request and push to `main`. It downloads nothing: the tests unpack the
-reference filesets committed in `tests/data/` and draw on Natural Earth clipped to their areas.
+CI (`.github/workflows/ci.yml`) runs Ruff and the tests on Linux (Python 3.11 to 3.15, and
+3.11.3, before tarfile's "data" filter, like Debian 12's 3.11.2), macOS and Windows on every pull
+request and push to `main`. It downloads nothing: the tests unpack the reference filesets
+committed in `tests/data/` and draw on Natural Earth clipped to their areas.
 The tests never download map data either; with `fetch-map-data` run, the tests marked `map_data`
 use the full layers.
 

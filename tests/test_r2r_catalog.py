@@ -195,6 +195,38 @@ def test_extract_bag_finds_the_nested_bag(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "data_filter",
+    [
+        pytest.param(
+            True,
+            marks=pytest.mark.skipif(
+                not hasattr(tarfile, "data_filter"), reason="Python before 3.11.4"
+            ),
+        ),
+        False,
+    ],
+)
+def test_extract_bag_refuses_a_file_outside_the_bag(data_filter, tmp_path, monkeypatch):
+    """With Python's "data" filter (3.11.4 and later) and without it (Debian 12's 3.11.2)"""
+    monkeypatch.setattr(download, "HAS_DATA_FILTER", data_filter)
+
+    def bag(*names):
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w:gz") as tar:
+            for name in names:
+                info = tarfile.TarInfo(name)
+                info.size = 6
+                tar.addfile(info, io.BytesIO(b"BagIt\n"))
+        return archive.getvalue()
+
+    with pytest.raises((ValueError, tarfile.TarError)):
+        download.extract_bag(bag("bag/bagit.txt", "bag/../../escaped.txt"), tmp_path / "a" / "b")
+    assert not (tmp_path / "escaped.txt").exists() and not (tmp_path / "a/escaped.txt").exists()
+    assert download.extract_bag(bag("bag/bagit.txt"), tmp_path / "fine") == 1
+    assert (tmp_path / "fine" / "bagit.txt").read_bytes() == b"BagIt\n"
+
+
+@pytest.mark.parametrize(
     ("href", "child"),
     [("data/", True), ("a.txt", True), ("../", False), ("http://x/", False), ("%2e%2e/", False)],
 )
