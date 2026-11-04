@@ -25,8 +25,18 @@ It runs from the command line and can be integrated with [OpenVDM](https://githu
 to run as a post-transfer hook and end-of-cruise task.
 
 **[docs/examples](docs/examples/)** contain example products from a real cruise
-(SP2613): the PDF report, with and without R2R's certificate, products, a figure and the R2R
-QA 2.0 XML.
+(SP2613): the PDF report, with and without R2R's certificate, products, figures and the R2R
+QA 2.0 XML. The trackline map, speed and acceleration, and fix quality, as the PDF shows them:
+
+<table>
+<tr>
+<td colspan="2" align="center"><img src="docs/examples/run/SP2613_plots/track_map.svg" width="50%" alt="SP2613's trackline: a day out of San Diego Bay and back, with the expected area, control points and a world inset"></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/examples/run/SP2613_plots/speed_acceleration.svg" alt="SP2613's speed over ground and horizontal acceleration against time, with the speed and QC acceleration limits"></td>
+<td width="50%"><img src="docs/examples/run/SP2613_plots/histograms.svg" alt="SP2613's sampling and fix quality: histograms of the time between fixes, satellites, HDOP and the GGA quality indicator"></td>
+</tr>
+</table>
 
 ## Setup
 
