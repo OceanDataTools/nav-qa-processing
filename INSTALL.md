@@ -169,7 +169,8 @@ It asks for, in order (Enter keeps the `[default]`, `-` clears it):
 1. **The vessel and the report contact:** the vessel's name, the contact institution and
    email, and the vessel's top speed [m s-1] (1 knot is 0.514 m s-1; a faster step counts as
    an unreasonable speed). From OpenVDM 2.17, `openvdm.yaml`'s `vessel` block supplies the
-   defaults for the name and contact; what you enter here wins over it.
+   defaults: its `name`, and its `operator` and `email` for the contact; what you enter here
+   wins over it.
 2. **The primary GNSS feed:**
    - its **format**, from the list of formats with a reader. `nav-qa-processing formats ID`
      describes one, with example lines to compare with your files. OpenRVDAS's

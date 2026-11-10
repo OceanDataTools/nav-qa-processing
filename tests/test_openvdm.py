@@ -228,13 +228,23 @@ def test_open_ended_cruise_ends_today_in_utc(tmp_path, monkeypatch):
     [
         (None, {}),
         (
-            {"name": "Sproul", "contact": {"email": "ops@example.org", "institution": ""}},
+            {"name": "Sproul", "operator": "", "email": "ops@example.org"},
             {
                 "vessel_name": "Sproul",
                 "contact_email": "ops@example.org",
             },
         ),
-        ({"name": "  ", "contact": "not a table"}, {}),
+        (
+            {"name": "Sproul", "operator": "SIO", "email": "ops@example.org", "r2r": {}},
+            {
+                "vessel_name": "Sproul",
+                "contact_institution": "SIO",
+                "contact_email": "ops@example.org",
+            },
+        ),
+        ({"name": "  ", "operator": {"not": "a value"}}, {}),
+        # The contact sub-block of OpenVDM 2.17's pre-release builds isn't read (#693)
+        ({"contact": {"institution": "SIO", "email": "ops@example.org"}}, {}),
     ],
 )
 def test_vessel_settings(block, expected):
@@ -245,7 +255,7 @@ def test_resolve_prefers_the_site_configs_vessel_settings(tmp_path):
     """The site TOML's vessel settings win; openvdm.yaml's fill those it leaves blank (#112)"""
     site = openvdm.SiteConfig(vessel_name="R/V Sproul", contact_email="site@example.org")
     vessel = openvdm.vessel_settings(
-        {"name": "Robert Gordon Sproul", "contact": {"institution": "SIO"}}, "openvdm.yaml"
+        {"name": "Robert Gordon Sproul", "operator": "SIO"}, "openvdm.yaml"
     )
     run = openvdm.resolve(cruise_config(tmp_path), site, "OpenRVDAS", vessel)
     config = run.config
@@ -891,7 +901,7 @@ def cruise_config_json(cruise_dir: Path, cruise_id="AT50-12") -> Path:
     data = cruise_config(Path("/elsewhere"), cruise_id, extent=EXTENT)
     del data["warehouseConfig"]
     data["md5SummaryFn"] = "MD5_Summary.txt"
-    data["vessel"] = {"name": "Atlantis", "contact": {"email": "ops@example.org"}}
+    data["vessel"] = {"name": "Atlantis", "email": "ops@example.org"}
     cruise_dir.mkdir(parents=True, exist_ok=True)
     path = cruise_dir / "cruise_config.json"
     path.write_text(json.dumps(data))

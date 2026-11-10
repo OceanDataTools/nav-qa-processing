@@ -216,7 +216,9 @@ def prompt_site_config(
     site = replace(
         defaults,
         vessel_name=ask("vessel_name", "Vessel name (e.g. Roger Revelle)"),
-        contact_institution=ask("contact_institution", "Contact institution for the QA report"),
+        contact_institution=ask(
+            "contact_institution", "Contact institution for the QA report (the vessel operator)"
+        ),
         contact_email=ask("contact_email", "Contact email", _email),
     )
     max_speed = prompt.ask(
