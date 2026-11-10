@@ -8,8 +8,8 @@ destination; and, from OpenVDM 2.17, the cruise bounding box (``cruiseExtent``).
 
 What OpenVDM doesn't store comes from the per-ship site TOML (`SiteConfig`): above all the GNSS
 feed, ``[nav] format`` and ``files`` (e.g. ``raw/POSMV_GGA-*.txt`` within an ``OpenRVDAS``
-collection system), and the GeoCSV attribution. OpenVDM 2.17 keeps the vessel's name and
-contact in ``openvdm.yaml``'s ``vessel`` block, which it copies into each cruise's
+collection system), and the GeoCSV attribution. OpenVDM 2.17 keeps the vessel's name,
+operator and email in ``openvdm.yaml``'s ``vessel`` block, which it copies into each cruise's
 ``cruise_config.json``; the hook reads it from ``openvdm.yaml`` when it has that file, else from
 ``cruise_config.json``. The site TOML's values win; OpenVDM's fill the fields it leaves blank (#112),
 and `site-config` offers them as defaults. Its R2R IDs aren't used: the hook writes
@@ -134,7 +134,8 @@ class SiteFeed:
 @dataclass
 class SiteConfig:
     """Per-ship settings OpenVDM doesn't store, from an optional TOML. From OpenVDM 2.17, the
-    vessel name and contact are also in openvdm.yaml, which fills these where they're blank::
+    vessel name, operator and email are also in openvdm.yaml, which fills these where they're
+    blank (the operator and email as the contact)::
 
     [vessel]
     name = "Roger Revelle"
@@ -270,8 +271,8 @@ def site_config_to_toml(site: SiteConfig) -> str:
     lines = [
         "# Per-ship settings for the OpenVDM hook (nav-qa-processing openvdm --site-config ...).",
         "# OpenVDM supplies the cruise ID, name, PI, location and dates. From OpenVDM 2.17,",
-        "# openvdm.yaml's vessel block has the vessel name and contact too; these win, and",
-        "# openvdm.yaml fills any left blank.",
+        "# openvdm.yaml's vessel block has the vessel name, operator and email too (the operator",
+        "# and email are the contact); these win, and openvdm.yaml fills any left blank.",
         "",
         "[vessel]",
         entry("name", site.vessel_name),
@@ -373,12 +374,13 @@ def site_root_from_config(openvdm_config: Path | str | dict) -> str:
     return site_root if site_root.endswith("/") else site_root + "/"
 
 
-# OpenVDM 2.17's vessel block: the SiteConfig field each of its settings fills. Its r2r IDs
-# aren't used
+# OpenVDM 2.17's vessel block: the SiteConfig field each of its settings fills. The operator,
+# the organization that operates the vessel, is the report's contact (OpenVDM #693). Its r2r
+# IDs aren't used
 VESSEL_SETTINGS = {
     "vessel_name": ("name",),
-    "contact_institution": ("contact", "institution"),
-    "contact_email": ("contact", "email"),
+    "contact_institution": ("operator",),
+    "contact_email": ("email",),
 }
 
 

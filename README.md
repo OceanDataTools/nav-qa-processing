@@ -622,7 +622,8 @@ site TOML and the hooks in `openvdm.yaml`) is in
   rewrites the file only at setup, when the cruise is edited, on an export and at finalize, so
   an extra directory or transfer added mid-cruise isn't in it yet.
 - **The vessel's name and contact,** from the site TOML, or where it leaves them blank, from
-  `openvdm.yaml`'s `vessel` block (OpenVDM 2.17). For a past cruise, from its `cruise_config.json`,
+  `openvdm.yaml`'s `vessel` block (OpenVDM 2.17: `name`, and `operator` and `email` for the
+  contact). For a past cruise, from its `cruise_config.json`,
   the vessel it was on.
 - **The GNSS feed:** OpenVDM doesn't know which of a collection system's files are the GNSS
   feed, or their format, so the ship's [site TOML](#site-toml) says (`[nav] format` and
@@ -782,7 +783,7 @@ field keeps its default, so with no input the file is written back unchanged. Th
 | Argument | Default | Description |
 |---|---|---|
 | `-o`, `--output SITE_TOML` | the install's `configs/site.toml`, where the hook reads it | The site TOML to write, or `-` for stdout |
-| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml`, when it exists | From OpenVDM 2.17, its `vessel` block's name and contact are the prompts' defaults where the site TOML has none, and are written into it. Without the file, the defaults are the site TOML's, or blank |
+| `--openvdm-config OPENVDM_YAML` | `/opt/openvdm/server/etc/openvdm.yaml`, when it exists | From OpenVDM 2.17, its `vessel` block's `name`, `operator` and `email` are the prompts' defaults where the site TOML has none, and are written into it. Without the file, the defaults are the site TOML's, or blank |
 | `--force` | off | Replace an existing site TOML, starting from its values |
 
 ### Site TOML
@@ -805,7 +806,7 @@ TOML, is an error that says so.
 | `[[nav]]` | `name`, `primary`, `transfer`, and the keys above | one feed | Several position sensors, as in a [config TOML](#config-toml). `transfer` names the collection system transfer a feed is in; the hook runs the feeds of its `TRANSFER` and those without one |
 | `[extent]` | `westernmost`, `easternmost`, `southernmost`, `northernmost` | none | The expected cruise area, used when the hook doesn't set OpenVDM's `cruiseExtent` and OpenVDM has none. westernmost > easternmost crosses the antimeridian |
 | `[openvdm]` | `output_extra_directory` | `NAV_QA` | The OpenVDM extra directory the reports go into |
-| `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. Wins over `openvdm.yaml`'s `vessel.contact` (OpenVDM 2.17), which fills them when blank |
+| `[provenance]` | `contact_institution`, `contact_email` | blank | The report contact. Wins over `openvdm.yaml`'s `vessel.operator` and `vessel.email` (OpenVDM 2.17), which fill them when blank |
 | `[geocsv]` | `attribution` | blank | The GeoCSV products' attribution |
 | `[thresholds]` | as in a [config TOML](#config-toml) | defaults | QC and QA limits. `max_speed`, the vessel's top speed [m s-1] (default 8.7), is always written: a step faster than it counts as an unreasonable speed |
 | `[theme]` | as in a [config TOML](#config-toml) | none | The reports' look; paths relative to the site TOML |

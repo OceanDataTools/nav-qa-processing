@@ -185,9 +185,10 @@ OPENVDM_YAML = """\
 siteRoot: "http://127.0.0.1/"
 vessel:
     name: "Roger Revelle"
-    contact:
-        institution: "Scripps Institution of Oceanography"
-        email: ""
+    operator: "Scripps Institution of Oceanography"
+    email: ""
+    r2r:
+        vesselID: "33RR"
 """
 
 
@@ -200,7 +201,7 @@ def test_openvdm_yaml_values_are_the_defaults_and_are_written(tmp_path, monkeypa
     answer(
         monkeypatch,
         "",  # vessel name: openvdm.yaml's
-        "",  # contact institution: openvdm.yaml's
+        "",  # contact institution: openvdm.yaml's operator
         "tech@example.org",  # contact email: empty in openvdm.yaml
         "",  # top speed: the default
         "nav33",
