@@ -10,8 +10,9 @@ What OpenVDM doesn't store comes from the per-ship site TOML (`SiteConfig`): abo
 feed, ``[nav] format`` and ``files`` (e.g. ``raw/POSMV_GGA-*.txt`` within an ``OpenRVDAS``
 collection system), and the GeoCSV attribution. OpenVDM 2.17 keeps the vessel's name,
 operator and email in ``openvdm.yaml``'s ``vessel`` block, which it copies into each cruise's
-``cruise_config.json``; the hook reads it from ``openvdm.yaml`` when it has that file, else from
-``cruise_config.json``. The site TOML's values win; OpenVDM's fill the fields it leaves blank (#112),
+config file (``cruise_config.json`` by default; the API's ``cruiseConfigFn``). The hook reads
+it from ``openvdm.yaml``, or with ``--cruise-config`` from that cruise's config file. The site
+TOML's values win; OpenVDM's fill the fields it leaves blank (#112),
 and `site-config` offers them as defaults. Its R2R IDs aren't used: the hook writes
 the core reports, not R2R's.
 
@@ -404,19 +405,6 @@ def vessel_settings(block, source: str) -> OpenVDMVessel:
     return OpenVDMVessel(settings, source)
 
 
-def cruise_vessel(cruise_dir: Path, config_filename: str) -> OpenVDMVessel:
-    """The vessel block saved in the cruise's cruise_config.json, if any"""
-    path = cruise_dir / config_filename
-    try:
-        block = json.loads(path.read_text()).get("vessel")
-    except FileNotFoundError:
-        return OpenVDMVessel()
-    except (OSError, ValueError, AttributeError) as error:
-        logger.warning("can't read the vessel settings from %s: %s", path, error)
-        return OpenVDMVessel()
-    return vessel_settings(block, config_filename) if block else OpenVDMVessel()
-
-
 def load_cruise_json(path: Path | str) -> dict:
     """A cruise's config from the cruise_config.json OpenVDM writes into its directory: any cruise,
     past or current, without OpenVDM's API (--cruise-config)
@@ -522,7 +510,8 @@ def resolve(
 ) -> HookRun:
     """The QA configuration and directories for one of the site's feeds (the primary by
     default) in a collection system transfer. vessel is openvdm.yaml's vessel block; without
-    it, the one in the cruise's cruise_config.json is used. With set_extent, the hook will set
+    it, the one in a cruise config from `load_cruise_json` (the cruise's config file) is used,
+    named after the file; OpenVDM's API has none. With set_extent, the hook will set
     OpenVDM's cruiseExtent from the primary feed's fixes, so its config has no expected area,
     unless OpenVDM is too old to have one. cruise_config is the API's, or a cruise's
     cruise_config.json as `load_cruise_json` gives it
@@ -595,9 +584,10 @@ def resolve(
             "after today are outside the cruise dates"
         )
     if vessel is None:
-        # OpenVDM's default name (CRUISE_CONFIG_FN), when its API doesn't say
-        config_filename = warehouse.get("cruiseConfigFn") or "cruise_config.json"
-        vessel = cruise_vessel(cruise_dir, config_filename)
+        # --cruise-config: the vessel block load_cruise_json kept, named after its file
+        block = cruise_config.get("vessel")
+        source = warehouse.get("cruiseConfigFn", "")
+        vessel = vessel_settings(block, source) if block else OpenVDMVessel()
     # The site config's vessel settings win; OpenVDM's fill those it leaves blank (#112)
     ship = {}
     for name in VESSEL_SETTINGS:

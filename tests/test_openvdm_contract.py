@@ -244,3 +244,5 @@ def test_the_hook_reads_the_cruise_config_openvdm_writes(tmp_path):
         from_api.fileset_dir,
         from_api.output_dir,
     )
+    # The vessel block the export saved, named after its file (#186)
+    assert from_file.vessel_source == "cruise_config.json"
