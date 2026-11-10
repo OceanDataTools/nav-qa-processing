@@ -271,15 +271,33 @@ def test_resolve_prefers_the_site_configs_vessel_settings(tmp_path):
     ) in " ".join(run.notes)
 
 
-def test_resolve_reads_the_vessel_from_ovdmconfig_json(tmp_path, caplog):
-    cruise_dir = tmp_path / "SP2613"
-    cruise_dir.mkdir()
-    (cruise_dir / "cruise_config.json").write_text(json.dumps({"vessel": {"name": "Sproul"}}))
-    run = openvdm.resolve(cruise_config(tmp_path), openvdm.SiteConfig(), "OpenRVDAS")
-    assert (run.vessel_source, run.config.vessel_name) == ("cruise_config.json", "Sproul")
-    (cruise_dir / "cruise_config.json").write_text("{not json")
-    run = openvdm.resolve(cruise_config(tmp_path), openvdm.SiteConfig(), "OpenRVDAS")
-    assert run.vessel_source == "none" and "can't read the vessel settings" in caplog.text
+def test_resolve_takes_the_vessel_from_a_cruise_config_file(tmp_path):
+    """Without openvdm.yaml's vessel, the one in the cruise config load_cruise_json gave (#186)"""
+    site = openvdm.SiteConfig(vessel_name="Sproul")
+    # From OpenVDM's API, which has no vessel block: the site config alone
+    run = openvdm.resolve(cruise_config(tmp_path), site, "OpenRVDAS")
+    assert (run.vessel_source, run.config.vessel_name) == ("none", "Sproul")
+
+    # From a cruise's config file: its vessel block, named after the file, whatever OpenVDM's
+    # CRUISE_CONFIG_FN calls it. The site config's name wins; the contact it leaves blank comes
+    # from the file
+    vessel = {"name": "Robert Gordon Sproul", "operator": "SIO", "email": "ops@example.org"}
+    loaded = cruise_config(tmp_path) | {"vessel": vessel}
+    loaded["warehouseConfig"]["cruiseConfigFn"] = "voyage_config.json"
+    run = openvdm.resolve(loaded, site, "OpenRVDAS")
+    config = run.config
+    assert (run.vessel_source, config.vessel_name, config.contact_institution) == (
+        "voyage_config.json",
+        "Sproul",
+        "SIO",
+    )
+    assert config.contact_email == "ops@example.org"
+
+    # openvdm.yaml's vessel block, when given, is used instead
+    yaml_vessel = openvdm.vessel_settings({"email": "ship@example.org"}, "openvdm.yaml")
+    run = openvdm.resolve(loaded, site, "OpenRVDAS", vessel=yaml_vessel)
+    assert (run.vessel_source, run.config.contact_email) == ("openvdm.yaml", "ship@example.org")
+    assert run.config.contact_institution == ""
 
 
 def test_site_config_round_trips(tmp_path):
